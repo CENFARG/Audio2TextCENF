@@ -1,0 +1,70 @@
+Audio2Text
+Copyright 2024-2025 CENF
+
+This product includes software developed at
+CENF (https://cenfarg.com.ar).
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+================================================================================
+
+This software uses the following third-party libraries:
+
+CustomTkinter
+  License: MIT
+  https://github.com/TomSchimansky/CustomTkinter
+
+Groq Python SDK
+  License: Apache 2.0
+  https://github.com/groq/groq-python
+
+SoundDevice
+  License: MIT
+  https://github.com/spatialaudio/python-sounddevice
+
+Pillow (PIL Fork)
+  License: HPND
+  https://github.com/python-pillow/Pillow
+
+PyInstaller
+  License: GPL 2.0 with exception
+  https://github.com/pyinstaller/pyinstaller
+
+Keyboard
+  License: MIT
+  https://github.com/boppreh/keyboard
+
+Pystray
+  License: LGPL 3.0
+  https://github.com/moses-palmer/pystray
+
+NumPy
+  License: BSD 3-Clause
+  https://github.com/numpy/numpy
+
+Requests
+  License: Apache 2.0
+  https://github.com/psf/requests
+
+================================================================================
+
+TRADEMARK NOTICE
+
+"Audio2Text" and "CENF" are trademarks of CENF - Centro de Excelencia en 
+Negocios del Futuro. This license does NOT grant permission to use these 
+trademarks except as required for reasonable and customary use in describing 
+the origin of the Work.
+
+================================================================================
+
+For questions about licensing, contact: legal@cenf.com.ar

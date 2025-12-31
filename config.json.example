@@ -1,0 +1,9 @@
+{
+    "groq_api_key": "gsk_PLACEHOLDER",
+    "openrouter_api_key": "sk-or-PLACEHOLDER",
+    "hotkey": "f12",
+    "language": "es",
+    "recording_mode": "hold",
+    "show_transcription_panel": true,
+    "tutorial_completed": false
+}

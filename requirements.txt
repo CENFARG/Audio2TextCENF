@@ -1,0 +1,26 @@
+# Core Dependencies
+customtkinter>=5.2.0
+groq>=0.4.0
+sounddevice>=0.4.6
+soundfile>=0.12.1
+Pillow>=10.0.0
+requests>=2.31.0
+
+# UI and Interaction
+keyboard>=0.13.5
+pystray>=0.19.4
+pyperclip>=1.8.2
+pyautogui>=0.9.54
+tkhtmlview>=0.2.0
+
+# System and Audio Processing
+psutil>=5.9.0
+numpy>=1.24.0
+mouse>=0.7.1
+
+# Build Tools (for compilation)
+pyinstaller>=6.0.0
+
+# PRO Module Dependencies
+agno>=2.0.0
+openai>=1.0.0

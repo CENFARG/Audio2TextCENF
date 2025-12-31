@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #0F172A;
+            color: #F8FAFC;
+            padding: 15px;
+            margin: 0;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #2563EB;
+            padding-bottom: 15px;
+        }
+        .logo {
+            max-width: 150px;
+            margin-bottom: 10px;
+        }
+        h1 {
+            color: #2563EB;
+            font-size: 20px;
+            margin: 10px 0 5px 0;
+        }
+        .version {
+            color: #CBD5E1;
+            font-size: 12px;
+        }
+        .section {
+            margin: 15px 0;
+            padding: 12px;
+            background-color: #1E293B;
+            border-radius: 8px;
+            border-left: 4px solid #2563EB;
+        }
+        .section-title {
+            color: #2563EB;
+            font-weight: bold;
+            font-size: 15px;
+            margin-bottom: 8px;
+        }
+        .step {
+            margin: 5px 0 5px 15px;
+        }
+        .warning {
+            background-color: #78350F;
+            border-left-color: #F59E0B;
+            padding: 10px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        .warning-title {
+            color: #F59E0B;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        a {
+            color: #2563EB;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        ul {
+            margin: 5px 0;
+            padding-left: 20px;
+        }
+        li {
+            margin: 3px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="logo.png" alt="CENF Logo" class="logo">
+        <h1>Audio2Text CENF</h1>
+        <div class="version">Versión {version}</div>
+        <div class="version">Desarrollado exclusivamente para Contreras Hnos.</div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">🔑 Crear API Key Groq</div>
+        <div class="step">1. Entra a <a href="https://console.groq.com/keys">console.groq.com/keys</a></div>
+        <div class="step">2. Crea una key y pégala en Configuración → API Key (o usa la de regalo).</div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">📝 Uso</div>
+        <ul>
+            <li>Configura tu Hotkey (Default F12).</li>
+            <li>Presiona para grabar, suelta o presiona de nuevo para terminar.</li>
+            <li>La transcripción se copia al portapapeles automáticamente.</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <div class="section-title">⚙️ Configuraciones</div>
+        <ul>
+            <li>Rutas de guardado de audio/texto.</li>
+            <li>Idioma (ES/EN).</li>
+            <li>Modo (Mantener/Alternar).</li>
+        </ul>
+    </div>
+
+    <div class="warning">
+        <div class="warning-title">⚠️ DISCLAIMER DE USO</div>
+        Esta herramienta utiliza servicios de terceros (Groq) para procesar el audio. No comparta información confidencial, secretos comerciales o datos sensibles si no está autorizado. El usuario es responsable del contenido procesado.
+    </div>
+</body>
+</html>

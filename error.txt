@@ -1,0 +1,32 @@
+Traceback (most recent call last):
+  File "C:\Dropbox\DOC.RECA\06-Software\Audio2Text\main.py", line 110, in <module>
+    app = App()
+  File "C:\Dropbox\DOC.RECA\06-Software\Audio2Text\ui\app.py", line 93, in __init__
+    self.create_widgets()
+    ~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Dropbox\DOC.RECA\06-Software\Audio2Text\ui\app.py", line 102, in create_widgets
+    self.main_frame = ctk.CTkTabview(self)
+                      ~~~~~~~~~~~~~~^^^^^^
+  File "C:\Dropbox\DOC.RECA\06-Software\Audio2Text\.venv\Lib\site-packages\customtkinter\windows\widgets\ctk_tabview.py", line 71, in __init__
+    self._canvas = CTkCanvas(master=self,
+                   ~~~~~~~~~^^^^^^^^^^^^^
+                             bg=self._apply_appearance_mode(self._bg_color),
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                             highlightthickness=0,
+                             ^^^^^^^^^^^^^^^^^^^^^
+                             width=self._apply_widget_scaling(self._desired_width),
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                             height=self._apply_widget_scaling(self._desired_height - self._outer_spacing - self._outer_button_overhang))
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Dropbox\DOC.RECA\06-Software\Audio2Text\.venv\Lib\site-packages\customtkinter\windows\widgets\core_rendering\ctk_canvas.py", line 31, in __init__
+    super().__init__(*args, **kwargs)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python314\Lib\tkinter\__init__.py", line 2904, in __init__
+    Widget.__init__(self, master, 'canvas', cnf, kw)
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python314\Lib\tkinter\__init__.py", line 2788, in __init__
+    self.tk.call(
+    ~~~~~~~~~~~~^
+        (widgetName, self._w) + extra + self._options(cnf))
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_tkinter.TclError: bad screen distance "300.0"

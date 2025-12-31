@@ -1,0 +1,177 @@
+; Audio2Text MSI Installer Script
+; Requires WiX Toolset: https://wixtoolset.org/
+; Version: 0.9.2
+
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  
+  <!-- Product Information -->
+  <Product 
+    Id="*" 
+    Name="Audio2Text CENF" 
+    Language="1033" 
+    Version="0.9.2.0" 
+    Manufacturer="CENF" 
+    UpgradeCode="A1B2C3D4-E5F6-4A5B-8C9D-0E1F2A3B4C5D">
+    
+    <Package 
+      InstallerVersion="200" 
+      Compressed="yes" 
+      InstallScope="perMachine" 
+      Description="Audio2Text - Transcripción de Audio en Tiempo Real"
+      Comments="Instalador MSI para Audio2Text v0.9.2"
+      Manufacturer="CENF" />
+
+    <!-- Media -->
+    <Media Id="1" Cabinet="Audio2Text.cab" EmbedCab="yes" />
+
+    <!-- Upgrade Logic -->
+    <MajorUpgrade 
+      DowngradeErrorMessage="Una versión más reciente de Audio2Text ya está instalada." 
+      AllowSameVersionUpgrades="yes" />
+
+    <!-- Installation Directory -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="CENFFOLDER" Name="CENF">
+          <Directory Id="INSTALLFOLDER" Name="Audio2Text" />
+        </Directory>
+      </Directory>
+      
+      <!-- Start Menu -->
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="Audio2Text CENF"/>
+      </Directory>
+      
+      <!-- Desktop -->
+      <Directory Id="DesktopFolder" Name="Desktop" />
+    </Directory>
+
+    <!-- Features -->
+    <Feature Id="ProductFeature" Title="Audio2Text" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="ApplicationShortcut" />
+      <ComponentRef Id="ApplicationShortcutDesktop" />
+    </Feature>
+
+    <!-- UI -->
+    <UIRef Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    
+    <!-- License Agreement -->
+    <WixVariable Id="WixUILicenseRtf" Value="docs\LICENSE.rtf" />
+    
+    <!-- Icons -->
+    <Icon Id="icon.ico" SourceFile="assets\icons\icono.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="icon.ico" />
+    
+    <!-- Add/Remove Programs -->
+    <Property Id="ARPHELPLINK" Value="https://github.com/CENFARG/Audio2Text" />
+    <Property Id="ARPURLINFOABOUT" Value="https://cenfarg.com.ar" />
+    <Property Id="ARPNOREPAIR" Value="yes" Secure="yes" />
+    
+  </Product>
+
+  <!-- Components -->
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      
+      <!-- Main Executable -->
+      <Component Id="MainExecutable" Guid="*">
+        <File 
+          Id="Audio2TextEXE" 
+          Source="dist\Audio2Text_CENF_0.9.2_GENERAL.exe" 
+          KeyPath="yes" 
+          Checksum="yes">
+          <Shortcut 
+            Id="startmenuAudio2Text" 
+            Directory="ApplicationProgramsFolder" 
+            Name="Audio2Text CENF" 
+            WorkingDirectory="INSTALLFOLDER" 
+            Icon="icon.ico" 
+            IconIndex="0" 
+            Advertise="yes" />
+        </File>
+      </Component>
+
+      <!-- Configuration Files -->
+      <Component Id="ConfigFiles" Guid="*">
+        <File Id="ConfigTemplate" Source="config\config.json" KeyPath="yes" />
+      </Component>
+
+      <!-- Language Files -->
+      <Component Id="LanguageFiles" Guid="*">
+        <File Id="LangES" Source="lang\es.json" />
+        <File Id="LangEN" Source="lang\en.json" KeyPath="yes" />
+      </Component>
+
+      <!-- Templates -->
+      <Component Id="Templates" Guid="*">
+        <File Id="InfoTemplate" Source="templates\info_template.html" KeyPath="yes" />
+      </Component>
+
+      <!-- Documentation -->
+      <Component Id="Documentation" Guid="*">
+        <File Id="README" Source="README.md" />
+        <File Id="LICENSE" Source="LICENSE" />
+        <File Id="CHANGELOG" Source="CHANGELOG.md" KeyPath="yes" />
+      </Component>
+
+      <!-- User Guides -->
+      <Component Id="UserGuides" Guid="*">
+        <File Id="InstallGuide" Source="docs\INSTALACION.md" />
+        <File Id="SmartScreenGuide" Source="docs\GUIA_SMARTSCREEN.md" />
+        <File Id="GroqAPIGuide" Source="docs\GUIA_API_KEY_GROQ.md" KeyPath="yes" />
+      </Component>
+
+      <!-- Icons and Logos -->
+      <Component Id="Assets" Guid="*">
+        <File Id="IconICO" Source="assets\icons\icono.ico" />
+        <File Id="LogoPNG" Source="assets\logos\logo.png" KeyPath="yes" />
+      </Component>
+
+      <!-- Create folders -->
+      <Component Id="CreateFolders" Guid="*">
+        <CreateFolder Directory="INSTALLFOLDER" />
+        <RemoveFolder Id="RemoveINSTALLFOLDER" Directory="INSTALLFOLDER" On="uninstall" />
+        <RegistryValue Root="HKCU" Key="Software\CENF\Audio2Text" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+      </Component>
+
+    </ComponentGroup>
+  </Fragment>
+
+  <!-- Start Menu Shortcut -->
+  <Fragment>
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcut" Guid="*">
+        <Shortcut 
+          Id="ApplicationStartMenuShortcut" 
+          Name="Audio2Text CENF" 
+          Description="Transcripción de Audio en Tiempo Real" 
+          Target="[#Audio2TextEXE]" 
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="icon.ico" />
+        <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
+        <RegistryValue Root="HKCU" Key="Software\CENF\Audio2Text" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+
+  <!-- Desktop Shortcut -->
+  <Fragment>
+    <DirectoryRef Id="DesktopFolder">
+      <Component Id="ApplicationShortcutDesktop" Guid="*">
+        <Shortcut 
+          Id="ApplicationDesktopShortcut" 
+          Name="Audio2Text CENF" 
+          Description="Transcripción de Audio en Tiempo Real" 
+          Target="[#Audio2TextEXE]" 
+          WorkingDirectory="INSTALLFOLDER"
+          Icon="icon.ico" />
+        <RemoveFolder Id="CleanUpDesktopShortcut" On="uninstall"/>
+        <RegistryValue Root="HKCU" Key="Software\CENF\Audio2Text" Name="installed" Type="integer" Value="1" KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+  </Fragment>
+
+</Wix>

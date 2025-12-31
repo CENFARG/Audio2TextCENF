@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Entornos virtuales
+.env
+.venv/
+env/
+venv/
+ENV/
+.Python
+
+# PyInstaller - Build artifacts
+build/
+dist/
+*.exe
+*.manifest
+*.spec
+_build_artifacts/
+
+# Logs y temporales
+*.log
+logs/
+*.tmp
+*.bak
+audio/
+transcriptions/
+temp/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Archivos sensibles
+config.json
+.env.local
+
+# Archivos de audio
+*.mp3
+*.wav
+*.opus
+
+# ARCHIVO DE VERSIONES ANTIGUAS (NO SUBIR)
+_old_versions_archive/
+
+# Archivos temporales de desarrollo
+TranscripcionesAU/
+TranscripcionesYT/
+
+.context/
