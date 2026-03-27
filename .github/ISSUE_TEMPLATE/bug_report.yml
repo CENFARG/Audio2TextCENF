@@ -1,0 +1,84 @@
+name: Bug Report
+description: Reportar un bug o comportamiento inesperado
+title: "[BUG] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por tomarte el tiempo de reportar este bug. Por favor completa la información a continuación.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Descripción del Bug
+      description: Una descripción clara y concisa del bug
+      placeholder: ¿Qué salió mal?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Pasos para Reproducir
+      description: Pasos para reproducir el comportamiento
+      placeholder: |
+        1. Abre la aplicación
+        2. Haz clic en '...'
+        3. Presiona F2
+        4. Ver error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamiento Esperado
+      description: ¿Qué esperabas que sucediera?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Comportamiento Actual
+      description: ¿Qué sucedió en realidad?
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Versión de Audio2Text
+      description: ¿Qué versión estás usando?
+      placeholder: "0.9.2"
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Sistema Operativo
+      description: ¿En qué sistema operativo ocurre?
+      placeholder: "Windows 11 22H2"
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs Relevantes
+      description: Por favor copia y pega cualquier log relevante
+      render: shell
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Capturas de Pantalla
+      description: Si aplica, agrega capturas de pantalla
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Contexto Adicional
+      description: Cualquier otra información que pueda ayudar

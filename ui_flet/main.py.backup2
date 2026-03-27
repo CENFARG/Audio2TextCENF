@@ -1,0 +1,1253 @@
+"""
+App principal de Audio2Text en Flet - MIGRACIÓN COMPLETA DE CUSTOMTKINTER
+
+Migración 1:1 de todas las funcionalidades de CustomTkinter a Flet.
+
+Author: Audio2Text Team
+Version: 0.10.0
+"""
+
+import os
+import sys
+import webbrowser
+import threading
+import logging
+import flet as ft
+from pathlib import Path
+from typing import Optional
+
+# Setup debug logging
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Añadir el directorio del proyecto al path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from backend.config_manager import ConfigManager
+from backend.transcriber import Transcriber
+from backend.sound_manager import SoundManager
+from backend.file_manager import FileManager
+from backend.localization_manager import LocalizationManager
+from backend.updater import Updater
+
+
+class DesignSystem:
+    """Sistema de diseño para Audio2Text en Flet."""
+
+    # Colores
+    COLORS = {
+        "primary": "#2563EB",
+        "primary_hover": "#1D4ED8",
+        "success": "#10B981",
+        "error": "#EF4444",
+        "warning": "#F59E0B",
+        "background": "#0F172A",
+        "surface": "#1E293B",
+        "text_primary": "#F8FAFC",
+        "text_secondary": "#CBD5E1",
+        "overlay_bg": "rgba(0,0,0,0.7)",
+        "led_green": ft.Colors.GREEN,
+        "led_red": ft.Colors.RED,
+        "led_yellow": ft.Colors.AMBER,
+        "led_grey": ft.Colors.GREY,
+    }
+
+    # Tipografía
+    TYPOGRAPHY = {
+        "heading_large": ft.TextStyle(
+            size=20,
+            weight=ft.FontWeight.BOLD,
+            font_family="Segoe UI"
+        ),
+        "heading_medium": ft.TextStyle(
+            size=16,
+            weight=ft.FontWeight.BOLD,
+            font_family="Segoe UI"
+        ),
+        "body_medium": ft.TextStyle(
+            size=14,
+            font_family="Segoe UI"
+        ),
+        "body_small": ft.TextStyle(
+            size=12,
+            font_family="Segoe UI"
+        ),
+        "link": ft.TextStyle(
+            size=12,
+            font_family="Segoe UI",
+            decoration=ft.TextDecoration.UNDERLINE
+        ),
+    }
+
+
+class Audio2TextApp:
+    """
+    Aplicación principal de Audio2Text en Flet.
+
+    Migración completa de CustomTkinter a Flet con todas las funcionalidades.
+    """
+
+    def __init__(self):
+        """Inicializar app."""
+        # Configuración
+        self.config = ConfigManager()
+        self.localization = LocalizationManager()
+
+        # Backend
+        self.sound_manager = SoundManager()
+        self.file_manager = FileManager(self.config)
+
+        # Estado
+        self.current_tab_index = 0
+        self.history_items = []
+        self.api_key_status = "grey"  # grey, green, red
+        self.page = None
+        self.tabs_container = None
+
+        # Transcriber (se inicializará después)
+        self.transcriber = None
+        self.recording_overlay = None
+
+        # Variables de UI
+        self.api_key_var = None
+        self.hotkey_var = None
+        self.record_mode_var = None
+        self.language_var = None
+        self.auto_paste_var = None
+        self.show_panel_var = None
+        self.autostart_windows_var = None
+        self.audio_path_var = None
+        self.transcriptions_path_var = None
+        self.save_audio_var = None
+        self.save_logs_var = None
+        self.status_var = None
+
+    def init_transcriber(self):
+        """Inicializar transcriber con callbacks."""
+        if self.transcriber is None:
+            self.transcriber = Transcriber(
+                config_manager=self.config,
+                sound_manager=self.sound_manager,
+                file_manager=self.file_manager,
+                update_status_callback=self.update_status,
+                transcription_callback=self.on_transcription_complete,
+                localization_manager=self.localization,
+                overlay_callback=self.update_overlay
+            )
+
+    def update_status(self, message: str, color: str = "white"):
+        """
+        Actualizar estado de la app (thread-safe).
+
+        Args:
+            message: Mensaje de estado
+            color: Color del mensaje (white, green, yellow, red, orange)
+        """
+        def _update():
+            if self.status_var:
+                self.status_var.value = message
+                # Actualizar color según estado
+                if color == "white":
+                    self.status_var.color = ft.Colors.WHITE
+                elif color == "green":
+                    self.status_var.color = ft.Colors.GREEN
+                elif color == "yellow":
+                    self.status_var.color = ft.Colors.AMBER
+                elif color == "red":
+                    self.status_var.color = ft.Colors.RED
+                elif color == "orange":
+                    self.status_var.color = ft.Colors.ORANGE
+
+        if self.page:
+            _update()
+
+    def on_transcription_complete(self, transcription: str):
+        """
+        Callback cuando se completa una transcripción.
+
+        Args:
+            transcription: Texto transcribido
+        """
+        def _update():
+            # Auto-paste si está activado
+            if self.config.get("auto_paste_text"):
+                self._auto_paste_transcription(transcription)
+
+            # Mostrar en panel si está activo
+            if self.config.get("show_transcription_panel") and self.transcription_display:
+                self.transcription_display.value = transcription
+
+        if self.page:
+            _update()
+
+    def _auto_paste_transcription(self, text: str):
+        """
+        Auto-pegar transcripción.
+
+        Args:
+            text: Texto a pegar
+        """
+        import pyperclip
+        import pyautogui
+
+        try:
+            pyperclip.copy(text)
+            pyautogui.hotkey('ctrl', 'v')
+            self.update_status("Auto-pegado", "green")
+        except Exception as e:
+            self.update_status(f"Error auto-pegando: {e}", "red")
+
+    def update_overlay(self, status: str, minutes: int = 0, seconds: int = 0):
+        """
+        Actualizar overlay de grabación (thread-safe).
+
+        Args:
+            status: Estado del overlay (recording, processing, ready, error)
+            minutes: Minutos transcurridos
+            seconds: Segundos transcurridos
+        """
+        def _update():
+            from ui_flet.components.recording_overlay import RecordingOverlay
+
+            if self.recording_overlay is None:
+                self.recording_overlay = RecordingOverlay()
+
+            if status == "recording":
+                self.recording_overlay.set_recording(minutes, seconds)
+            elif status == "processing":
+                self.recording_overlay.set_processing()
+            elif status == "ready":
+                self.recording_overlay.set_ready()
+            elif status == "error":
+                self.recording_overlay.set_error()
+
+        if self.page:
+            _update()
+
+    def create_main_tab(self) -> ft.Container:
+        """
+        Construir pestaña principal.
+
+        Returns:
+            Container con contenido de la pestaña principal
+        """
+        logger.debug("[CREATE_MAIN_TAB] Creating main tab content")
+
+        # Status frame
+        logger.debug("[CREATE_MAIN_TAB] Creating status_frame")
+        status_frame = ft.Container(
+            content=ft.Row([
+                # LED indicador (API key)
+                ft.Container(
+                    content=ft.Text("●", size=24, color=self._get_led_color(), weight=ft.FontWeight.BOLD),
+                    padding=5,
+                    bgcolor="#0F172A",
+                    border_radius=12
+                ),
+                ft.Container(width=10),
+                ft.Column([
+                    self.status_var,
+                    ft.Text(
+                        f"Hotkey: {self.config.get('hotkey', 'f12').upper()}",
+                        size=12,
+                        color=DesignSystem.COLORS["text_secondary"]
+                    )
+                ], spacing=5)
+            ], alignment=ft.MainAxisAlignment.CENTER),
+            padding=20,
+            bgcolor=DesignSystem.COLORS["surface"],
+            border_radius=ft.border_radius.all(8),
+            border=ft.border.all(2, DesignSystem.COLORS["background"])
+        )
+
+        # Logo del cliente
+        logo_content = self._create_client_logo()
+
+        # Info frame
+        info_frame = ft.Container(
+            content=ft.Row([
+                ft.Column([
+                    ft.Text("Audio: N/A (0 archivos)", size=14, color=DesignSystem.COLORS["text_secondary"]),
+                    ft.Text("Transcripciones: N/A KB", size=14, color=DesignSystem.COLORS["text_secondary"])
+                ], spacing=5),
+                logo_content
+            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+            padding=10
+        )
+
+        # Button frame
+        button_frame = ft.Container(
+            content=ft.Row([
+                ft.ElevatedButton(
+                    content=ft.Icon(ft.Icons.DELETE, color=ft.Colors.WHITE),
+                    bgcolor=DesignSystem.COLORS["error"],
+                    style=ft.ButtonStyle(
+                        shape=ft.BoxDecoration(border_radius=8),
+                        padding=ft.padding.all(10)
+                    ),
+                    on_click=self.clear_audio_with_feedback
+                ),
+                ft.ElevatedButton(
+                    content=ft.Icon(ft.Icons.DELETE_OUTLINE, color=ft.Colors.WHITE),
+                    bgcolor=DesignSystem.COLORS["error"],
+                    style=ft.ButtonStyle(
+                        shape=ft.BoxDecoration(border_radius=8),
+                        padding=ft.padding.all(10)
+                    ),
+                    on_click=self.clear_logs_with_feedback
+                )
+            ], spacing=10)
+        )
+
+        # Panel de transcripción (opcional)
+        transcription_panel = None
+        if self.config.get("show_transcription_panel"):
+            transcription_panel = ft.Container(
+                content=ft.TextField(
+                    value="",
+                    multiline=True,
+                    min_lines=8,
+                    max_lines=20,
+                    border=ft.InputBorder.NONE,
+                    bgcolor=DesignSystem.COLORS["surface"],
+                    text_size=14,
+                    hint_text="Transcripción aparecerá aquí..."
+                ),
+                padding=15,
+                border_radius=ft.border_radius.all(8),
+                bgcolor=DesignSystem.COLORS["surface"],
+                expand=True
+            )
+            self.transcription_display = transcription_panel.content
+
+        # Content column
+        main_content = ft.Column([
+            status_frame,
+            ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+            info_frame,
+            ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+            button_frame,
+            ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+            ft.Container(content=transcription_panel, expand=True)
+        ])
+
+        logger.debug("[CREATE_MAIN_TAB] Returning container with main_content")
+
+        return ft.Container(
+            content=main_content,
+            padding=10,
+            expand=True
+        )
+
+    def _create_client_logo(self) -> ft.Container:
+        """
+        Crear logo del cliente.
+
+        Returns:
+            Container con el logo
+        """
+        # Buscar logo
+        logo_path = "logo.png"
+        if getattr(sys, 'frozen', False):
+            logo_path = os.path.join(sys._MEIPASS, "logo.png")
+
+        if not os.path.exists(logo_path):
+            # Fallback si no existe logo
+            return ft.Container(
+                content=ft.Text(
+                    value="Audio2Text",
+                    style=DesignSystem.TYPOGRAPHY["heading_medium"],
+                    color=DesignSystem.COLORS["primary"]
+                )
+            )
+
+        # En Flet, cargamos la imagen directamente
+        try:
+            from PIL import Image as PILImage
+            pil_image = PILImage.open(logo_path)
+
+            # Resize keeping aspect ratio, max height 50
+            h_ratio = 50 / float(pil_image.size[1])
+            w_size = int((float(pil_image.size[0]) * float(h_ratio)))
+
+            return ft.Image(
+                src=logo_path,
+                width=w_size,
+                height=50,
+                fit=ft.ImageFit.CONTAIN
+            )
+        except Exception as e:
+            return ft.Container(
+                content=ft.Text(
+                    value="Audio2Text",
+                    style=DesignSystem.TYPOGRAPHY["heading_medium"],
+                    color=DesignSystem.COLORS["primary"]
+                )
+            )
+
+    def _get_led_color(self) -> str:
+        """Obtener color del LED según estado de API key."""
+        if self.api_key_status == "green":
+            return DesignSystem.COLORS["success"]
+        elif self.api_key_status == "red":
+            return DesignSystem.COLORS["error"]
+        else:
+            return DesignSystem.COLORS["led_grey"]
+
+    def create_config_tab(self) -> ft.Column:
+        """
+        Construir pestaña de configuración.
+
+        Returns:
+            Column con contenido de la pestaña de configuración
+        """
+        # API Key section
+        api_key_section = ft.Column([
+            ft.Text(
+                value=self.localization.get_string("settings_title_main"),
+                style=DesignSystem.TYPOGRAPHY["heading_medium"]
+            ),
+            ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+            ft.Row([
+                # LED de estado
+                ft.Container(
+                    content=ft.Text("●", size=24, weight=ft.FontWeight.BOLD),
+                    padding=5,
+                    bgcolor=self._get_led_color(),
+                    border_radius=12
+                ),
+                ft.Container(width=10),
+                ft.TextField(
+                    label=self.localization.get_string("api_key_placeholder"),
+                    password=True,
+                    can_reveal_password=True,
+                    value="gsk_*****",  # Placeholder
+                    width=400,
+                    on_blur=self.save_config,
+                    border_radius=8
+                ),
+                ft.Container(width=10),
+                ft.ElevatedButton(
+                    content=ft.Text(self.localization.get_string("verify_button")),
+                    width=100,
+                    on_click=self.check_api_key
+                )
+            ], alignment=ft.MainAxisAlignment.CENTER, spacing=10)
+        ])
+
+        # Hotkey section
+        hotkey_section = ft.Column([
+            ft.Text(
+                value=self.localization.get_string("hotkey_label"),
+                style=DesignSystem.TYPOGRAPHY["heading_medium"]
+            ),
+            ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+            ft.Row([
+                ft.Dropdown(
+                    label="",
+                    options=[
+                        ft.dropdown.Option("f1", "F1"),
+                        ft.dropdown.Option("f2", "F2"),
+                        ft.dropdown.Option("f3", "F3"),
+                        ft.dropdown.Option("f4", "F4"),
+                        ft.dropdown.Option("f5", "F5"),
+                        ft.dropdown.Option("f6", "F6"),
+                        ft.dropdown.Option("f7", "F7"),
+                        ft.dropdown.Option("f8", "F8"),
+                        ft.dropdown.Option("f9", "F9"),
+                        ft.dropdown.Option("f10", "F10"),
+                        ft.dropdown.Option("f11", "F11"),
+                        ft.dropdown.Option("f12", "F12"),
+                    ],
+                    width=150,
+                    border_radius=8
+                ),
+                ft.ElevatedButton(
+                    content=ft.Text(self.localization.get_string("record_hotkey_button")),
+                    width=150,
+                    on_click=self.start_hotkey_recording
+                )
+            ], alignment=ft.MainAxisAlignment.CENTER, spacing=10)
+        ])
+
+        # Recording mode section
+        record_mode_section = ft.Column([
+            ft.Text(
+                value=self.localization.get_string("record_mode_label"),
+                style=DesignSystem.TYPOGRAPHY["heading_medium"]
+            ),
+            ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+            ft.SegmentedButton(
+                selected_index=0 if self.config.get('record_mode') == 'toggle' else 1,
+                options=[
+                    ft.Text(self.localization.get_string("record_mode_toggle")),
+                    ft.Text(self.localization.get_string("record_mode_hold"))
+                ],
+                width=300,
+                on_change=self.on_record_mode_change
+            )
+        ])
+
+        # Switches section
+        switches_section = ft.Column([
+            ft.Switch(
+                label=self.localization.get_string("auto_paste_switch"),
+                value=self.config.get("auto_paste_text", False),
+                on_change=lambda e: self.save_config()
+            ),
+            ft.Switch(
+                label=self.localization.get_string("show_panel_switch"),
+                value=self.config.get("show_transcription_panel", False),
+                on_change=self.on_show_panel_change
+            ),
+        ])
+
+        # Autostart section (sincronizado con estado real)
+        actual_autostart = self._check_autostart_status()
+        self.autostart_windows_var = actual_autostart
+        autostart_section = ft.Column([
+            ft.Switch(
+                label=self.localization.get_string("autostart_windows_switch"),
+                value=actual_autostart,
+                on_change=lambda e: self.on_autostart_change(e)
+            )
+        ])
+
+        # Language section
+        language_section = ft.Column([
+            ft.Text(
+                value=self.localization.get_string("language_label"),
+                style=DesignSystem.TYPOGRAPHY["heading_medium"]
+            ),
+            ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+            ft.Dropdown(
+                label="",
+                options=[
+                    ft.dropdown.Option("es", "Español"),
+                    ft.dropdown.Option("en", "English")
+                ],
+                width=200,
+                border_radius=8,
+                on_change=lambda e: self.on_language_change(e)
+            )
+        ])
+
+        # File management section
+        file_management_section = ft.Column([
+            ft.Text(
+                value=self.localization.get_string("settings_title_files"),
+                style=DesignSystem.TYPOGRAPHY["heading_medium"]
+            ),
+            ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+            # Audio path
+            ft.Row([
+                ft.ElevatedButton(
+                    content=ft.Text("📁"),
+                    width=50,
+                    on_click=lambda: self._browse_path("audio")
+                ),
+                ft.TextField(
+                    label=self.localization.get_string("audio_path_label"),
+                    value=self.config.get("audio_path", "./audio"),
+                    width=400,
+                    read_only=True,
+                    border_radius=8
+                )
+            ], spacing=10),
+            # Transcriptions path
+            ft.Row([
+                ft.ElevatedButton(
+                    content=ft.Text("📁"),
+                    width=50,
+                    on_click=lambda: self._browse_path("transcriptions")
+                ),
+                ft.TextField(
+                    label=self.localization.get_string("transcriptions_path_label"),
+                    value=self.config.get("transcriptions_path", "./transcriptions"),
+                    width=400,
+                    read_only=True,
+                    border_radius=8
+                )
+            ], spacing=10),
+            # Switches
+            ft.Row([
+                ft.Switch(
+                    label=self.localization.get_string("save_audio_switch"),
+                    value=self.config.get("save_audio", True),
+                    on_change=lambda e: self.save_config()
+                ),
+                ft.Switch(
+                    label=self.localization.get_string("save_logs_switch"),
+                    value=self.config.get("save_logs", True),
+                    on_change=lambda e: self.save_config()
+                )
+            ], spacing=20)
+        ])
+
+        return ft.Column([
+            api_key_section,
+            ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
+            hotkey_section,
+            ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
+            record_mode_section,
+            ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
+            switches_section,
+            ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
+            autostart_section,
+            ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
+            language_section,
+            ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
+            file_management_section
+        ], scroll=ft.ScrollMode.AUTO, expand=True)
+
+    def create_info_tab(self) -> ft.Column:
+        """
+        Construir pestaña de información.
+
+        Returns:
+            Column con contenido de la pestaña de información
+        """
+        # Cargar template HTML
+        html_content = self._load_info_template()
+
+        if html_content:
+            # Usar HTML view
+            return ft.Column([
+                ft.Markdown(
+                    html_content,
+                    selectable=True,
+                    extension_set=ft.MarkdownExtensionSet(
+                        code_theme=ft.MarkdownCodeTheme.GITHUB,
+                        code_syntax_highlighting=ft.MarkdownCodeSyntaxHighlighting.PYTHON
+                    )
+                ),
+                ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
+                ft.Row([
+                    ft.ElevatedButton(
+                        content=ft.Icon(ft.Icons.VPN_KEY),
+                        on_click=lambda: webbrowser.open_new("https://console.groq.com/keys")
+                    ),
+                    ft.Text(
+                        value=self.localization.get_string("groq_api_key_link"),
+                        style=DesignSystem.TYPOGRAPHY["link"],
+                        color=DesignSystem.COLORS["primary"]
+                    )
+                ], spacing=10)
+            ], scroll=ft.ScrollMode.AUTO, expand=True)
+        else:
+            # Fallback con texto plano
+            info_text = self.localization.get_string("info_text_simplified",
+                                                        version=self.config.get("app_version", "0.10.0"))
+            return ft.Column([
+                ft.Text(
+                    value=info_text,
+                    style=DesignSystem.TYPOGRAPHY["body_medium"]
+                ),
+                ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
+                ft.Row([
+                    ft.ElevatedButton(
+                        content=ft.Icon(ft.Icons.VPN_KEY),
+                        on_click=lambda: webbrowser.open_new("https://console.groq.com/keys")
+                    ),
+                    ft.Text(
+                        value=self.localization.get_string("groq_api_key_link"),
+                        style=DesignSystem.TYPOGRAPHY["link"],
+                        color=DesignSystem.COLORS["primary"]
+                    )
+                ], spacing=10)
+            ], scroll=ft.ScrollMode.AUTO, expand=True)
+
+    def _load_info_template(self) -> Optional[str]:
+        """
+        Cargar template HTML de información.
+
+        Returns:
+            Contenido HTML o None si no existe
+        """
+        html_path = "info_template.html"
+        if getattr(sys, 'frozen', False):
+            html_path = os.path.join(sys._MEIPASS, "info_template.html")
+
+        if os.path.exists(html_path):
+            try:
+                with open(html_path, 'r', encoding='utf-8') as f:
+                    html_content = f.read()
+                # Reemplazar placeholder de versión
+                html_content = html_content.replace("{version}", self.config.get("app_version", "0.10.0"))
+                return html_content
+            except Exception as e:
+                return None
+        return None
+
+    def create_history_tab(self) -> ft.Column:
+        """
+        Construir pestaña de historial.
+
+        Returns:
+            Column con contenido de la pestaña de historial
+        """
+        # Header
+        header = ft.Row([
+            ft.Text(
+                value=self.localization.get_string("history_title"),
+                style=DesignSystem.TYPOGRAPHY["heading_medium"]
+            ),
+            ft.Container(expand=True),
+            ft.ElevatedButton(
+                content=ft.Icon(ft.Icons.REFRESH),
+                width=60,
+                on_click=self.refresh_history
+            )
+        ], alignment=ft.MainAxisAlignment.CENTER)
+
+        # History list
+        history_list = ft.ListView(
+            items=[],
+            expand=True,
+            spacing=10,
+            first_item_sticky=False
+        )
+
+        return ft.Column([
+            header,
+            ft.Divider(height=10, color=ft.Colors.TRANSPARENT),
+            ft.Container(
+                content=history_list,
+                border=ft.border.all(2, DesignSystem.COLORS["primary"]),
+                border_radius=8,
+                padding=10,
+                expand=True
+            )
+        ], scroll=ft.ScrollMode.AUTO, expand=True)
+
+    def create_update_tab(self) -> ft.Container:
+        """
+        Construir pestaña de actualizaciones.
+
+        Returns:
+            Container con contenido de la pestaña de actualizaciones
+        """
+        # Placeholder - UpdateTab necesita ser migrado
+        return ft.Container(
+            content=ft.Column([
+                ft.Text(
+                    value="Actualizaciones",
+                    style=DesignSystem.TYPOGRAPHY["heading_medium"]
+                ),
+                ft.Divider(height=20, color=ft.Colors.TRANSPARENT),
+                ft.Text(
+                    value="El componente de actualizaciones será migrado próximamente.",
+                    style=DesignSystem.TYPOGRAPHY["body_medium"],
+                    color="#555555"
+                ),
+            ], alignment=ft.alignment.center, expand=True),
+            padding=50,
+            expand=True
+        )
+
+    # --- Callback methods ---
+
+    def clear_audio_with_feedback(self, e):
+        """Limpiar archivos de audio con feedback."""
+        def _clear():
+            if self.file_manager.clear_audio_files():
+                self.update_status(self.localization.get_string("audio_deleted"), "green")
+            else:
+                self.update_status(self.localization.get_string("error_deleting_audio"), "red")
+            self.update_file_info()
+
+        _clear()
+
+    def clear_logs_with_feedback(self, e):
+        """Limpiar transcripciones con feedback."""
+        def _clear():
+            if self.file_manager.clear_transcriptions():
+                self.update_status(self.localization.get_string("transcriptions_deleted"), "green")
+            else:
+                self.update_status(self.localization.get_string("error_deleting_transcriptions"), "red")
+            self.update_file_info()
+
+        _clear()
+
+    def refresh_history(self, e):
+        """Refrescar historial."""
+        def _refresh():
+            self.update_file_info()
+            self._load_history_list()
+
+        _refresh()
+
+    def _load_history_list(self):
+        """Cargar lista de historial."""
+        def _load():
+            # Clear existing items
+            self.history_items = []
+
+            audio_path = self.config.get("audio_path")
+            if not os.path.exists(audio_path):
+                self.history_items.append(
+                    ft.ListTile(
+                        title=ft.Text(
+                            value="Directorio no encontrado",
+                            color=ft.Colors.RED
+                        )
+                    )
+                )
+            else:
+                files = [f for f in os.listdir(audio_path) if f.endswith(".wav")]
+                files.sort(key=lambda x: os.path.getmtime(os.path.join(audio_path, x)), reverse=True)
+
+                if not files:
+                    self.history_items.append(
+                        ft.ListTile(
+                            title=ft.Text(
+                                value=self.localization.get_string("no_audio_files"),
+                                style=DesignSystem.TYPOGRAPHY["body_medium"]
+                            )
+                        )
+                    )
+                else:
+                    for f in files:
+                        full_path = os.path.join(audio_path, f)
+                        self.history_items.append(
+                            ft.ListTile(
+                                title=ft.Text(
+                                    value=f,
+                                    style=DesignSystem.TYPOGRAPHY["body_medium"],
+                                    max_lines=1,
+                                    overflow=ft.TextOverflow.ELLIPSIS
+                                ),
+                                leading=ft.Icon(ft.Icons.AUDIO_FILE),
+                                trailing=ft.Row([
+                                    ft.ElevatedButton(
+                                        content=ft.Text(
+                                            value=self.localization.get_string("transcribe_button"),
+                                            style=DesignSystem.TYPOGRAPHY["body_small"]
+                                        ),
+                                        on_click=lambda: self.start_retranscription(full_path),
+                                        width=80
+                                    ),
+                                    ft.IconButton(
+                                        icon=ft.Icons.DELETE,
+                                        icon_color=ft.Colors.RED_500,
+                                        on_click=lambda: self.delete_audio_file(full_path),
+                                        width=40
+                                    )
+                                ], spacing=10)
+                            )
+                        )
+
+        _load()
+
+    def start_retranscription(self, file_path: str):
+        """
+        Iniciar retranscripción de archivo.
+
+        Args:
+            file_path: Ruta del archivo a transcribir
+        """
+        def _start():
+            self.update_status(self.localization.get_string("retranscribing"), "yellow")
+            threading.Thread(target=self._retranscribe_thread, args=(file_path,), daemon=True).start()
+
+        _start()
+
+    def _retranscribe_thread(self, file_path: str):
+        """Thread de retranscripción."""
+        try:
+            import logging
+            logger = logging.getLogger(self.__class__.__name__)
+            logger.info(f"Retranscribiendo archivo: {file_path}")
+            text = self.transcriber.transcribe_with_groq(file_path)
+            if text:
+                self.on_transcription_complete(text)
+                self.update_status(self.localization.get_string("transcription_completed"), "green")
+                self.sound_manager.sound_success()
+            else:
+                self.update_status(self.localization.get_string("transcription_failed"), "red")
+        except Exception as e:
+            logger.error(f"Error en retranscripción: {e}")
+            self.update_status(f"Error: {e}", "red")
+
+    def delete_audio_file(self, file_path: str):
+        """
+        Eliminar archivo de audio.
+
+        Args:
+            file_path: Ruta del archivo a eliminar
+        """
+        def _delete():
+            try:
+                os.remove(file_path)
+                self.refresh_history(None)
+                self.update_file_info()
+            except Exception as e:
+                pass  # Silencioso
+
+        _delete()
+
+    def check_api_key(self, e):
+        """Verificar API key."""
+        def _check():
+            self.update_status("Verificando API key...", "yellow")
+
+            # Simular verificación (en producción, llamar a Groq API)
+            self._complete_api_check(True)
+
+        _check()
+
+    def _complete_api_check(self, success: bool):
+        """Completar verificación de API key."""
+        def _complete():
+            if success:
+                self.api_key_status = "green"
+                self.update_status("API key válida", "green")
+            else:
+                self.api_key_status = "red"
+                self.update_status("API key inválida", "red")
+
+        _complete()
+
+    def start_hotkey_recording(self, e):
+        """Iniciar grabación de hotkey."""
+        # TODO: Implementar funcionalidad completa
+        pass
+
+    def on_record_mode_change(self, e):
+        """Manejar cambio de modo de grabación."""
+        # TODO: Implementar
+        pass
+
+    def on_show_panel_change(self, e):
+        """Manejar cambio de show panel."""
+        def _update():
+            # Toggle panel de transcripción
+            # Recargar UI
+            pass
+
+        _update()
+
+    def on_autostart_change(self, e):
+        """Manejar cambio de autostart."""
+        def _toggle():
+            from backend.startup_manager import StartupManager
+            startup_manager = StartupManager()
+            success = startup_manager.toggle(self.autostart_windows_var)
+            if not success:
+                self.update_status(f"Error al configurar inicio automático", "red")
+            else:
+                self.autostart_windows_var = startup_manager.is_enabled()
+
+        _toggle()
+
+    def _check_autostart_status(self) -> bool:
+        """
+        Verificar estado real de autostart.
+
+        Returns:
+            Estado de autostart
+        """
+        try:
+            from backend.startup_manager import StartupManager
+            startup_manager = StartupManager()
+            return startup_manager.is_enabled()
+        except:
+            return False
+
+    def on_language_change(self, e):
+        """Manejar cambio de idioma."""
+        def _change():
+            old_lang = self.config.get("default_language")
+            new_lang = e.control.value
+
+            if old_lang != new_lang:
+                self.config.set("default_language", new_lang)
+                self.config_manager.set_language(new_lang)
+
+                # Recrear UI
+                self.page.go(-1)
+
+        _change()
+
+    def _browse_path(self, path_type: str):
+        """
+        Navegar por ruta.
+
+        Args:
+            path_type: Tipo de ruta ("audio" o "transcriptions")
+        """
+        def _browse():
+            try:
+                # En Flet, usamos FilePicker
+                if path_type == "audio":
+                    initial_dir = self.config.get("audio_path", "./audio")
+                else:
+                    initial_dir = self.config.get("transcriptions_path", "./transcriptions")
+
+                # En Windows, usamos openfiledialog
+                import tkinter as tk
+                from tkinter import filedialog
+
+                root = tk.Tk()
+                root.withdraw()
+                folder_selected = filedialog.askdirectory(
+                    initialdir=initial_dir if os.path.exists(initial_dir) else os.getcwd()
+                )
+                root.destroy()
+
+                if folder_selected:
+                    if path_type == "audio":
+                        self.config.set("audio_path", folder_selected)
+                    else:
+                        self.config.set("transcriptions_path", folder_selected)
+                    self.update_file_info()
+
+            except Exception as e:
+                pass  # Silencioso
+
+        _browse()
+
+    def save_config(self, e=None):
+        """Guardar configuración."""
+        def _save():
+            self.update_status("Guardando configuración...", "yellow")
+
+            old_lang = self.config.get("default_language")
+            old_show_panel = self.config.get("show_transcription_panel")
+
+            settings = {
+                "groq_api_key": self.api_key_var.get() if self.api_key_var else self.config.get("groq_api_key"),
+                "hotkey": self.hotkey_var.get() if self.hotkey_var else self.config.get("hotkey"),
+                "record_mode": self.record_mode_var.get() if self.record_mode_var else self.config.get("record_mode"),
+                "auto_paste_text": self.auto_paste_var.get() if self.auto_paste_var else self.config.get("auto_paste_text"),
+                "show_transcription_panel": self.show_panel_var.get() if self.show_panel_var else self.config.get("show_transcription_panel"),
+                "audio_path": self.audio_path_var.get() if self.audio_path_var else self.config.get("audio_path"),
+                "transcriptions_path": self.transcriptions_path_var.get() if self.transcriptions_path_var else self.config.get("transcriptions_path"),
+                "save_audio": self.save_audio_var.get() if self.save_audio_var else self.config.get("save_audio"),
+                "save_logs": self.save_logs_var.get() if self.save_logs_var else self.config.get("save_logs"),
+                "max_audio_files": int(self.config.get("max_audio_files")),
+                "max_log_entries": int(self.config.get("max_log_entries")),
+                "audio_priority_apps": self.config.get("audio_priority_apps"),
+                "default_language": self.language_var.get() if self.language_var else self.config.get("default_language"),
+                "autostart_windows": self.autostart_windows_var,
+                "use_post_processing": self.config.get("use_post_processing", True),
+                "use_llm_post_processing": self.config.get("use_llm_post_processing", True),
+                "post_processing_model": self.config.get("post_processing_model", "llama-3.3-70b-versatile")
+            }
+
+            self.config.set_multiple(settings)
+
+            # Sincronizar autostart con estado real del sistema
+            from backend.startup_manager import StartupManager
+            startup_manager = StartupManager()
+            actual_autostart = startup_manager.is_enabled()
+            self.config.set("autostart_windows", actual_autostart)
+
+            # Check for language change
+            if self.language_var.get() if self.language_var else settings["default_language"] != old_lang:
+                self.config_manager.set_language(settings["default_language"])
+
+            # Verify hotkey change
+            if self.transcriber:
+                if settings["hotkey"] != self.transcriber.hotkey:
+                    self.transcriber.update_hotkey(settings["hotkey"])
+
+            # Verify show panel change
+            if settings["show_transcription_panel"] != old_show_panel:
+                self.page.go(-1)  # Recargar UI
+
+            # API Key logic fix
+            if settings["groq_api_key"]:
+                os.environ["GROQ_API_KEY"] = settings["groq_api_key"]
+                self.transcriber.reload_client()
+
+            self.update_status("Configuración guardada", "green")
+
+        _save()
+
+    def update_file_info(self, e=None):
+        """Actualizar información de archivos."""
+        def _update():
+            try:
+                audio_size_mb = self.file_manager.get_audio_files_size() / (1024 * 1024)
+                num_files = len([f for f in os.listdir(self.file_manager.audio_path) if f.endswith('.wav')])
+                audio_info = f"{audio_size_mb:.2f} MB ({num_files} archivos)"
+            except:
+                audio_info = "N/A"
+
+            try:
+                log_size_kb = self.file_manager.get_transcriptions_size() / 1024
+                log_info = f"{log_size_kb:.2f} KB"
+            except:
+                log_info = "N/A"
+
+        _update()
+
+    def on_tab_change(self, e):
+        """Manejar cambio de pestaña."""
+        logger.debug(f"[ON_TAB_CHANGE] Tab changed to index: {e.control.selected_index}")
+        self.current_tab_index = e.control.selected_index
+
+        # Actualizar contenido según pestaña seleccionada
+        if self.current_tab_index == 0:  # Principal
+            self.tabs_container.content = ft.Column([self.create_main_tab()])
+            self.update_status(self.localization.get_string("status_ready"), "white")
+        elif self.current_tab_index == 1:  # Configuración
+            self.tabs_container.content = ft.Column([self.create_config_tab()])
+        elif self.current_tab_index == 2:  # Info
+            self.tabs_container.content = ft.Column([self.create_info_tab()])
+        elif self.current_tab_index == 3:  # Historial
+            self.tabs_container.content = ft.Column([self.create_history_tab()])
+            self._start_auto_refresh_history()
+        elif self.current_tab_index == 4:  # Actualizaciones
+            self.tabs_container.content = ft.Column([self.create_update_tab()])
+
+        # Actualizar la página
+        logger.debug(f"[ON_TAB_CHANGE] Updating page with new tab content")
+        self.page.update()
+
+    def _start_auto_refresh_history(self):
+        """Iniciar auto-refresh de historial."""
+        if self.current_tab_index == 3:
+            self.update_file_info()
+            self._load_history_list()
+
+    def build(self):
+        """
+        Construir la app principal.
+
+        Returns:
+            Contenido principal de la app
+        """
+        logger.debug("[BUILD] Starting build() method")
+
+        self.status_var = ft.Text(
+            value="Listo para grabar",
+            size=20,
+            weight=ft.FontWeight.BOLD,
+            color=DesignSystem.COLORS["text_primary"]
+        )
+
+        # Navigation rail
+        nav_rail = ft.NavigationRail(
+            selected_index=0,
+            label_type=ft.NavigationRailLabelType.ALL,
+            min_width=100,
+            min_extended_width=200,
+            height=300,  # Fixed height to prevent unbounded error
+            destinations=[
+                ft.NavigationRailDestination(
+                    icon=ft.Icons.HOME,
+                    label=ft.Text(self.localization.get_string("tab_main")),
+                ),
+                ft.NavigationRailDestination(
+                    icon=ft.Icons.SETTINGS,
+                    label=ft.Text(self.localization.get_string("tab_settings")),
+                ),
+                ft.NavigationRailDestination(
+                    icon=ft.Icons.INFO,
+                    label=ft.Text(self.localization.get_string("tab_info")),
+                ),
+                ft.NavigationRailDestination(
+                    icon=ft.Icons.HISTORY,
+                    label=ft.Text(self.localization.get_string("tab_history")),
+                ),
+                ft.NavigationRailDestination(
+                    icon=ft.Icons.UPDATE,
+                    label=ft.Text(self.localization.get_string("tab_updates")),
+                ),
+            ],
+            on_change=self.on_tab_change,
+            bgcolor="#1E293B",
+        )
+
+        # Contenedor de pestañas
+        self.tabs_container = ft.Container(
+            expand=True,
+            content=ft.Column([self.create_main_tab()])
+        )
+        logger.debug("[BUILD] Created tabs_container with main tab content")
+
+        # Layout principal
+        main_content = ft.Row(
+            [
+                nav_rail,
+                ft.VerticalDivider(width=1, color="#94A3B8"),
+                self.tabs_container
+            ],
+            expand=True
+        )
+
+        # Bottom frame con link a CENF
+        bottom_frame = ft.Container(
+            content=ft.Row([
+                ft.Container(expand=True),
+                ft.Row([
+                    ft.Text(
+                        "Audio2Text CENF",
+                        size=12,
+                        color=DesignSystem.COLORS["primary"]
+                    )
+                ], spacing=10)
+            ]),
+            padding=10,
+            bgcolor="#1E293B"
+        )
+
+        return ft.Column([
+            main_content,
+            bottom_frame
+        ])
+
+    def main(self, page: ft.Page):
+        """
+        Punto de entrada de la app.
+
+        Args:
+            page: Página de Flet
+        """
+        self.page = page
+
+        # Configurar página
+        page.title = f"Audio2Text v{self.config.get('app_version', '0.10.0')}"
+        page.theme_mode = ft.ThemeMode.DARK
+        page.window_width = 380
+        page.window_height = 320
+        page.window_min_width = 380
+        page.window_min_height = 320
+        page.bgcolor = "#1E293B"
+        page.theme = ft.Theme(color_scheme_seed=DesignSystem.COLORS["primary"])
+
+        # Icono de la ventana
+        try:
+            icon_path = "icon.ico"
+            if getattr(sys, 'frozen', False):
+                icon_path = os.path.join(sys._MEIPASS, "icon.ico")
+
+            if os.path.exists(icon_path):
+                page.window_icon = icon_path
+        except:
+            pass
+
+        # Inicializar transcriber
+        self.init_transcriber()
+
+        # Iniciar tutorial si corresponde
+        # TODO: Implementar tutorial
+
+        # Construir contenido
+        page.add(self.build())
+        page.update()
+
+        # Auto-check API key (disabled for now, requires event object)
+        # self.check_api_key(None)
+
+
+def main():
+    """Punto de entrada."""
+    app = Audio2TextApp()
+    ft.app(target=app.main)
+
+
+if __name__ == "__main__":
+    main()

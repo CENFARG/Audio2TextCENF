@@ -1,0 +1,61 @@
+name: Feature Request
+description: Sugerir una nueva funcionalidad
+title: "[FEATURE] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por sugerir una mejora para Audio2Text!
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: ¿Qué problema resuelve?
+      description: Una descripción clara del problema que esta funcionalidad resolvería
+      placeholder: Actualmente es difícil/imposible...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solución Propuesta
+      description: Una descripción clara de lo que quieres que suceda
+      placeholder: Me gustaría que...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternativas Consideradas
+      description: ¿Has considerado otras soluciones o workarounds?
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Prioridad
+      description: ¿Qué tan importante es esta funcionalidad para ti?
+      options:
+        - Nice to have
+        - Importante
+        - Crítico
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribución
+      description: ¿Estarías dispuesto a contribuir con esta funcionalidad?
+      options:
+        - label: Puedo ayudar a implementar esto
+        - label: Puedo ayudar a probar esto
+        - label: Puedo ayudar a documentar esto
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Contexto Adicional
+      description: Cualquier otra información, mockups, ejemplos, etc.

@@ -1,0 +1,31 @@
+{
+    "groq_api_key": "gsk_PLACEHOLDER",
+    "openrouter_api_key": "sk-or-PLACEHOLDER",
+    "nvidia_api_key": "nvapi-PLACEHOLDER",
+    "asr_provider": "groq",
+    "nvidia_enabled": false,
+    "nvidia_mode": "cloud",
+    "hotkey": "f12",
+    "language": "es",
+    "recording_mode": "hold",
+    "show_transcription_panel": true,
+    "tutorial_completed": false,
+    "autostart_windows": false,
+    "blocks": {
+        "task_extractor_enabled": true,
+        "task_min_priority": 3,
+        "task_max_tasks": 10,
+        "task_extract_dates": true,
+        "task_extract_assignees": true,
+        "summary_enabled": true,
+        "summary_max_sentences": 3,
+        "summary_max_length": 300,
+        "summary_include_keywords": true,
+        "keyword_extractor_enabled": true,
+        "keyword_max_keywords": 10,
+        "keyword_min_length": 4,
+        "keyword_include_entities": true,
+        "keyword_use_vocabulary": true
+    }
+}
+
