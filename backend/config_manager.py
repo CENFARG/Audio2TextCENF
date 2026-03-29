@@ -11,12 +11,13 @@ class ConfigManager:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.config_file = config_file
         self.default_config = {
-            "app_version": "0.12.0",
+            "app_version": "0.13.0",  # Actualizado versión
             "audio_path": "./audio",
             "transcriptions_path": "./transcriptions",
             "save_audio": True,
             "save_logs": True,
-            "hotkey": "f12",
+            "hotkey": "f12",  # Formato: "f12", "ctrl+f12", "ctrl+shift+f12", "alt+f12", etc.
+            "hotkey_modifier": "",  # DEPRECATED: Usar formato "ctrl+f12" en hotkey
             "record_mode": "toggle", # Opciones: "hold" o "toggle"
             "default_language": "es",
             "max_audio_files": 100,
