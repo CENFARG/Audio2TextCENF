@@ -100,5 +100,22 @@
     "emoji_category_others": "Otros",
     "emoji_search_placeholder": "Buscar emojis...",
     "emoji_selected": "Seleccionado:",
-    "emoji_confirm": "Confirmar"
+    "emoji_confirm": "Confirmar",
+    "hotkey_selector_title": "Seleccionar Hotkey",
+    "hotkey_configure": "Configurar Hotkey",
+    "hotkey_configuration": "Configuración",
+    "hotkey_modifiers": "Modificadores",
+    "hotkey_main_key": "Tecla Principal",
+    "hotkey_f_keys": "Teclas F",
+    "hotkey_alpha_keys": "A-Z",
+    "hotkey_selected_preview": "Hotkey Seleccionado",
+    "hotkey_suggestions": "Sugerencias Rápidas",
+    "hotkey_suggestions_work": "Trabajo",
+    "hotkey_suggestions_ideas": "Ideas",
+    "hotkey_suggestions_personal": "Personal",
+    "hotkey_suggestions_tech": "Técnico",
+    "hotkey_cancel": "Cancelar",
+    "hotkey_confirm": "Confirmar",
+"hotkey_tab_f_keys": "Teclas F",
+"hotkey_tab_alpha_keys": "A-Z"
 }

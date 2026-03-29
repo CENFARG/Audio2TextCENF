@@ -18,6 +18,8 @@ from .blocks.summary_block import SummaryBlock
 from .blocks.keyword_extractor_block import KeywordExtractorBlock
 from .nvidia_asr import NvidiaASR
 from .faster_whisper_asr import FasterWhisperASR
+from .transcription_metadata import TranscriptionMetadata
+from .transcription_metadata_generator import TranscriptionMetadataGenerator
 
 MIN_AUDIO_DURATION = 0.5
 
@@ -71,6 +73,14 @@ class Transcriber:
         self.custom_vocab = CustomVocabulary()
         vocab_stats = self.custom_vocab.get_stats()
         self.logger.info(f"CustomVocabulary inicializado con {vocab_stats['total_corrections']} correcciones")
+
+        # Inicializar TranscriptionMetadata para guardar metadatos
+        self.metadata_manager = TranscriptionMetadata()
+        self.logger.info("TranscriptionMetadata inicializado")
+
+        # Inicializar generador de metadatos automáticos con LLM
+        self.metadata_generator = TranscriptionMetadataGenerator(use_llm=True)
+        self.logger.info("TranscriptionMetadataGenerator inicializado (LLM enabled)")
 
     def _setup_blocks(self):
         """
@@ -491,6 +501,20 @@ class Transcriber:
             if response:
                 response = self._process_with_blocks(response)
 
+            # Generar metadatos automáticos con LLM
+            if response:
+                try:
+                    filename = os.path.basename(audio_path)
+                    auto_metadata = self.metadata_generator.generate_metadata(
+                        transcription=response,
+                        filename=filename
+                    )
+                    # Guardar metadatos automáticos
+                    self.metadata_manager.set_auto_metadata(filename, auto_metadata)
+                    self.logger.info(f"Metadatos automáticos generados para {filename}")
+                except Exception as e:
+                    self.logger.warning(f"Error generando metadatos automáticos: {e}")
+
             return response
         except Exception as e:
             self.update_status(f'{self.localization_manager.get_string("groq_api_error")} {e}', "red")
@@ -525,6 +549,20 @@ class Transcriber:
             if response:
                 response = self._process_with_blocks(response)
 
+            # Generar metadatos automáticos con LLM
+            if response:
+                try:
+                    filename = os.path.basename(audio_path)
+                    auto_metadata = self.metadata_generator.generate_metadata(
+                        transcription=response,
+                        filename=filename
+                    )
+                    # Guardar metadatos automáticos
+                    self.metadata_manager.set_auto_metadata(filename, auto_metadata)
+                    self.logger.info(f"Metadatos automáticos generados para {filename}")
+                except Exception as e:
+                    self.logger.warning(f"Error generando metadatos automáticos: {e}")
+
             return response
         except Exception as e:
             self.update_status(f'Error de NVIDIA Riva: {e}', "red")
@@ -558,6 +596,20 @@ class Transcriber:
             # Procesar con bloques POST-transcripción
             if response:
                 response = self._process_with_blocks(response)
+
+            # Generar metadatos automáticos con LLM
+            if response:
+                try:
+                    filename = os.path.basename(audio_path)
+                    auto_metadata = self.metadata_generator.generate_metadata(
+                        transcription=response,
+                        filename=filename
+                    )
+                    # Guardar metadatos automáticos
+                    self.metadata_manager.set_auto_metadata(filename, auto_metadata)
+                    self.logger.info(f"Metadatos automáticos generados para {filename}")
+                except Exception as e:
+                    self.logger.warning(f"Error generando metadatos automáticos: {e}")
 
             return response
         except Exception as e:

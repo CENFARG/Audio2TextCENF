@@ -15,25 +15,32 @@ class HotkeySelector(ctk.CTkToplevel):
     def __init__(
         self,
         parent,
+        localization_manager,
         on_hotkey_selected: Callable[[str], None],
         current_hotkey: str = "f12",
-        title: str = "Seleccionar Hotkey"
+        title: str = None
     ):
         """
         Inicializar selector de hotkeys.
 
         Args:
             parent: Ventana padre
+            localization_manager: Gestor de localización
             on_hotkey_selected: Callback cuando se selecciona hotkey
             current_hotkey: Hotkey actual
             title: Título de la ventana
         """
         super().__init__(parent)
 
+        self.localization_manager = localization_manager
         self.on_hotkey_selected = on_hotkey_selected
         self.current_hotkey = current_hotkey
         self.selected_hotkey = None
         self.hotkey_manager = HotkeyManager()
+
+        # Título localizado
+        if not title:
+            title = self.localization_manager.get_string("hotkey_selector_title", "Seleccionar Hotkey")
 
         # Configurar ventana
         self.title(title)
@@ -72,18 +79,18 @@ class HotkeySelector(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             header_frame,
-            text="Configurar Hotkey",
+            text=self.localization_manager.get_string("hotkey_configure"),
             font=ctk.CTkFont(size=16, weight="bold")
         ).pack(side="left")
 
         # Contenedor scrollable
-        scroll_frame = ctk.CTkScrollableFrame(self, label_text="Configuración")
+        scroll_frame = ctk.CTkScrollableFrame(self, label_text=self.localization_manager.get_string("hotkey_configuration"))
         scroll_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
         # Sección: Modificadores
         ctk.CTkLabel(
             scroll_frame,
-            text="Modificadores",
+            text=self.localization_manager.get_string("hotkey_modifiers"),
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(anchor="w", padx=10, pady=(10, 5))
 
@@ -121,7 +128,7 @@ class HotkeySelector(ctk.CTkToplevel):
         # Sección: Tecla principal
         ctk.CTkLabel(
             scroll_frame,
-            text="Tecla Principal",
+            text=self.localization_manager.get_string("hotkey_main_key"),
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(anchor="w", padx=10, pady=(10, 5))
 
@@ -130,17 +137,17 @@ class HotkeySelector(ctk.CTkToplevel):
         tabview.pack(fill="x", padx=10, pady=(0, 10))
 
         # Tab F1-F12
-        tab_f = tabview.add("Teclas F")
+        tab_f = tabview.add(self.localization_manager.get_string("hotkey_tab_f_keys", "Teclas F"))
         self._create_f_keys(tab_f)
 
         # Tab alfanuméricas
-        tab_alpha = tabview.add("A-Z")
+        tab_alpha = tabview.add(self.localization_manager.get_string("hotkey_tab_alpha_keys", "A-Z"))
         self._create_alpha_keys(tab_alpha)
 
         # Preview
         ctk.CTkLabel(
             scroll_frame,
-            text="Hotkey Seleccionado",
+            text=self.localization_manager.get_string("hotkey_selected_preview"),
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(anchor="w", padx=10, pady=(10, 5))
 
@@ -158,7 +165,7 @@ class HotkeySelector(ctk.CTkToplevel):
         # Sugerencias por categoría
         ctk.CTkLabel(
             scroll_frame,
-            text="Sugerencias Rápidas",
+            text=self.localization_manager.get_string("hotkey_suggestions"),
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(anchor="w", padx=10, pady=(10, 5))
 
@@ -166,10 +173,10 @@ class HotkeySelector(ctk.CTkToplevel):
         suggestions_frame.pack(fill="x", padx=10, pady=(0, 10))
 
         suggestions = {
-            "Trabajo": ["f1", "f2", "ctrl+f1"],
-            "Ideas": ["f3", "f4", "ctrl+f3"],
-            "Personal": ["f5", "f6", "alt+f5"],
-            "Técnico": ["f7", "f8", "ctrl+shift+f7"],
+            self.localization_manager.get_string("hotkey_suggestions_work"): ["f1", "f2", "ctrl+f1"],
+            self.localization_manager.get_string("hotkey_suggestions_ideas"): ["f3", "f4", "ctrl+f3"],
+            self.localization_manager.get_string("hotkey_suggestions_personal"): ["f5", "f6", "alt+f5"],
+            self.localization_manager.get_string("hotkey_suggestions_tech"): ["f7", "f8", "ctrl+shift+f7"],
         }
 
         for category, hotkeys in suggestions.items():
@@ -200,14 +207,14 @@ class HotkeySelector(ctk.CTkToplevel):
 
         ctk.CTkButton(
             footer_frame,
-            text="Cancelar",
+            text=self.localization_manager.get_string("hotkey_cancel"),
             width=100,
             command=self.destroy
         ).pack(side="right", padx=5)
 
         ctk.CTkButton(
             footer_frame,
-            text="Confirmar",
+            text=self.localization_manager.get_string("hotkey_confirm"),
             width=100,
             command=self._confirm_selection,
             fg_color="#10B981",
@@ -316,6 +323,7 @@ class HotkeySelector(ctk.CTkToplevel):
 
 def show_hotkey_selector(
     parent,
+    localization_manager,
     on_hotkey_selected: Callable[[str], None],
     current_hotkey: str = "f12"
 ) -> Optional[str]:
@@ -324,13 +332,14 @@ def show_hotkey_selector(
 
     Args:
         parent: Ventana padre
+        localization_manager: Gestor de localización
         on_hotkey_selected: Callback cuando se selecciona
         current_hotkey: Hotkey actual
 
     Returns:
         Hotkey seleccionado
     """
-    selector = HotkeySelector(parent, on_hotkey_selected, current_hotkey)
+    selector = HotkeySelector(parent, localization_manager, on_hotkey_selected, current_hotkey)
     parent.wait_window(selector)
     return selector.selected_hotkey
 

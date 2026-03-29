@@ -723,7 +723,7 @@ class App(ctk.CTk):
 
         # Mostrar selector
         current_hotkey = self.config_manager.get('hotkey', default='f12')
-        show_hotkey_selector(self, on_hotkey_selected, current_hotkey)
+        show_hotkey_selector(self, self.localization_manager, on_hotkey_selected, current_hotkey)
 
     def _reregister_hotkey(self, new_hotkey: str):
         """
