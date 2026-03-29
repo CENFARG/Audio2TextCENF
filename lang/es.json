@@ -90,5 +90,15 @@
     "groq_client_not_initialized": "Cliente Groq no inicializado",
     "groq_api_error": "Error de API Groq: ",
     "audio_too_short": "Audio demasiado corto para transcribir. Graba por al menos {min_duration} segundos.",
-    "client_logo_label": "Logo del Cliente"
+    "client_logo_label": "Logo del Cliente",
+    "emoji_picker_title": "Seleccionar Emoji",
+    "emoji_category_work": "Trabajo",
+    "emoji_category_ideas": "Ideas",
+    "emoji_category_tasks": "Tareas",
+    "emoji_category_people": "Personas",
+    "emoji_category_favorites": "Favoritos",
+    "emoji_category_others": "Otros",
+    "emoji_search_placeholder": "Buscar emojis...",
+    "emoji_selected": "Seleccionado:",
+    "emoji_confirm": "Confirmar"
 }

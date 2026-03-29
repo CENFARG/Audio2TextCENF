@@ -24,6 +24,10 @@ from backend.file_manager import FileManager
 from backend.sound_manager import SoundManager
 from backend.transcriber import Transcriber
 from backend.updater import Updater
+from backend.transcription_metadata import TranscriptionMetadata
+
+# UI imports
+from ui.emoji_picker import show_emoji_picker
 
 # Importar LocalizationManager directamente para usar sus strings
 from backend.localization_manager import LocalizationManager
@@ -68,6 +72,7 @@ class App(ctk.CTk):
 
         self.sound_manager = SoundManager()
         self.file_manager = FileManager(self.config_manager)
+        self.metadata_manager = TranscriptionMetadata("transcription_metadata.json")
 
         # Para detectar cambios en historial sin refrescar constantemente
         self.last_history_file_count = 0
@@ -543,12 +548,15 @@ class App(ctk.CTk):
         self.loaded_history_files = current_files
 
     def _create_history_item(self, filename, full_path):
-        """Crear item de historial con nombre representativo, play button y tooltip"""
+        """Crear item de historial con emoji personalizable, play button y menú contextual"""
         import os
         from datetime import datetime
 
         item_frame = ctk.CTkFrame(self.history_scroll_frame)
         item_frame.pack(fill="x", pady=2, padx=5)
+
+        # Obtener emoji personalizado (si existe)
+        custom_emoji = self.metadata_manager.get_emoji(filename, default="🎤")
 
         # Obtener metadata del archivo
         try:
@@ -567,13 +575,13 @@ class App(ctk.CTk):
                         # Formatear como DD/MM/YYYY HH:MM:SS
                         formatted_date = f"{date_part[6:8]}/{date_part[4:6]}/{date_part[0:4]}"
                         formatted_time = f"{time_part[0:2]}:{time_part[2:4]}:{time_part[4:6]}"
-                        display_name = f"🎤 {formatted_date} {formatted_time}"
+                        display_name = f"{custom_emoji} {formatted_date} {formatted_time}"
                     else:
-                        display_name = f"🎤 {filename}"
+                        display_name = f"{custom_emoji} {filename}"
                 except:
-                    display_name = f"🎤 {filename}"
+                    display_name = f"{custom_emoji} {filename}"
             else:
-                display_name = f"🎤 {filename}"
+                display_name = f"{custom_emoji} {filename}"
 
             # Formatear tamaño del archivo
             if file_size < 1024:
@@ -614,6 +622,19 @@ class App(ctk.CTk):
         action_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
         action_frame.pack(side="right", padx=5)
 
+        # Emoji Picker Button (NUEVO v0.13.0)
+        emoji_btn = ctk.CTkButton(
+            action_frame,
+            text=custom_emoji,
+            width=35,
+            height=24,
+            font=ctk.CTkFont(size=14),
+            fg_color="#8B5CF6",
+            hover_color="#7C3AED",
+            command=lambda f=filename, e=custom_emoji: self._change_emoji(f, e, emoji_btn, name_label)
+        )
+        emoji_btn.pack(side="left", padx=2)
+
         # Play Button (NUEVO)
         play_btn = ctk.CTkButton(action_frame, text="▶️", width=35, height=24, fg_color="#10B981", hover_color="#059669")
         play_btn.configure(command=lambda p=full_path, b=play_btn: self._play_audio_file(p, b))
@@ -639,6 +660,37 @@ class App(ctk.CTk):
 
         widget.bind("<Enter>", on_enter)
         widget.bind("<Leave>", on_leave)
+
+    def _change_emoji(self, filename: str, current_emoji: str, emoji_btn, name_label):
+        """
+        Cambiar emoji de una transcripción.
+
+        Args:
+            filename: Nombre del archivo de audio
+            current_emoji: Emoji actual
+            emoji_btn: Botón de emoji a actualizar
+            name_label: Label de nombre a actualizar
+        """
+        def on_emoji_selected(new_emoji: str):
+            """Callback cuando se selecciona un emoji."""
+            # Guardar en metadata
+            self.metadata_manager.set_emoji(filename, new_emoji)
+
+            # Actualizar botón
+            emoji_btn.configure(text=new_emoji)
+
+            # Actualizar label (reemplazar emoji anterior por nuevo)
+            current_text = name_label.cget("text")
+            if current_text.startswith(current_emoji):
+                new_text = current_text.replace(current_emoji, new_emoji, 1)
+            else:
+                new_text = f"{new_emoji} {current_text}"
+            name_label.configure(text=new_text)
+
+            self.logger.info(f"Emoji cambiado para {filename}: {current_emoji} → {new_emoji}")
+
+        # Mostrar selector de emoji
+        show_emoji_picker(self, on_emoji_selected, current_emoji)
 
     def _play_audio_file(self, file_path, button):
         """Reproducir archivo de audio con toggle play/stop"""
