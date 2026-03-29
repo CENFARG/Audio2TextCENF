@@ -28,6 +28,8 @@ from backend.transcription_metadata import TranscriptionMetadata
 
 # UI imports
 from ui.emoji_picker import show_emoji_picker
+from ui.hotkey_selector import show_hotkey_selector
+from backend.hotkey_manager import HotkeyManager
 
 # Importar LocalizationManager directamente para usar sus strings
 from backend.localization_manager import LocalizationManager
@@ -287,12 +289,18 @@ class App(ctk.CTk):
         faster_whisper_info = ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("faster_whisper_info"), text_color="gray", font=("Roboto", 10))
         faster_whisper_info.grid(row=6, column=0, columnspan=3, padx=10, pady=0, sticky="w")
 
-        # Hotkey
+        # Hotkey (v0.13.0 - Ahora con modificadores)
         ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("hotkey_label")).grid(row=7, column=0, padx=10, pady=5, sticky="w")
-        self.hotkey_var = tk.StringVar(value=self.config_manager.get('hotkey'))
-        f_keys = [f"F{i}" for i in range(1, 13)]
-        # Command triggers when selection changes
-        ctk.CTkComboBox(main_conf_frame, values=f_keys, variable=self.hotkey_var, state="readonly", command=lambda e: self.save_config()).grid(row=3, column=1, padx=5, pady=5, sticky="ew")
+
+        # Botón para abrir selector de hotkey
+        current_hotkey = self.config_manager.get('hotkey', default='f12')
+        self.hotkey_display_button = ctk.CTkButton(
+            main_conf_frame,
+            text=current_hotkey.upper(),
+            width=100,
+            command=self._open_hotkey_selector
+        )
+        self.hotkey_display_button.grid(row=7, column=1, padx=5, pady=5, sticky="ew")
         record_hotkey_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("record_hotkey_button"), width=70, command=self._start_hotkey_recording)
         record_hotkey_btn.grid(row=3, column=2, padx=(0,10), pady=5)
 
@@ -691,6 +699,60 @@ class App(ctk.CTk):
 
         # Mostrar selector de emoji
         show_emoji_picker(self, on_emoji_selected, current_emoji)
+
+    def _open_hotkey_selector(self):
+        """Abrir selector de hotkeys con modificadores."""
+        def on_hotkey_selected(new_hotkey: str):
+            """Callback cuando se selecciona un hotkey."""
+            # Guardar en config
+            self.config_manager.config["hotkey"] = new_hotkey
+            self.config_manager.save_config()
+
+            # Actualizar botón
+            self.hotkey_display_button.configure(text=new_hotkey.upper())
+
+            # Actualizar display label en status bar
+            self.hotkey_display_label.configure(
+                text=self.localization_manager.get_string("hotkey_display", hotkey=new_hotkey.upper())
+            )
+
+            # Re-registrar hotkey (detener anterior, registrar nuevo)
+            self._reregister_hotkey(new_hotkey)
+
+            self.logger.info(f"Hotkey cambiado: {self.config_manager.get('hotkey')} → {new_hotkey}")
+
+        # Mostrar selector
+        current_hotkey = self.config_manager.get('hotkey', default='f12')
+        show_hotkey_selector(self, on_hotkey_selected, current_hotkey)
+
+    def _reregister_hotkey(self, new_hotkey: str):
+        """
+        Re-registrar hotkey con el nuevo valor.
+
+        Args:
+            new_hotkey: Nuevo hotkey string
+        """
+        try:
+            import keyboard
+
+            # Remover hotkey anterior
+            old_hotkey = self.config_manager.get('hotkey', default='f12')
+            try:
+                keyboard.remove_hotkey(old_hotkey)
+                self.logger.debug(f"Hotkey removido: {old_hotkey}")
+            except:
+                pass  # No existía o ya fue removido
+
+            # Remover todos los hooks anteriores
+            keyboard.unhook_all()
+
+            # Re-iniciar el sistema de hotkeys
+            self._setup_hotkey_system()
+
+            self.logger.info(f"Hotkey re-registrado: {new_hotkey}")
+
+        except Exception as e:
+            self.logger.error(f"Error re-registrando hotkey: {e}")
 
     def _play_audio_file(self, file_path, button):
         """Reproducir archivo de audio con toggle play/stop"""
