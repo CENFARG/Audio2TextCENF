@@ -29,6 +29,7 @@ from backend.sound_manager import SoundManager
 from backend.file_manager import FileManager
 from backend.localization_manager import LocalizationManager
 from backend.updater import Updater
+from backend.transcription_metadata import TranscriptionMetadata
 
 
 class DesignSystem:
@@ -96,6 +97,7 @@ class Audio2TextApp:
         # Backend
         self.sound_manager = SoundManager()
         self.file_manager = FileManager(self.config)
+        self.metadata_manager = TranscriptionMetadata("transcription_metadata.json")
 
         # Estado
         self.current_tab_index = 0
@@ -949,16 +951,32 @@ class Audio2TextApp:
                 else:
                     for f in files:
                         full_path = os.path.join(audio_path, f)
+
+                        # Obtener emoji personalizado (si existe)
+                        custom_emoji = self.metadata_manager.get_emoji(f, default="🎤")
+
+                        # Formatear nombre con emoji
+                        display_name = f"{custom_emoji} {f}"
+
                         self.history_items.append(
                             ft.ListTile(
                                 title=ft.Text(
-                                    value=f,
+                                    value=display_name,
                                     size=14, color="#F8FAFC",
                                     max_lines=1,
                                     overflow=ft.TextOverflow.ELLIPSIS
                                 ),
-                                leading=ft.Icon(ft.Icons.AUDIO_FILE),
+                                leading=ft.Icon(ft.Icons.EMOJI_EMOTIONS),  # Icono de emoji
                                 trailing=ft.Row([
+                                    ft.TextButton(
+                                        "Cambiar Emoji",
+                                        icon=ft.Icons.EDIT,
+                                        on_click=lambda filename=f: self._change_emoji_flet(filename),
+                                        style=ft.ButtonStyle(
+                                            bgcolor="#8B5CF6",
+                                            color="#FFFFFF"
+                                        )
+                                    ),
                                     ft.ElevatedButton(
                                         content=ft.Text(
                                             value="Transcribir",
@@ -978,6 +996,75 @@ class Audio2TextApp:
                         )
 
         _load()
+
+    def _change_emoji_flet(self, filename: str):
+        """
+        Cambiar emoji de una transcripción (versión Flet).
+
+        Args:
+            filename: Nombre del archivo de audio
+        """
+        # Mostrar diálogo simple para elegir emoji
+        # Nota: Flet no tiene emoji picker nativo, usamos un dropdown con emojis comunes
+        emojis_comunes = {
+            "🎤 Micrófono": "🎤",
+            "💡 Idea": "💡",
+            "📞 Llamada": "📞",
+            "✅ Tarea": "✅",
+            "🎯 Objetivo": "🎯",
+            "📅 Reunión": "📅",
+            "📝 Nota": "📝",
+            "💼 Trabajo": "💼",
+            "🔧 Técnico": "🔧",
+            "⭐ Favorito": "⭐",
+        }
+
+        def on_emoji_selected(e, selected_emoji):
+            """Guardar emoji seleccionado."""
+            self.metadata_manager.set_emoji(filename, selected_emoji)
+            self.page.snack_bar = ft.SnackBar(ft.Text(f"Emoji cambiado a {selected_emoji}"))
+            self.page.snack_bar.open = True
+            # Recargar historial
+            self._load_history_list()
+            # Cerrar diálogo
+            self.page.dialog.open = False
+
+        # Crear dropdown de emojis
+        emoji_dropdown = ft.Dropdown(
+            label="Seleccionar Emoji",
+            options=[ft.dropdown.Option(key=k, text=f"{k} {v}") for k, v in emojis_comunes.items()],
+            width=300,
+        )
+
+        def confirmar(e):
+            if emoji_dropdown.value:
+                # Extraer emoji del valor seleccionado
+                selected_key = emoji_dropdown.value
+                selected_emoji = emojis_comunes[selected_key]
+                on_emoji_selected(e, selected_emoji)
+
+        # Crear diálogo
+        self.page.dialog = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Cambiar Emoji"),
+            content=ft.Column([
+                ft.Text("Seleccioná un emoji para esta transcripción:"),
+                emoji_dropdown,
+            ], tight=True),
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda e: self._close_dialog(e)),
+                ft.TextButton("Confirmar", on_click=confirmar),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+        self.page.dialog.open = True
+        self.page.update()
+
+    def _close_dialog(self, e):
+        """Cerrar diálogo."""
+        self.page.dialog.open = False
+        self.page.update()
 
     def start_retranscription(self, file_path: str):
         """
