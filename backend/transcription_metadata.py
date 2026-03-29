@@ -189,6 +189,68 @@ class TranscriptionMetadata:
             del self.metadata[filename]
             self._save_metadata()
 
+    def get_display_name(self, filename: str, include_emoji: bool = True) -> str:
+        """
+        Obtener nombre completo para mostrar (emoji + título personalizado).
+
+        Args:
+            filename: Nombre del archivo de audio
+            include_emoji: Si True, incluye emoji al inicio
+
+        Returns:
+            Nombre formateado para mostrar en UI
+        """
+        emoji = self.get_emoji(filename, default="🎤") if include_emoji else ""
+        title = self.get_title(filename)
+
+        if title:
+            # Si hay título personalizado, usarlo
+            return f"{emoji} {title}" if emoji else title
+        else:
+            # Si no hay título, generar desde el nombre del archivo
+            if filename.startswith("audio_"):
+                try:
+                    parts = filename.replace(".wav", "").split("_")
+                    if len(parts) >= 3:
+                        date_part = parts[1]  # YYYYMMDD
+                        time_part = parts[2]  # HHMMSS
+                        formatted_date = f"{date_part[6:8]}/{date_part[4:6]}/{date_part[0:4]}"
+                        formatted_time = f"{time_part[0:2]}:{time_part[2:4]}:{time_part[4:6]}"
+                        return f"{emoji} {formatted_date} {formatted_time}" if emoji else f"{formatted_date} {formatted_time}"
+                except:
+                    pass
+            return f"{emoji} {filename}" if emoji else filename
+
+    def set_auto_metadata(self, filename: str, auto_metadata: Dict[str, Any]):
+        """
+        Guardar metadatos automáticos generados por LLM.
+
+        Args:
+            filename: Nombre del archivo de audio
+            auto_metadata: Metadatos generados por TranscriptionMetadataGenerator
+        """
+        if filename not in self.metadata:
+            self.metadata[filename] = {}
+
+        # Guardar metadatos automáticos en sub-campo "auto"
+        self.metadata[filename]["auto"] = auto_metadata
+        self.metadata[filename]["updated_at"] = datetime.now().isoformat()
+        self._save_metadata()
+
+    def get_auto_metadata(self, filename: str) -> Dict[str, Any]:
+        """
+        Obtener metadatos automáticos generados por LLM.
+
+        Args:
+            filename: Nombre del archivo de audio
+
+        Returns:
+            Metadatos automáticos o dict vacío
+        """
+        if filename in self.metadata:
+            return self.metadata[filename].get("auto", {})
+        return {}
+
     def clear_all(self):
         """Eliminar toda la metadata."""
         self.metadata = {}
