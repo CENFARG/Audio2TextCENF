@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-APP_VERSION = "0.10.0"
+APP_VERSION = "0.13.0"
 VARIANT = ""
 APP_NAME = f"Audio2Text_CENF_v{APP_VERSION}"
 
@@ -69,6 +69,41 @@ command = [
     "--hidden-import", "pyperclip",
     "--hidden-import", "psutil",
     "--hidden-import", "groq",
+    "--hidden-import", "backend.transcription_metadata",
+    "--hidden-import", "backend.transcription_metadata_generator",
+    "--hidden-import", "backend.hotkey_manager",
+    "--hidden-import", "backend.emoji_picker",
+    "--hidden-import", "ui_flet.components.design_system",
+    "--hidden-import", "ui_flet.components.history_tab",
+    "--hidden-import", "flet",
+    "--hidden-import", "flet.core",
+    "--hidden-import", "flet.core.page",
+    "--hidden-import", "flet.core.controls",
+    "--hidden-import", "flet.URIDataReaderAtOrigin",
+    "--hidden-import", "flet.pubsub",
+    "--hidden-import", "flet.runtime",
+    "--hidden-import", "flet.runtime.app",
+    "--hidden-import", "flet.runtime.pubsub",
+    "--hidden-import", "flet.runtime.web",
+    "--hidden-import", "flet_view",
+    "--hidden-import", "flet_view.adwaita",
+    "--hidden-import", "flet_view.platform",
+    "--hidden-import", "flet_view.platform.android",
+    "--hidden-import", "flet_view.platform.ios",
+    "--hidden-import", "flet_view.platform.linux",
+    "--hidden-import", "flet_view.platform.mac",
+    "--hidden-import", "flet_view.platform.windows",
+    "--hidden-import", "flet_view.theme",
+    "--hidden-import", "flet_view.utils",
+    "--hidden-import", "flet_view.utils.logging",
+    "--hidden-import", "flet_view.utils.tasks",
+    "--hidden-import", "flet_view.utils.transform",
+    "--hidden-import", "flet_view.utils.version",
+    "--hidden-import", "faster_whisper",
+    "--hidden-import", "ctranslate2",
+    "--hidden-import", "transformers",
+    "--hidden-import", "tokenizers",
+    "--hidden-import", "huggingface_hub",
     "--exclude-module", "pandas",
     "--exclude-module", "yt_dlp",
     str(main_script_path)
