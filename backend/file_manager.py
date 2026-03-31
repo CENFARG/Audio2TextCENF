@@ -4,14 +4,39 @@ import soundfile as sf
 import numpy as np
 import shutil
 from datetime import datetime
+import sys
 
 class FileManager:
     """Gestor de archivos de audio y transcripciones usaando soundfile"""
 
     def __init__(self, config_manager):
         self.config = config_manager
-        self.audio_path = self.config.get("audio_path")
-        self.transcriptions_path = self.config.get("transcriptions_path")
+
+        # Obtener directorio base del ejecutable/script
+        # Si está compilado con PyInstaller, usar el directorio del .exe
+        # Si es desarrollo, usar el directorio del script
+        if getattr(sys, 'frozen', False):
+            # Ejecutándose como .exe compilado
+            self.base_dir = os.path.dirname(sys.executable)
+        else:
+            # Ejecutándose como script Python
+            self.base_dir = os.path.dirname(os.path.abspath(__file__))
+            # Ir al directorio raíz del proyecto (desde backend/ hasta raíz)
+            self.base_dir = os.path.dirname(self.base_dir)
+
+        # Convertir paths relativos a absolutos
+        audio_path_rel = self.config.get("audio_path")
+        transcriptions_path_rel = self.config.get("transcriptions_path")
+
+        if os.path.isabs(audio_path_rel):
+            self.audio_path = audio_path_rel
+        else:
+            self.audio_path = os.path.join(self.base_dir, audio_path_rel)
+
+        if os.path.isabs(transcriptions_path_rel):
+            self.transcriptions_path = transcriptions_path_rel
+        else:
+            self.transcriptions_path = os.path.join(self.base_dir, transcriptions_path_rel)
 
         # Crear directorios si no existen
         os.makedirs(self.audio_path, exist_ok=True)
