@@ -38,6 +38,75 @@ from backend.localization_manager import LocalizationManager
 from ui.recording_overlay import RecordingOverlay
 from ui.update_tab import UpdateTab
 
+class ToolTip:
+    """Tooltip widget para CustomTkinter - Muestra ventana emergente flotante"""
+    def __init__(self, widget, text=None, wraplength=400, background="#1E293B", foreground="#F8FAFC", bordercolor="#2563EB"):
+        self.widget = widget
+        self.text = text
+        self.wraplength = wraplength
+        self.background = background
+        self.foreground = foreground
+        self.bordercolor = bordercolor
+        self.tip_window = None
+        self.tip_id = None
+        self.x = self.y = 0
+
+    def show_tip(self, text=None):
+        """Mostrar tooltip en posición del mouse"""
+        self.text = text or self.text
+
+        if self.tip_window or not self.text:
+            return
+
+        # Obtener posición del mouse
+        x = self.widget.winfo_pointerx()
+        y = self.widget.winfo_pointery()
+
+        # Crear ventana flotante (toplevel)
+        self.tip_window = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)  # Sin bordes de ventana
+        tw.wm_geometry(f"+{x + 15}+{y + 15}")  # Offset del cursor
+
+        # Frame con borde y color de fondo
+        frame = tk.Frame(tw, background=self.bordercolor, borderwidth=1, relief="solid")
+        frame.pack(ipadx=1, ipady=1)
+
+        # Label con el texto del tooltip
+        label = tk.Label(
+            frame,
+            text=self.text,
+            justify=tk.LEFT,
+            background=self.background,
+            foreground=self.foreground,
+            relief=tk.FLAT,
+            borderwidth=0,
+            wraplength=self.wraplength,
+            font=("Segoe UI", 10),
+            padx=10,
+            pady=8
+        )
+        label.pack(ipadx=1)
+
+    def hide_tip(self):
+        """Ocultar tooltip"""
+        tw = self.tip_window
+        self.tip_window = None
+        if tw:
+            tw.destroy()
+
+def create_tooltip(widget, text):
+    """Crear y asociar tooltip a un widget"""
+    tool_tip = ToolTip(widget)
+
+    def enter(event):
+        tool_tip.show_tip(text)
+
+    def leave(event):
+        tool_tip.hide_tip()
+
+    widget.bind("<Enter>", enter)
+    widget.bind("<Leave>", leave)
+
 class DesignSystem:
     COLORS = {
         "primary": "#2563EB", "primary_hover": "#1D4ED8",
@@ -610,6 +679,54 @@ class App(ctk.CTk):
                     transcription = transcription[:200] + "..."
                 tooltip_text += f"\n\n💬 {transcription}"
 
+            # Agregar metadatos automáticos del LLM (NUEVO v0.13.0)
+            auto_metadata = self.metadata_manager.get_auto_metadata(filename)
+            if auto_metadata:
+                # Título generado
+                if auto_metadata.get("title"):
+                    tooltip_text += f"\n\n🏷️ {auto_metadata['title']}"
+
+                # Categoría
+                if auto_metadata.get("category"):
+                    category_emoji = {
+                        "trabajo": "💼",
+                        "idea": "💡",
+                        "personal": "👤",
+                        "aprendizaje": "📚",
+                        "técnico": "🔧"
+                    }.get(auto_metadata['category'].lower(), "📁")
+                    tooltip_text += f"\n{category_emoji} {auto_metadata['category'].title()}"
+
+                # Tags
+                if auto_metadata.get("tags"):
+                    tags_str = ", ".join(auto_metadata['tags'][:5])  # Máx 5 tags
+                    if tags_str:
+                        tooltip_text += f"\n🏷️ {tags_str}"
+
+                # Summary (resumen)
+                if auto_metadata.get("summary"):
+                    summary = auto_metadata['summary']
+                    if len(summary) > 150:
+                        summary = summary[:150] + "..."
+                    tooltip_text += f"\n\n📝 {summary}"
+
+                # Sentiment
+                if auto_metadata.get("sentiment"):
+                    sentiment_emoji = {
+                        "positivo": "😊",
+                        "neutral": "😐",
+                        "negativo": "😔"
+                    }.get(auto_metadata['sentiment'].lower(), "😐")
+                    tooltip_text += f"\n{sentiment_emoji} {auto_metadata['sentiment'].title()}"
+
+                # Action items (tareas)
+                if auto_metadata.get("action_items") and len(auto_metadata['action_items']) > 0:
+                    tasks = auto_metadata['action_items'][:3]  # Máx 3 tareas
+                    if tasks:
+                        tooltip_text += f"\n\n✅ Tareas:"
+                        for i, task in enumerate(tasks, 1):
+                            tooltip_text += f"\n   {i}. {task}"
+
         except Exception as e:
             self.logger.error(f"Error obteniendo metadata de {filename}: {e}")
             display_name = f"🎤 {filename}"
@@ -657,17 +774,8 @@ class App(ctk.CTk):
                       command=lambda p=full_path: self._delete_audio_file(p)).pack(side="left", padx=2)
 
     def _bind_tooltip(self, widget, text):
-        """Simular tooltip para CustomTkinter"""
-        def on_enter(e):
-            # Mostrar info en status bar
-            self.update_status(text, "blue")
-
-        def on_leave(e):
-            # Restaurar estado
-            self.update_status(self.localization_manager.get_string("status_ready"), "white")
-
-        widget.bind("<Enter>", on_enter)
-        widget.bind("<Leave>", on_leave)
+        """Crear tooltip flotante con ventana emergente"""
+        create_tooltip(widget, text)
 
     def _change_emoji(self, filename: str, current_emoji: str, emoji_btn, name_label):
         """
