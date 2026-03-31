@@ -36,7 +36,7 @@ log_file = logs_dir / f"build_{timestamp}.log"
 print(f"\n{'='*60}")
 print(f"Building {APP_NAME}")
 print(f"{'='*60}\n")
-print(f"📁 Organizando artefactos en:")
+print(f"[*] Organizando artefactos en:")
 print(f"   Logs:  {logs_dir}")
 print(f"   Specs: {specs_dir}\n")
 
@@ -138,12 +138,12 @@ with open(summary_file, 'w', encoding='utf-8') as f:
 
 print(f"\n{'='*60}")
 if success:
-    print(f"✅ Build exitoso: dist/{APP_NAME}.exe")
-    print(f"📄 Log guardado: {log_file.relative_to(current_dir)}")
-    print(f"📄 Spec guardado: {(specs_dir / f'{APP_NAME}.spec').relative_to(current_dir)}")
+    print(f"[+] Build exitoso: dist/{APP_NAME}.exe")
+    print(f"[*] Log guardado: {log_file.relative_to(current_dir)}")
+    print(f"[*] Spec guardado: {(specs_dir / f'{APP_NAME}.spec').relative_to(current_dir)}")
 else:
-    print(f"❌ Build falló con código: {result.returncode}")
-    print(f"📄 Ver detalles en: {log_file.relative_to(current_dir)}")
+    print(f"[-] Build fallo con codigo: {result.returncode}")
+    print(f"[*] Ver detalles en: {log_file.relative_to(current_dir)}")
 print(f"{'='*60}\n")
     
 sys.exit(result.returncode)
