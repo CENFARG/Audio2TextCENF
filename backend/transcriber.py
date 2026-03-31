@@ -296,9 +296,24 @@ class Transcriber:
     def _hook_hotkey(self):
         try:
             keyboard.unhook_all()
-            keyboard.on_press_key(self.hotkey, self.handle_key_event, suppress=True)
-            keyboard.on_release_key(self.hotkey, self.handle_key_event, suppress=True)
-            self.logger.info(f"Hotkey enganchado: {self.hotkey}")
+
+            # Detectar si el hotkey tiene modificadores (contiene "+")
+            if "+" in self.hotkey:
+                # Hotkey con modificadores: usar add_hotkey()
+                # Nota: add_hotkey solo dispara en KEY_DOWN, ideal para modo toggle
+                # Para modo hold con modificadores, necesitamos un enfoque diferente
+                if self.record_mode == "toggle":
+                    keyboard.add_hotkey(self.hotkey, self._handle_toggle_hotkey, suppress=True)
+                    self.logger.info(f"Hotkey enganchado (toggle): {self.hotkey}")
+                else:
+                    # Modo hold con modificadores: usar hook personalizado
+                    keyboard.hook(self._handle_modifier_hotkey)
+                    self.logger.info(f"Hotkey enganchado (hold con modificadores): {self.hotkey}")
+            else:
+                # Hotkey simple sin modificadores: usar métodos antiguos
+                keyboard.on_press_key(self.hotkey, self.handle_key_event, suppress=True)
+                keyboard.on_release_key(self.hotkey, self.handle_key_event, suppress=True)
+                self.logger.info(f"Hotkey enganchado: {self.hotkey}")
         except Exception as e:
             self.logger.error(f"Error enganchando hotkey: {e}")
 
@@ -331,6 +346,56 @@ class Transcriber:
             elif self.record_mode == "hold":
                 if event.event_type == keyboard.KEY_DOWN and not self.is_recording:
                     self.start_recording()
+
+    def _handle_toggle_hotkey(self):
+        """Handler para hotkeys con modificadores en modo toggle."""
+        with self.recording_lock:
+            current_time = time.time()
+            if (current_time - self.last_key_event_time) < self.debounce_time:
+                return
+            self.last_key_event_time = current_time
+
+            if not self.is_recording:
+                self.start_recording()
+            else:
+                self.stop_recording()
+
+    def _handle_modifier_hotkey(self, event):
+        """
+        Handler para hotkeys con modificadores en modo hold.
+        Usa keyboard.hook() para detectar KEY_DOWN y KEY_UP de modificadores.
+        """
+        # Verificar si este evento corresponde a nuestro hotkey
+        try:
+            # Parsear el hotkey actual
+            hotkey_obj = self.hotkey_manager.parse_hotkey_string(self.hotkey)
+
+            # Obtener el estado actual de los modificadores
+            current_modifiers = []
+            if keyboard.is_pressed('ctrl'):
+                current_modifiers.append('ctrl')
+            if keyboard.is_pressed('alt'):
+                current_modifiers.append('alt')
+            if keyboard.is_pressed('shift'):
+                current_modifiers.append('shift')
+
+            # Obtener la tecla presionada
+            key_name = event.name.lower().replace(' ', '_')
+
+            # Verificar si coincide con nuestro hotkey
+            modifiers_match = set(current_modifiers) == set(hotkey_obj.modifiers)
+            key_match = key_name == hotkey_obj.key
+
+            if modifiers_match and key_match:
+                with self.recording_lock:
+                    if event.event_type == keyboard.KEY_DOWN:
+                        if not self.is_recording:
+                            self.start_recording()
+                    elif event.event_type == keyboard.KEY_UP:
+                        if self.is_recording:
+                            self.stop_recording()
+        except Exception as e:
+            self.logger.debug(f"Error en _handle_modifier_hotkey: {e}")
 
     def start_recording(self):
         if self.is_recording: return
