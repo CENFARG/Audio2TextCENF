@@ -31,12 +31,22 @@ class FileManager:
         if os.path.isabs(audio_path_rel):
             self.audio_path = audio_path_rel
         else:
-            self.audio_path = os.path.join(self.base_dir, audio_path_rel)
+            # Unir y normalizar para eliminar ./ o ../
+            self.audio_path = os.path.normpath(os.path.join(self.base_dir, audio_path_rel))
 
         if os.path.isabs(transcriptions_path_rel):
             self.transcriptions_path = transcriptions_path_rel
         else:
-            self.transcriptions_path = os.path.join(self.base_dir, transcriptions_path_rel)
+            # Unir y normalizar para eliminar ./ o ../
+            self.transcriptions_path = os.path.normpath(os.path.join(self.base_dir, transcriptions_path_rel))
+
+        # Log para debugging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"FileManager inicializado:")
+        logger.info(f"  Base dir: {self.base_dir}")
+        logger.info(f"  Audio path: {self.audio_path}")
+        logger.info(f"  Transcriptions path: {self.transcriptions_path}")
 
         # Crear directorios si no existen
         os.makedirs(self.audio_path, exist_ok=True)
