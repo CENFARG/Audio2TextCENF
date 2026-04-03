@@ -6,14 +6,16 @@
 
 **Transcripción de Audio en Tiempo Real con IA**
 
-[![Version](https://img.shields.io/badge/version-0.9.2-blue.svg)](https://github.com/CENFARG/Audio2Text/releases)
+[![Version](https://img.shields.io/badge/version-0.13.0-blue.svg)](https://github.com/CENFARG/Audio2Text/releases)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](https://github.com/CENFARG/Audio2Text/actions/workflows/ci.yml)
 
 [Características](#-características) •
 [Instalación](#-instalación) •
 [Uso](#-uso) •
+[Testing](#-testing) •
 [Documentación](#-documentación) •
 [Contribuir](#-contribuir)
 
@@ -157,6 +159,7 @@ Los ejecutables se generan en `dist/`
 cd docs
 makensis installer.nsi
 ```
+## 🧪 TestingAudio2Text cuenta con una suite completa de pruebas automatizadas para garantizar la calidad del código.### Ejecutar Tests Localmente```bash# Ejecutar todos los testspytest# Ejecutar con coveragepytest --cov=backend --cov=tests --cov-report=html# Ejecutar solo tests unitariospytest -m unit# Ejecutar solo tests de integraciónpytest -m integration# Ejecutar un archivo específicopytest tests/test_transcriber.py# Ver reporte de coverage en HTML# Abre htmlcov/index.html en tu navegador```### Requisitos de Coverage- **Backend:** 70% mínimo- **Bloques:** 80% mínimo- **UI:** Excluido de coverage### Linting y Formateo```bash# Ejecutar flake8 (linting)flake8 backend/ tests/# Formatear código con blackblack backend/ tests/# Verificar tipo con mypymypy backend/```### CI/CDEl proyecto utiliza GitHub Actions para:- **CI (Continuous Integration):** Ejecuta tests en cada push/PR- **Builds:** Crea ejecutables automáticamente en releases- **Coverage:** Genera reportes de cobertura[Ver CI Workflow](https://github.com/CENFARG/Audio2Text/actions/workflows/ci.yml)### Escribir TestsConsulte [TESTING.md](TESTING.md) para guías detalladas sobre cómo escribir tests.
 
 ## � Documentación
 

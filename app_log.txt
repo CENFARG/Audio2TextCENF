@@ -1,0 +1,101 @@
+!!! UI_APP_PY_LOADED_ROOT !!!
+2026-03-30 23:18:15,621 - App - INFO - Initializing application UI.
+No se pudo cargar 'icono.ico'
+2026-03-30 23:18:15,627 - App - WARNING - No se pudo cargar 'icono.ico'.
+2026-03-30 23:18:15,627 - backend.file_manager - INFO - FileManager inicializado:
+2026-03-30 23:18:15,627 - backend.file_manager - INFO -   Base dir: C:\Dropbox\DOC.RECA\06-Software\Audio2Text
+2026-03-30 23:18:15,627 - backend.file_manager - INFO -   Audio path: C:\Dropbox\DOC.RECA\06-Software\Audio2Text\audio
+2026-03-30 23:18:15,627 - backend.file_manager - INFO -   Transcriptions path: C:\Dropbox\DOC.RECA\06-Software\Audio2Text\transcriptions
+2026-03-30 23:18:15,684 - Transcriber - INFO - Transcriber inicializado con hotkey: ctrl+f9, modo de grabación: toggle
+2026-03-30 23:18:16,084 - Transcriber - INFO - Cliente Groq inicializado exitosamente.
+2026-03-30 23:18:16,084 - Transcriber - INFO - NVIDIA Riva ASR deshabilitado en configuración.
+2026-03-30 23:18:18,179 - backend.faster_whisper_asr - INFO - FasterWhisperASR: Inicializando modelo base (device=auto, compute_type=default)
+2026-03-30 23:18:18,179 - backend.faster_whisper_asr - INFO - FasterWhisperASR: Dispositivo auto-detectado: cpu
+2026-03-30 23:18:18,179 - backend.faster_whisper_asr - INFO - FasterWhisperASR: Compute_type auto-ajustado: int8
+2026-03-30 23:18:19,267 - backend.faster_whisper_asr - INFO - FasterWhisperASR: Modelo base cargado exitosamente
+2026-03-30 23:18:19,267 - Transcriber - INFO - Cliente faster-whisper inicializado (modelo=base, device=cpu)
+2026-03-30 23:18:19,267 - Transcriber - INFO - Escuchando hotkey: ctrl+f9
+2026-03-30 23:18:19,267 - Transcriber - INFO - Hilo de escucha de hotkey iniciado.
+2026-03-30 23:18:19,267 - Transcriber - INFO - Validación UTF-8: activada
+2026-03-30 23:18:19,267 - backend.blocks.block_manager - INFO - BlockManager: Registrado bloque 'task_extractor' (type=post)
+2026-03-30 23:18:19,269 - Transcriber - INFO - TaskExtractorBlock registrado (min_priority=3)
+2026-03-30 23:18:19,269 - backend.blocks.block_manager - INFO - BlockManager: Registrado bloque 'summary' (type=post)
+2026-03-30 23:18:19,269 - Transcriber - INFO - SummaryBlock registrado (max_sentences=3)
+2026-03-30 23:18:19,269 - backend.blocks.block_manager - INFO - BlockManager: Registrado bloque 'keyword_extractor' (type=post)
+2026-03-30 23:18:19,269 - Transcriber - INFO - KeywordExtractorBlock registrado (max_keywords=10)
+2026-03-30 23:18:19,269 - Transcriber - INFO - BlockManager inicializado con bloques POST-transcripción
+2026-03-30 23:18:19,270 - backend.custom_vocabulary - INFO - Correcciones cargadas: 7 términos
+2026-03-30 23:18:19,270 - Transcriber - INFO - CustomVocabulary inicializado con 7 correcciones
+2026-03-30 23:18:19,270 - Transcriber - INFO - TranscriptionMetadata inicializado
+2026-03-30 23:18:19,270 - Transcriber - INFO - TranscriptionMetadataGenerator inicializado (LLM enabled)
+2026-03-30 23:18:19,270 - Updater - INFO - Updater inicializado - Versión actual: 0.13.0
+2026-03-30 23:18:19,398 - Transcriber - INFO - Hotkey enganchado (toggle): ctrl+f9
+2026-03-30 23:18:19,792 - ConfigManager - INFO - Configuración guardada en C:\Dropbox\DOC.RECA\06-Software\Audio2Text\config.json
+2026-03-30 23:18:21,622 - Updater - INFO - Verificando actualizaciones en https://raw.githubusercontent.com/CENFARG/Audio2TextCENF/main/config/version.json
+2026-03-30 23:18:21,973 - Updater - INFO - Última versión disponible: 0.10.0
+2026-03-30 23:18:21,974 - Updater - INFO - Ya estás usando la última versión
+2026-03-30 23:18:22,119 - App - INFO - Verificando claves API...
+2026-03-30 23:18:49,507 - App - INFO - Ruta seleccionada: C:/Dropbox/DOC.RECA/06-Software/Audio2Text/audio
+2026-03-30 23:18:49,508 - App - INFO - Guardando configuración...
+Exception in Tkinter callback
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\tkinter\__init__.py", line 1968, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\gonza\AppData\Roaming\Python\Python312\site-packages\customtkinter\windows\widgets\ctk_button.py", line 554, in _clicked
+    self._command()
+  File "C:\Dropbox\DOC.RECA\06-Software\Audio2Text\ui\app.py", line 417, in <lambda>
+    ctk.CTkButton(files_frame, text=self.localization_manager.get_string("browse_button"), width=70, command=lambda: self._browse_path(self.audio_path_var)).grid(row=1, column=2, padx=(0,10))
+                                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Dropbox\DOC.RECA\06-Software\Audio2Text\ui\app.py", line 1315, in _browse_path
+    self.save_config()
+  File "C:\Dropbox\DOC.RECA\06-Software\Audio2Text\ui\app.py", line 1344, in save_config
+    "hotkey": self.hotkey_var.get(),
+              ^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python312\Lib\tkinter\__init__.py", line 2433, in __getattr__
+    return getattr(self.tk, attr)
+           ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: '_tkinter.tkapp' object has no attribute 'hotkey_var'
+2026-03-30 23:18:53,350 - App - INFO - Ruta seleccionada: C:/Dropbox/DOC.RECA/06-Software/Audio2Text/transcriptions
+2026-03-30 23:18:53,350 - App - INFO - Guardando configuración...
+Exception in Tkinter callback
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\tkinter\__init__.py", line 1968, in __call__
+    return self.func(*args)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\gonza\AppData\Roaming\Python\Python312\site-packages\customtkinter\windows\widgets\ctk_button.py", line 554, in _clicked
+    self._command()
+  File "C:\Dropbox\DOC.RECA\06-Software\Audio2Text\ui\app.py", line 424, in <lambda>
+    ctk.CTkButton(files_frame, text=self.localization_manager.get_string("browse_button"), width=70, command=lambda: self._browse_path(self.transcriptions_path_var)).grid(row=2, column=2, padx=(0,10))
+                                                                                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Dropbox\DOC.RECA\06-Software\Audio2Text\ui\app.py", line 1315, in _browse_path
+    self.save_config()
+  File "C:\Dropbox\DOC.RECA\06-Software\Audio2Text\ui\app.py", line 1344, in save_config
+    "hotkey": self.hotkey_var.get(),
+              ^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python312\Lib\tkinter\__init__.py", line 2433, in __getattr__
+    return getattr(self.tk, attr)
+           ^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: '_tkinter.tkapp' object has no attribute 'hotkey_var'
+2026-03-30 23:19:03,691 - Transcriber - INFO - Grabación iniciada.
+2026-03-30 23:19:07,027 - Transcriber - INFO - Grabación detenida. Iniciando procesamiento.
+2026-03-30 23:19:07,134 - Transcriber - INFO - Iniciando procesamiento de grabación.
+2026-03-30 23:19:07,147 - Transcriber - INFO - Audio guardado permanentemente en: C:\Dropbox\DOC.RECA\06-Software\Audio2Text\audio\audio_20260330_231907.wav
+2026-03-30 23:19:07,147 - Transcriber - INFO - Iniciando transcripción con faster-whisper.
+2026-03-30 23:19:07,147 - backend.faster_whisper_asr - INFO - FasterWhisperASR: Transcribiendo C:\Users\gonza\AppData\Local\Temp\tmpwdhv_nn_.wav (modelo=base, device=cpu)
+2026-03-30 23:19:07,257 - faster_whisper - INFO - Processing audio with duration 00:03.328
+2026-03-30 23:19:07,429 - faster_whisper - INFO - VAD filter removed 00:00.560 of audio
+2026-03-30 23:19:08,380 - backend.faster_whisper_asr - INFO - FasterWhisperASR: Transcripción exitosa (52 chars, 3.3s audio)
+2026-03-30 23:19:08,380 - backend.blocks.block_manager - INFO - BlockManager: Procesando 3 bloques en etapa transcribed_text
+2026-03-30 23:19:08,384 - backend.blocks.task_extractor_block - INFO - TaskExtractor: Extraídas 0 tareas
+2026-03-30 23:19:08,384 - backend.blocks.summary_block - INFO - SummaryBlock: Resumen generado (52 chars, 4 keywords)
+2026-03-30 23:19:08,386 - backend.blocks.keyword_extractor_block - INFO - KeywordExtractor: Extraídas 3 palabras clave
+2026-03-30 23:19:08,386 - Transcriber - INFO - Procesando 3 resultados de bloques
+2026-03-30 23:19:09,107 - TranscriptionMetadataGenerator - INFO - Metadatos generados para tmpwdhv_nn_.wav: aprendizaje
+2026-03-30 23:19:09,108 - Transcriber - INFO - Metadatos automáticos generados para tmpwdhv_nn_.wav
+2026-03-30 23:19:09,109 - App - INFO - Mostrando transcripción (truncada): esta es una prueba de grabación para ver si funciona...
+2026-03-30 23:19:09,117 - App - INFO - Auto-pegando transcripción.
+2026-03-30 23:20:53,166 - App - INFO - Cerrando aplicación por completo.
+2026-03-30 23:20:53,166 - App - INFO - Cerrando aplicación.
+2026-03-30 23:20:53,166 - Transcriber - INFO - Deteniendo Transcriber.
+2026-03-30 23:20:53,166 - Transcriber - INFO - Transcriber detenido.

@@ -1,0 +1,75 @@
+[run]
+# Coverage configuration for Audio2Text
+
+# Source code to measure
+source = backend, tests
+
+# Branch coverage (more accurate than line coverage)
+branch = true
+
+# Omit files from coverage
+omit =
+    */tests/__pycache__/*
+    */__pycache__/*
+    */.venv/*
+    */venv/*
+    */_old_versions_archive/*
+    */.context/*
+    test_*.py
+    __init__.py
+    */ui/*
+    */ui_flet/*
+    */blocks/__init__.py
+
+[report]
+# Report configuration
+
+# Fail under percentage
+fail_under = 70
+
+# Precision for coverage percentages
+precision = 2
+
+# Show missing lines
+show_missing = true
+
+# Skip empty files
+skip_empty = true
+
+# Sort results by missing lines
+sort = Miss
+
+# Exclude lines from coverage
+exclude_lines =
+    # Standard pragma
+    pragma: no cover
+
+    # Abstract methods
+    @abstract
+
+    # Debugging code
+    def __repr__
+    def __str__
+
+    # Type checking
+    if TYPE_CHECKING:
+    if typing.TYPE_CHECKING:
+
+    # Non-runnable code
+    if __name__ == .__main__.:
+
+    # Defensive programming
+    raise NotImplementedError
+    raise AssertionError
+
+    # Exception handling
+    except Exception:
+    except ImportError:
+
+[html]
+# HTML report configuration
+directory = htmlcov
+
+[xml]
+# XML report configuration (for CI/CD)
+output = coverage.xml

@@ -1,0 +1,139 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Executables
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        variant: [GENERAL, CONTRERAS, CUTIGNOLA]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.8'
+        cache: 'pip'
+
+    - name: Install build dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+
+    - name: Install runtime dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Create build directories
+      run: |
+        mkdir -p dist
+        mkdir -p build
+
+    - name: Run PyInstaller for ${{ matrix.variant }}
+      run: |
+        python scripts/build_GENERAL_v2.py --variant ${{ matrix.variant }}
+      continue-on-error: true
+
+    - name: List build outputs
+      run: |
+        ls -lh dist/
+        ls -lh build/
+
+    - name: Upload executable artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Audio2Text-${{ matrix.variant }}-exe
+        path: |
+          dist/*.exe
+        retention-days: 30
+
+    - name: Upload build logs
+      uses: actions/upload-artifact@v4
+      with:
+        name: Audio2Text-${{ matrix.variant }}-logs
+        path: |
+          build/*.log
+          *.log
+        retention-days: 7
+      continue-on-error: true
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all executables
+      uses: actions/download-artifact@v4
+      with:
+        pattern: Audio2Text-*-exe
+        merge-multiple: true
+        path: executables
+
+    - name: Download all logs
+      uses: actions/download-artifact@v4
+      with:
+        pattern: Audio2Text-*-logs
+        merge-multiple: true
+        path: logs
+      continue-on-error: true
+
+    - name: Display structure of downloaded files
+      run: |
+        ls -R executables/
+        ls -R logs/ || true
+
+    - name: Generate release notes
+      run: |
+        echo "Release ${{ github.ref_name }}" > release_notes.txt
+        echo "" >> release_notes.txt
+        echo "## Build Artifacts" >> release_notes.txt
+        echo "" >> release_notes.txt
+        echo "This release includes three variants:" >> release_notes.txt
+        echo "- **GENERAL**: Generic CENF build" >> release_notes.txt
+        echo "- **CONTRERAS**: Contreras Hnos build" >> release_notes.txt
+        echo "- **CUTIGNOLA**: Cutignola build" >> release_notes.txt
+        echo "" >> release_notes.txt
+        echo "## Installation" >> release_notes.txt
+        echo "" >> release_notes.txt
+        echo "1. Download the variant you need" >> release_notes.txt
+        echo "2. Run the installer" >> release_notes.txt
+        echo "3. Enjoy!" >> release_notes.txt
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          executables/*.exe
+        body_path: release_notes.txt
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    name: Notify Build Status
+    runs-on: ubuntu-latest
+    needs: [build, create-release]
+    if: always()
+
+    steps:
+    - name: Send notification
+      run: |
+        echo "Build completed for ${{ github.ref_name }}"
+        echo "Status: ${{ needs.build.result }}"
+        echo "Release: ${{ needs.create-release.result }}"

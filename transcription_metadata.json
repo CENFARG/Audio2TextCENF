@@ -1,0 +1,24 @@
+{
+  "tmpwdhv_nn_.wav": {
+    "auto": {
+      "filename": "tmpwdhv_nn_.wav",
+      "generated_at": "2026-03-30T23:19:08.386827",
+      "transcription_length": 52,
+      "word_count": 10,
+      "title": "Prueba de grabación",
+      "category": "aprendizaje",
+      "tags": [
+        "grabación",
+        "prueba",
+        "funcionamiento"
+      ],
+      "summary": "Prueba de grabación para ver si funciona",
+      "emoji": "📝",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "llm"
+    },
+    "updated_at": "2026-03-30T23:19:09.107512"
+  }
+}
