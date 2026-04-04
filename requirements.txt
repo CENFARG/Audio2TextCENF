@@ -22,7 +22,7 @@ tkhtmlview>=0.2.0
 psutil>=5.9.0
 numpy>=1.24.0
 mouse>=0.7.1
-pywin32>=306
+pywin32>=306; sys_platform == 'win32'
 
 # Build Tools (for compilation)
 pyinstaller>=6.0.0
