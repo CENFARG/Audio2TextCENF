@@ -217,7 +217,7 @@ class TestHotkeyRegistration:
 
     def test_register_hotkey_mocked(self, manager):
         """Test hotkey registration with mocked keyboard library."""
-        with patch('backend.hotkey_manager.keyboard') as mock_keyboard:
+        with patch("backend.hotkey_manager.keyboard") as mock_keyboard:
             mock_keyboard.add_hotkey.return_value = True
 
             callback = Mock()
@@ -228,7 +228,7 @@ class TestHotkeyRegistration:
 
     def test_unregister_hotkey_mocked(self, manager):
         """Test hotkey unregistration with mocked keyboard library."""
-        with patch('backend.hotkey_manager.keyboard') as mock_keyboard:
+        with patch("backend.hotkey_manager.keyboard") as mock_keyboard:
             # Simulate registered hotkey
             manager.registered_hotkeys["ctrl+f5"] = Mock()
 

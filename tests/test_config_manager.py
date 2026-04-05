@@ -32,7 +32,7 @@ class TestConfigManagerInitialization:
 
     def test_initialization_with_default_config(self):
         """Test initialization creates default configuration."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             config_file = f.name
 
         try:
@@ -50,13 +50,9 @@ class TestConfigManagerInitialization:
 
     def test_initialization_loads_existing_config(self):
         """Test initialization loads existing configuration file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             config_file = f.name
-            test_config = {
-                "app_version": "0.12.0",
-                "hotkey": "F10",
-                "default_language": "en"
-            }
+            test_config = {"app_version": "0.12.0", "hotkey": "F10", "default_language": "en"}
             json.dump(test_config, f)
 
         try:
@@ -78,7 +74,7 @@ class TestConfigManagerLoadSave:
     @pytest.fixture
     def temp_config_file(self):
         """Create a temporary config file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             config_file = f.name
         yield config_file
         if os.path.exists(config_file):
@@ -99,7 +95,7 @@ class TestConfigManagerLoadSave:
         manager.save_config()
 
         # Load and verify
-        with open(temp_config_file, 'r', encoding='utf-8') as f:
+        with open(temp_config_file, "r", encoding="utf-8") as f:
             saved_config = json.load(f)
 
         # Key should be obfuscated
@@ -112,7 +108,7 @@ class TestConfigManagerLoadSave:
         manager.config["groq_api_key"] = "gsk_test_key_12345"
         manager.save_config()
 
-        with open(temp_config_file, 'r', encoding='utf-8') as f:
+        with open(temp_config_file, "r", encoding="utf-8") as f:
             saved_config = json.load(f)
 
         # Should NOT be plain text
@@ -126,7 +122,7 @@ class TestConfigManagerGetSet:
     @pytest.fixture
     def manager(self):
         """Create a ConfigManager instance."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             config_file = f.name
 
         manager = ConfigManager(config_file=config_file)
@@ -158,11 +154,7 @@ class TestConfigManagerGetSet:
 
     def test_set_multiple_values(self, manager):
         """Test setting multiple configuration values."""
-        new_settings = {
-            "hotkey": "F7",
-            "default_language": "en",
-            "max_audio_files": 50
-        }
+        new_settings = {"hotkey": "F7", "default_language": "en", "max_audio_files": 50}
         manager.set_multiple(new_settings)
 
         assert manager.get("hotkey") == "F7"
@@ -177,7 +169,7 @@ class TestAPIKeyObfuscation:
     @pytest.fixture
     def manager(self):
         """Create a ConfigManager instance."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             config_file = f.name
 
         manager = ConfigManager(config_file=config_file)
@@ -226,7 +218,7 @@ class TestAPIKeyObfuscation:
         manager.save_config()
 
         # Load from file and verify it's obfuscated
-        with open(manager.config_file, 'r', encoding='utf-8') as f:
+        with open(manager.config_file, "r", encoding="utf-8") as f:
             saved = json.load(f)
 
         assert not saved["groq_api_key"].startswith("gsk_")
@@ -239,7 +231,7 @@ class TestLocalization:
     @pytest.fixture
     def manager(self):
         """Create a ConfigManager instance."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             config_file = f.name
 
         manager = ConfigManager(config_file=config_file)
@@ -278,8 +270,8 @@ class TestEnvironmentVariables:
 
     def test_get_groq_api_key_from_env(self):
         """Test getting Groq API key from environment variable."""
-        with patch.dict(os.environ, {'GROQ_API_KEY': 'gsk_env_key_123'}):
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with patch.dict(os.environ, {"GROQ_API_KEY": "gsk_env_key_123"}):
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
                 config_file = f.name
 
             try:
@@ -294,7 +286,7 @@ class TestEnvironmentVariables:
     def test_get_groq_api_key_from_env_not_set(self):
         """Test getting Groq API key when environment variable is not set."""
         with patch.dict(os.environ, {}, clear=True):
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
                 config_file = f.name
 
             try:
@@ -314,7 +306,7 @@ class TestConfigValidation:
     @pytest.fixture
     def manager(self):
         """Create a ConfigManager instance."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             config_file = f.name
 
         manager = ConfigManager(config_file=config_file)
@@ -349,7 +341,7 @@ class TestConfigIntegrity:
     @pytest.fixture
     def manager(self):
         """Create a ConfigManager instance."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             config_file = f.name
 
         manager = ConfigManager(config_file=config_file)

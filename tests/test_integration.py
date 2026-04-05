@@ -39,7 +39,7 @@ class TestConfigToTranscriberIntegration:
     @pytest.fixture
     def temp_config_file(self):
         """Create a temporary config file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             config_file = f.name
             test_config = {
                 "app_version": "0.13.0",
@@ -52,7 +52,7 @@ class TestConfigToTranscriberIntegration:
                 "save_audio": True,
                 "save_logs": True,
                 "utf8_validation": True,
-                "asr_provider": "groq"
+                "asr_provider": "groq",
             }
             json.dump(test_config, f)
 
@@ -101,7 +101,7 @@ class TestTranscriberWorkflow:
             "save_audio": True,
             "save_logs": True,
             "max_audio_files": 100,
-            "blocks": {}
+            "blocks": {},
         }.get(key, default)
 
         sound_manager = Mock()
@@ -118,13 +118,13 @@ class TestTranscriberWorkflow:
             "update_status_callback": update_status,
             "transcription_callback": transcription_callback,
             "localization_manager": localization_manager,
-            "overlay_callback": overlay_callback
+            "overlay_callback": overlay_callback,
         }
 
     @pytest.fixture
     def transcriber(self, mock_dependencies):
         """Create Transcriber instance with mocked Groq."""
-        with patch('backend.transcriber.Groq'):
+        with patch("backend.transcriber.Groq"):
             return Transcriber(**mock_dependencies)
 
     def test_transcriber_initialization(self, transcriber):
@@ -136,7 +136,7 @@ class TestTranscriberWorkflow:
 
     def test_transcriber_recording_workflow(self, transcriber):
         """Test complete recording workflow: start → stop → process."""
-        with patch('backend.transcriber.sd.InputStream'):
+        with patch("backend.transcriber.sd.InputStream"):
             # Start recording
             transcriber.start_recording()
             assert transcriber.is_recording == True
@@ -145,7 +145,7 @@ class TestTranscriberWorkflow:
             transcriber.audio_data = [np.random.randint(-32768, 32767, size=16000, dtype=np.int16)]
 
             # Stop recording
-            with patch('backend.transcriber.sf.write'):
+            with patch("backend.transcriber.sf.write"):
                 transcriber.stop_recording()
                 assert transcriber.is_recording == False
 
@@ -153,12 +153,13 @@ class TestTranscriberWorkflow:
         """Test transcription workflow with mocked API."""
         # Create temporary audio file
         import wave
+
         audio_file = tmp_path / "test_audio.wav"
-        with wave.open(str(audio_file), 'wb') as wav:
+        with wave.open(str(audio_file), "wb") as wav:
             wav.setnchannels(1)
             wav.setsampwidth(2)
             wav.setframerate(16000)
-            wav.writeframes(b'\x00\x00' * 16000)
+            wav.writeframes(b"\x00\x00" * 16000)
 
         # Mock Groq response
         mock_response = Mock()
@@ -187,7 +188,7 @@ class TestFileManagerIntegration:
             "save_audio": True,
             "save_logs": True,
             "max_audio_files": 100,
-            "auto_cleanup_enabled": False
+            "auto_cleanup_enabled": False,
         }.get(key, default)
 
         return FileManager(config)
@@ -212,7 +213,7 @@ class TestFileManagerIntegration:
             "text": "Texto de prueba",
             "duration": 2.5,
             "language": "es",
-            "audio_file": "audio_test.wav"
+            "audio_file": "audio_test.wav",
         }
 
         file_manager.save_transcription_entry(transcription_data)
@@ -221,7 +222,7 @@ class TestFileManagerIntegration:
         assert os.path.exists(log_file)
 
         # Verify content
-        with open(log_file, 'r', encoding='utf-8') as f:
+        with open(log_file, "r", encoding="utf-8") as f:
             content = f.read()
             assert "Texto de prueba" in content
 
@@ -245,8 +246,8 @@ class TestBlockProcessingIntegration:
             "blocks": {
                 "task_extractor_enabled": True,
                 "summary_enabled": True,
-                "keyword_extractor_enabled": True
-            }
+                "keyword_extractor_enabled": True,
+            },
         }.get(key, default)
 
         deps = {
@@ -256,16 +257,16 @@ class TestBlockProcessingIntegration:
             "update_status_callback": Mock(),
             "transcription_callback": Mock(),
             "localization_manager": Mock(),
-            "overlay_callback": Mock()
+            "overlay_callback": Mock(),
         }
 
-        with patch('backend.transcriber.Groq'):
+        with patch("backend.transcriber.Groq"):
             return Transcriber(**deps)
 
     def test_block_manager_initialized(self, transcriber):
         """Test that BlockManager is initialized."""
         assert transcriber.block_manager is not None
-        assert hasattr(transcriber.block_manager, 'blocks')
+        assert hasattr(transcriber.block_manager, "blocks")
 
     def test_process_with_blocks(self, transcriber):
         """Test processing text with blocks."""
@@ -285,7 +286,7 @@ class TestMetadataIntegration:
     @pytest.fixture
     def metadata(self):
         """Create TranscriptionMetadata instance."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             metadata_file = f.name
 
         metadata = TranscriptionMetadata(metadata_file=metadata_file)
@@ -330,7 +331,7 @@ class TestErrorHandlingIntegration:
 
     def test_invalid_api_key_handling(self):
         """Test handling of invalid API key."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             config_file = f.name
             json.dump({"api_key": ""}, f)
 
@@ -348,7 +349,7 @@ class TestErrorHandlingIntegration:
         config.get.side_effect = lambda key, default=None: {
             "audio_path": str(tmp_path / "nonexistent_audio"),
             "transcriptions_path": str(tmp_path / "transcriptions"),
-            "save_audio": True
+            "save_audio": True,
         }.get(key, default)
 
         # FileManager should create directory
@@ -363,7 +364,7 @@ class TestErrorHandlingIntegration:
             "api_key": "test",
             "audio_priority_apps": [],
             "utf8_validation": True,
-            "blocks": {}
+            "blocks": {},
         }.get(key, default)
 
         deps = {
@@ -373,10 +374,10 @@ class TestErrorHandlingIntegration:
             "update_status_callback": Mock(),
             "transcription_callback": Mock(),
             "localization_manager": Mock(),
-            "overlay_callback": Mock()
+            "overlay_callback": Mock(),
         }
 
-        with patch('backend.transcriber.Groq'):
+        with patch("backend.transcriber.Groq"):
             transcriber = Transcriber(**deps)
 
             # Test empty text
@@ -414,7 +415,7 @@ class TestFullWorkflow:
     def test_config_to_transcriber_workflow(self, tmp_path):
         """Test ConfigManager → Transcriber → Record → Transcribe workflow."""
         # Setup config
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             config_file = f.name
             config_data = {
                 "hotkey": "F5",
@@ -425,7 +426,7 @@ class TestFullWorkflow:
                 "save_audio": True,
                 "save_logs": True,
                 "utf8_validation": True,
-                "blocks": {}
+                "blocks": {},
             }
             json.dump(config_data, f)
 
@@ -446,10 +447,10 @@ class TestFullWorkflow:
                 "update_status_callback": Mock(),
                 "transcription_callback": Mock(),
                 "localization_manager": LocalizationManager("es"),
-                "overlay_callback": Mock()
+                "overlay_callback": Mock(),
             }
 
-            with patch('backend.transcriber.Groq'):
+            with patch("backend.transcriber.Groq"):
                 transcriber = Transcriber(**deps)
 
                 # Verify initialization

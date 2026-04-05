@@ -33,7 +33,7 @@ class TestTranscriptionMetadataInitialization:
 
     def test_initialization_creates_new_file(self):
         """Test initialization creates new metadata file if it doesn't exist."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             metadata_file = f.name
 
         try:
@@ -51,14 +51,9 @@ class TestTranscriptionMetadataInitialization:
 
     def test_initialization_loads_existing_file(self):
         """Test initialization loads existing metadata file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             metadata_file = f.name
-            test_data = {
-                "audio_1.wav": {
-                    "emoji": "🎤",
-                    "title": "Test Title"
-                }
-            }
+            test_data = {"audio_1.wav": {"emoji": "🎤", "title": "Test Title"}}
             json.dump(test_data, f)
 
         try:
@@ -72,7 +67,7 @@ class TestTranscriptionMetadataInitialization:
 
     def test_initialization_handles_corrupt_file(self):
         """Test initialization handles corrupted file gracefully."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             metadata_file = f.name
             f.write("invalid json content")
 
@@ -93,7 +88,7 @@ class TestEmojiManagement:
     @pytest.fixture
     def metadata(self):
         """Create a TranscriptionMetadata instance."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             metadata_file = f.name
 
         metadata = TranscriptionMetadata(metadata_file=metadata_file)
@@ -145,7 +140,7 @@ class TestTitleManagement:
     @pytest.fixture
     def metadata(self):
         """Create a TranscriptionMetadata instance."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             metadata_file = f.name
 
         metadata = TranscriptionMetadata(metadata_file=metadata_file)
@@ -189,7 +184,7 @@ class TestTagManagement:
     @pytest.fixture
     def metadata(self):
         """Create a TranscriptionMetadata instance."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             metadata_file = f.name
 
         metadata = TranscriptionMetadata(metadata_file=metadata_file)
@@ -238,7 +233,7 @@ class TestNotesManagement:
     @pytest.fixture
     def metadata(self):
         """Create a TranscriptionMetadata instance."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             metadata_file = f.name
 
         metadata = TranscriptionMetadata(metadata_file=metadata_file)
@@ -279,7 +274,7 @@ class TestAutoMetadata:
     @pytest.fixture
     def metadata(self):
         """Create a TranscriptionMetadata instance."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             metadata_file = f.name
 
         metadata = TranscriptionMetadata(metadata_file=metadata_file)
@@ -294,7 +289,7 @@ class TestAutoMetadata:
             "summary": "This is a summary",
             "tasks": ["Task 1", "Task 2"],
             "keywords": ["keyword1", "keyword2"],
-            "category": "Work"
+            "category": "Work",
         }
 
         metadata.set_auto_metadata("audio_1.wav", auto_meta)
@@ -309,10 +304,7 @@ class TestAutoMetadata:
 
     def test_auto_metadata_persists(self, metadata):
         """Test that auto-metadata is persisted."""
-        auto_meta = {
-            "summary": "Test summary",
-            "category": "Test"
-        }
+        auto_meta = {"summary": "Test summary", "category": "Test"}
         metadata.set_auto_metadata("audio_2.wav", auto_meta)
 
         # Create new instance
@@ -329,7 +321,7 @@ class TestMetadataOperations:
     @pytest.fixture
     def metadata(self):
         """Create a TranscriptionMetadata instance."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             metadata_file = f.name
 
         metadata = TranscriptionMetadata(metadata_file=metadata_file)
@@ -412,7 +404,7 @@ class TestMetadataPersistence:
     @pytest.fixture
     def metadata(self):
         """Create a TranscriptionMetadata instance."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             metadata_file = f.name
 
         metadata = TranscriptionMetadata(metadata_file=metadata_file)

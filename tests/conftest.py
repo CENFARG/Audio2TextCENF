@@ -48,13 +48,13 @@ def temp_audio_file(test_data_dir):
     audio_file = test_data_dir / "test_audio.wav"
 
     # Create a simple WAV file (1 second of silence at 16000 Hz)
-    with wave.open(str(audio_file), 'wb') as wav_file:
+    with wave.open(str(audio_file), "wb") as wav_file:
         wav_file.setnchannels(1)  # Mono
         wav_file.setsampwidth(2)  # 2 bytes (16-bit)
         wav_file.setframerate(16000)  # 16 kHz sample rate
 
         # Write 1 second of silence
-        silence = b'\x00\x00' * 16000
+        silence = b"\x00\x00" * 16000
         wav_file.writeframes(silence)
 
     yield audio_file
@@ -83,31 +83,13 @@ def mock_config():
         "auto_cleanup_days": 30,
         "theme": "dark",
         "service": "groq",
-        "faster_whisper": {
-            "model_size": "base",
-            "device": "cpu",
-            "compute_type": "int8"
-        },
+        "faster_whisper": {"model_size": "base", "device": "cpu", "compute_type": "int8"},
         "blocks": {
-            "task_extractor": {
-                "enabled": True,
-                "stage": "post"
-            },
-            "summary": {
-                "enabled": True,
-                "stage": "post"
-            },
-            "keyword_extractor": {
-                "enabled": True,
-                "stage": "post"
-            }
+            "task_extractor": {"enabled": True, "stage": "post"},
+            "summary": {"enabled": True, "stage": "post"},
+            "keyword_extractor": {"enabled": True, "stage": "post"},
         },
-        "vocabulary": {
-            "custom_corrections": {
-                "CENF": "zenf",
-                "Prompt": "prompt"
-            }
-        }
+        "vocabulary": {"custom_corrections": {"CENF": "zenf", "Prompt": "prompt"}},
     }
 
 
@@ -119,7 +101,7 @@ def mock_config_file(test_data_dir, mock_config):
         Path: Path to temporary config file
     """
     config_file = test_data_dir / "test_config.json"
-    with open(config_file, 'w', encoding='utf-8') as f:
+    with open(config_file, "w", encoding="utf-8") as f:
         json.dump(mock_config, f, indent=2, ensure_ascii=False)
 
     yield config_file
@@ -144,11 +126,9 @@ def mock_transcriber():
     transcriber.is_recording = False
 
     # Mock methods
-    transcriber.transcribe = Mock(return_value={
-        "text": "Este es un texto de prueba.",
-        "language": "es",
-        "duration": 1.5
-    })
+    transcriber.transcribe = Mock(
+        return_value={"text": "Este es un texto de prueba.", "language": "es", "duration": 1.5}
+    )
 
     transcriber.start_recording = Mock()
     transcriber.stop_recording = Mock()
@@ -174,8 +154,8 @@ def mock_groq_response():
             {"word": "una", "start": 0.4, "end": 0.6},
             {"word": "transcripción", "start": 0.6, "end": 1.2},
             {"word": "de", "start": 1.2, "end": 1.4},
-            {"word": "prueba", "start": 1.4, "end": 1.8}
-        ]
+            {"word": "prueba", "start": 1.4, "end": 1.8},
+        ],
     }
 
 
@@ -190,7 +170,7 @@ def mock_llm_response():
         "summary": "Resumen de prueba",
         "tasks": ["Tarea 1", "Tarea 2"],
         "keywords": ["palabra1", "palabra2"],
-        "category": "General"
+        "category": "General",
     }
 
 
@@ -222,7 +202,7 @@ Servicio: groq
 Texto:
 Esta es una transcripción de prueba para el sistema de testing.
 """
-    trans_file.write_text(content, encoding='utf-8')
+    trans_file.write_text(content, encoding="utf-8")
     return trans_file
 
 
@@ -244,11 +224,7 @@ def mock_hotkey_combination():
     Returns:
         dict: Mock hotkey combination
     """
-    return {
-        "key": "F5",
-        "modifiers": [],
-        "action": "start_stop_recording"
-    }
+    return {"key": "F5", "modifiers": [], "action": "start_stop_recording"}
 
 
 @pytest.fixture
@@ -266,26 +242,19 @@ def mock_metadata():
         "summary": "Resumen generado por LLM",
         "tasks": ["Revisar documentación", "Actualizar código"],
         "keywords": ["testing", "desarrollo"],
-        "category": "Desarrollo"
+        "category": "Desarrollo",
     }
 
 
 # Pytest hooks for custom configuration
 
+
 def pytest_configure(config):
     """Configure pytest with custom markers."""
-    config.addinivalue_line(
-        "markers", "unit: Unit tests (fast, isolated)"
-    )
-    config.addinivalue_line(
-        "markers", "integration: Integration tests (slower)"
-    )
-    config.addinivalue_line(
-        "markers", "slow: Slow tests (> 1 second)"
-    )
-    config.addinivalue_line(
-        "markers", "api: Tests requiring API access"
-    )
+    config.addinivalue_line("markers", "unit: Unit tests (fast, isolated)")
+    config.addinivalue_line("markers", "integration: Integration tests (slower)")
+    config.addinivalue_line("markers", "slow: Slow tests (> 1 second)")
+    config.addinivalue_line("markers", "api: Tests requiring API access")
 
 
 def pytest_collection_modifyitems(config, items):
@@ -293,5 +262,7 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         # Mark all tests in test_*.py files as unit tests by default
         if "test_" in item.fspath.basename:
-            if not any(mark.name in ["unit", "integration", "slow", "api"] for mark in item.iter_markers()):
+            if not any(
+                mark.name in ["unit", "integration", "slow", "api"] for mark in item.iter_markers()
+            ):
                 item.add_marker(pytest.mark.unit)

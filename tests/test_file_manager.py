@@ -43,7 +43,7 @@ class TestFileManagerInitialization:
             "max_audio_files": 100,
             "max_log_entries": 1000,
             "max_transcription_age_days": 30,
-            "auto_cleanup_enabled": True
+            "auto_cleanup_enabled": True,
         }.get(key, default)
         return config
 
@@ -59,7 +59,7 @@ class TestFileManagerInitialization:
             "max_audio_files": 5,
             "max_log_entries": 10,
             "max_transcription_age_days": 30,
-            "auto_cleanup_enabled": True
+            "auto_cleanup_enabled": True,
         }.get(key, default)
 
         return FileManager(mock_config)
@@ -91,7 +91,7 @@ class TestAudioFileOperations:
             "transcriptions_path": str(tmp_path / "transcriptions"),
             "save_audio": True,
             "max_audio_files": 5,
-            "auto_cleanup_enabled": False  # Disable for testing
+            "auto_cleanup_enabled": False,  # Disable for testing
         }.get(key, default)
 
         return FileManager(config)
@@ -105,7 +105,7 @@ class TestAudioFileOperations:
 
         assert filepath is not None
         assert os.path.exists(filepath)
-        assert filepath.endswith('.wav')
+        assert filepath.endswith(".wav")
 
     def test_save_audio_file_disabled(self, file_manager):
         """Test that audio is not saved when save_audio is False."""
@@ -123,6 +123,7 @@ class TestAudioFileOperations:
         audio_data = np.random.randint(-32768, 32767, size=16000, dtype=np.int16)
 
         import soundfile as sf
+
         sf.write(str(temp_file), audio_data, 16000)
 
         filepath = file_manager.save_audio_file_from_temp(str(temp_file))
@@ -159,7 +160,7 @@ class TestTranscriptionLogging:
             "audio_path": str(tmp_path / "audio"),
             "transcriptions_path": str(tmp_path / "transcriptions"),
             "save_logs": True,
-            "max_log_entries": 10
+            "max_log_entries": 10,
         }.get(key, default)
 
         return FileManager(config)
@@ -170,7 +171,7 @@ class TestTranscriptionLogging:
             "text": "Texto de prueba",
             "duration": 2.5,
             "language": "es",
-            "audio_file": "audio_test.wav"
+            "audio_file": "audio_test.wav",
         }
 
         file_manager.save_transcription_entry(transcription_data)
@@ -178,7 +179,7 @@ class TestTranscriptionLogging:
         log_file = os.path.join(file_manager.transcriptions_path, "transcriptions_log.jsonl")
         assert os.path.exists(log_file)
 
-        with open(log_file, 'r', encoding='utf-8') as f:
+        with open(log_file, "r", encoding="utf-8") as f:
             lines = f.readlines()
 
         assert len(lines) == 1
@@ -205,7 +206,7 @@ class TestTranscriptionLogging:
             entry = {"text": f"Entry {i}", "duration": 1.0}
             file_manager.save_transcription_entry(entry)
 
-        with open(log_file, 'r') as f:
+        with open(log_file, "r") as f:
             lines = f.readlines()
 
         # Should only have last 10 entries
@@ -225,7 +226,7 @@ class TestFileCleanup:
             "transcriptions_path": str(tmp_path / "transcriptions"),
             "max_audio_files": 3,
             "max_transcription_age_days": 30,
-            "auto_cleanup_enabled": True
+            "auto_cleanup_enabled": True,
         }.get(key, default)
 
         return FileManager(config)
@@ -234,6 +235,7 @@ class TestFileCleanup:
         """Test that audio file limit is maintained."""
         # Create 5 audio files (limit is 3)
         import soundfile as sf
+
         for i in range(5):
             audio_data = np.random.randint(-32768, 32767, size=16000, dtype=np.int16)
             filepath = os.path.join(file_manager.audio_path, f"audio_{i}.wav")
@@ -245,7 +247,7 @@ class TestFileCleanup:
         assert deleted == 2
 
         # Only 3 files should remain
-        remaining = [f for f in os.listdir(file_manager.audio_path) if f.endswith('.wav')]
+        remaining = [f for f in os.listdir(file_manager.audio_path) if f.endswith(".wav")]
         assert len(remaining) == 3
 
     def test_clean_old_audio_files(self, file_manager):
@@ -284,14 +286,14 @@ class TestFileCleanup:
         result = file_manager.clear_audio_files()
 
         assert result == True
-        remaining = [f for f in os.listdir(file_manager.audio_path) if f.endswith('.wav')]
+        remaining = [f for f in os.listdir(file_manager.audio_path) if f.endswith(".wav")]
         assert len(remaining) == 0
 
     def test_clear_transcriptions(self, file_manager):
         """Test clearing transcription log."""
         # Create log file
         log_file = os.path.join(file_manager.transcriptions_path, "transcriptions_log.jsonl")
-        with open(log_file, 'w') as f:
+        with open(log_file, "w") as f:
             f.write('{"text": "test"}\n')
 
         result = file_manager.clear_transcriptions()
@@ -310,7 +312,7 @@ class TestFileSizeCalculations:
         config = Mock()
         config.get.side_effect = lambda key, default=None: {
             "audio_path": str(tmp_path / "audio"),
-            "transcriptions_path": str(tmp_path / "transcriptions")
+            "transcriptions_path": str(tmp_path / "transcriptions"),
         }.get(key, default)
 
         return FileManager(config)
@@ -341,7 +343,7 @@ class TestFileSizeCalculations:
     def test_get_transcriptions_size_with_log(self, file_manager):
         """Test getting transcriptions size with log file."""
         log_file = os.path.join(file_manager.transcriptions_path, "transcriptions_log.jsonl")
-        with open(log_file, 'w') as f:
+        with open(log_file, "w") as f:
             f.write('{"text": "test"}\n' * 10)
 
         size = file_manager.get_transcriptions_size()
@@ -358,7 +360,7 @@ class TestAudioFileList:
         config = Mock()
         config.get.side_effect = lambda key, default=None: {
             "audio_path": str(tmp_path / "audio"),
-            "transcriptions_path": str(tmp_path / "transcriptions")
+            "transcriptions_path": str(tmp_path / "transcriptions"),
         }.get(key, default)
 
         return FileManager(config)
@@ -425,7 +427,7 @@ class TestPathHandling:
         config = Mock()
         config.get.side_effect = lambda key, default=None: {
             "audio_path": "./audio",
-            "transcriptions_path": "./transcriptions"
+            "transcriptions_path": "./transcriptions",
         }.get(key, default)
 
         manager = FileManager(config)
@@ -441,7 +443,7 @@ class TestPathHandling:
 
         config.get.side_effect = lambda key, default=None: {
             "audio_path": abs_audio,
-            "transcriptions_path": abs_trans
+            "transcriptions_path": abs_trans,
         }.get(key, default)
 
         manager = FileManager(config)

@@ -10,14 +10,14 @@ import sys
 import os
 
 # Agregar backend al path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from backend.blocks import (
     BlockManager,
     TaskExtractorBlock,
     SummaryBlock,
     KeywordExtractorBlock,
-    ProcessingStage
+    ProcessingStage,
 )
 
 
@@ -51,22 +51,22 @@ class TestTaskExtractorBlock:
 
         assert result.success == True
         assert len(result.data) > 0
-        assert any('reporte' in task['text'].lower() for task in result.data)
+        assert any("reporte" in task["text"].lower() for task in result.data)
 
     def test_extract_tasks_with_priority(self):
         """Test de extracción de tareas con prioridad."""
-        block = TaskExtractorBlock(config={'min_priority': 4})
+        block = TaskExtractorBlock(config={"min_priority": 4})
         text = "Tengo que hacer el reporte. Recordar llamar a Juan."
         result = block.process(text, ProcessingStage.TRANSCRIBED_TEXT)
 
         assert result.success == True
         # Todas las tareas deberían tener prioridad >= 4
         for task in result.data:
-            assert task['priority'] >= 4
+            assert task["priority"] >= 4
 
     def test_max_tasks_limit(self):
         """Test de límite máximo de tareas."""
-        block = TaskExtractorBlock(config={'max_tasks': 2})
+        block = TaskExtractorBlock(config={"max_tasks": 2})
         text = "Tengo que hacer A. Necesito hacer B. Hay que hacer C. Recordar D."
         result = block.process(text, ProcessingStage.TRANSCRIBED_TEXT)
 
@@ -98,7 +98,7 @@ class TestSummaryBlock:
 
     def test_generate_summary(self):
         """Test de generación de resumen."""
-        block = SummaryBlock(config={'max_sentences': 2, 'max_length': 200})
+        block = SummaryBlock(config={"max_sentences": 2, "max_length": 200})
         text = """
         Esta es la primera oración del texto. Es una oración importante que contiene
         información clave sobre el tema principal. Esta segunda oración es menos
@@ -119,7 +119,7 @@ class TestSummaryBlock:
         result = block.process(long_text, ProcessingStage.TRANSCRIBED_TEXT)
 
         assert result.success == True
-        assert result.metadata['compression_ratio'] < 1.0
+        assert result.metadata["compression_ratio"] < 1.0
         assert len(result.data) < len(long_text)
 
 
@@ -135,7 +135,7 @@ class TestKeywordExtractorBlock:
 
     def test_extract_keywords(self):
         """Test de extracción de palabras clave."""
-        block = KeywordExtractorBlock(config={'max_keywords': 5})
+        block = KeywordExtractorBlock(config={"max_keywords": 5})
         text = "La inteligencia artificial y el machine learning están transformando la tecnología. Python es importante para data science."
         result = block.process(text, ProcessingStage.TRANSCRIBED_TEXT)
 
@@ -151,19 +151,19 @@ class TestKeywordExtractorBlock:
 
         assert result.success == True
         # Debería haber clasificado algunas keywords
-        types = [kw['type'] for kw in result.data]
+        types = [kw["type"] for kw in result.data]
         assert len(types) > 0
 
     def test_min_length_filter(self):
         """Test de filtro de longitud mínima."""
-        block = KeywordExtractorBlock(config={'min_length': 5})
+        block = KeywordExtractorBlock(config={"min_length": 5})
         text = "AI y ML son importantes. Python es útil."
         result = block.process(text, ProcessingStage.TRANSCRIBED_TEXT)
 
         assert result.success == True
         # Todas las keywords deberían tener >= 5 caracteres
         for kw in result.data:
-            assert len(kw['keyword']) >= 5
+            assert len(kw["keyword"]) >= 5
 
 
 class TestBlockManager:
@@ -175,7 +175,7 @@ class TestBlockManager:
         block = TaskExtractorBlock()
 
         manager.register_block(block)
-        assert 'task_extractor' in manager.list_blocks()
+        assert "task_extractor" in manager.list_blocks()
 
     def test_duplicate_block_raises_error(self):
         """Test de error al registrar bloque duplicado."""
@@ -194,12 +194,12 @@ class TestBlockManager:
         manager.register_block(block)
 
         # Desactivar
-        assert manager.disable_block('task_extractor') == True
-        assert 'task_extractor' not in manager.list_blocks(enabled_only=True)
+        assert manager.disable_block("task_extractor") == True
+        assert "task_extractor" not in manager.list_blocks(enabled_only=True)
 
         # Activar
-        assert manager.enable_block('task_extractor') == True
-        assert 'task_extractor' in manager.list_blocks(enabled_only=True)
+        assert manager.enable_block("task_extractor") == True
+        assert "task_extractor" in manager.list_blocks(enabled_only=True)
 
     def test_process_pipeline(self):
         """Test de pipeline de procesamiento."""
@@ -207,7 +207,10 @@ class TestBlockManager:
         manager.register_block(TaskExtractorBlock())
         manager.register_block(SummaryBlock())
 
-        text = "Tengo que hacer el reporte. Este es un texto suficientemente largo para generar un resumen. " * 10
+        text = (
+            "Tengo que hacer el reporte. Este es un texto suficientemente largo para generar un resumen. "
+            * 10
+        )
         results = manager.process(text, ProcessingStage.TRANSCRIBED_TEXT)
 
         assert len(results) == 2  # TaskExtractor + Summary
@@ -220,8 +223,8 @@ class TestBlockManager:
         manager.register_block(block)
 
         stats = manager.get_stats()
-        assert 'task_extractor' in stats
-        assert stats['task_extractor']['enabled'] == True
+        assert "task_extractor" in stats
+        assert stats["task_extractor"]["enabled"] == True
 
 
 class TestIntegration:
@@ -230,9 +233,9 @@ class TestIntegration:
     def test_full_transcription_pipeline(self):
         """Test de pipeline completo de transcripción."""
         manager = BlockManager()
-        manager.register_block(TaskExtractorBlock(config={'max_tasks': 5}))
-        manager.register_block(SummaryBlock(config={'max_sentences': 2}))
-        manager.register_block(KeywordExtractorBlock(config={'max_keywords': 5}))
+        manager.register_block(TaskExtractorBlock(config={"max_tasks": 5}))
+        manager.register_block(SummaryBlock(config={"max_sentences": 2}))
+        manager.register_block(KeywordExtractorBlock(config={"max_keywords": 5}))
 
         # Simular transcripción
         transcription = """
@@ -278,5 +281,5 @@ class TestIntegration:
         assert isinstance(results, list)
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

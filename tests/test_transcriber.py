@@ -44,7 +44,7 @@ class TestTranscriberInitialization:
             "api_key": "test_key",
             "audio_priority_apps": [],
             "utf8_validation": True,
-            "blocks": {}
+            "blocks": {},
         }.get(key, default)
 
         sound_manager = Mock()
@@ -61,12 +61,12 @@ class TestTranscriberInitialization:
             "update_status_callback": update_status,
             "transcription_callback": transcription_callback,
             "localization_manager": localization_manager,
-            "overlay_callback": overlay_callback
+            "overlay_callback": overlay_callback,
         }
 
     def test_initialization(self, mock_dependencies):
         """Test Transcriber initialization with all dependencies."""
-        with patch('backend.transcriber.Groq'):
+        with patch("backend.transcriber.Groq"):
             transcriber = Transcriber(**mock_dependencies)
 
             assert transcriber.is_recording == False
@@ -81,13 +81,13 @@ class TestTranscriberInitialization:
     def test_initialization_with_overlay_callback(self, mock_dependencies):
         """Test that overlay callback is properly stored."""
         mock_dependencies["overlay_callback"] = Mock()
-        with patch('backend.transcriber.Groq'):
+        with patch("backend.transcriber.Groq"):
             transcriber = Transcriber(**mock_dependencies)
             assert transcriber.overlay_callback == mock_dependencies["overlay_callback"]
 
     def test_hotkey_thread_started(self, mock_dependencies):
         """Test that hotkey listener thread is started on initialization."""
-        with patch('backend.transcriber.Groq'):
+        with patch("backend.transcriber.Groq"):
             transcriber = Transcriber(**mock_dependencies)
             assert transcriber.hotkey_thread is not None
             assert transcriber.hotkey_thread.is_alive()
@@ -100,7 +100,7 @@ class TestTranscriberRecording:
     @pytest.fixture
     def transcriber(self, mock_dependencies):
         """Create a Transcriber instance for testing."""
-        with patch('backend.transcriber.Groq'):
+        with patch("backend.transcriber.Groq"):
             return Transcriber(**mock_dependencies)
 
     @pytest.fixture
@@ -116,7 +116,7 @@ class TestTranscriberRecording:
             "api_key": "test_key",
             "audio_priority_apps": [],
             "utf8_validation": True,
-            "blocks": {}
+            "blocks": {},
         }.get(key, default)
 
         return {
@@ -126,12 +126,12 @@ class TestTranscriberRecording:
             "update_status_callback": Mock(),
             "transcription_callback": Mock(),
             "localization_manager": Mock(),
-            "overlay_callback": Mock()
+            "overlay_callback": Mock(),
         }
 
     def test_start_recording(self, transcriber):
         """Test starting audio recording."""
-        with patch('backend.transcriber.sd.InputStream') as mock_stream:
+        with patch("backend.transcriber.sd.InputStream") as mock_stream:
             transcriber.start_recording()
 
             assert transcriber.is_recording == True
@@ -143,7 +143,7 @@ class TestTranscriberRecording:
         transcriber.is_recording = True
         transcriber.audio_data = [np.array([1, 2, 3])]
 
-        with patch('backend.transcriber.sf.write'):
+        with patch("backend.transcriber.sf.write"):
             transcriber.stop_recording()
 
             assert transcriber.is_recording == False
@@ -151,7 +151,7 @@ class TestTranscriberRecording:
 
     def test_double_start_recording(self, transcriber):
         """Test that double start recording is prevented."""
-        with patch('backend.transcriber.sd.InputStream'):
+        with patch("backend.transcriber.sd.InputStream"):
             transcriber.start_recording()
             transcriber.start_recording()  # Should not start again
 
@@ -166,7 +166,7 @@ class TestTranscriptionServices:
     @pytest.fixture
     def transcriber(self, mock_dependencies):
         """Create a Transcriber instance."""
-        with patch('backend.transcriber.Groq'):
+        with patch("backend.transcriber.Groq"):
             return Transcriber(**mock_dependencies)
 
     @pytest.fixture
@@ -182,7 +182,7 @@ class TestTranscriptionServices:
             "api_key": "test_key",
             "audio_priority_apps": [],
             "utf8_validation": True,
-            "blocks": {}
+            "blocks": {},
         }.get(key, default)
 
         return {
@@ -192,7 +192,7 @@ class TestTranscriptionServices:
             "update_status_callback": Mock(),
             "transcription_callback": Mock(),
             "localization_manager": Mock(),
-            "overlay_callback": Mock()
+            "overlay_callback": Mock(),
         }
 
     @pytest.fixture
@@ -200,15 +200,15 @@ class TestTranscriptionServices:
         """Create a temporary audio file."""
         import wave
 
-        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
             audio_path = f.name
 
         # Create WAV file
-        with wave.open(audio_path, 'wb') as wav_file:
+        with wave.open(audio_path, "wb") as wav_file:
             wav_file.setnchannels(1)
             wav_file.setsampwidth(2)
             wav_file.setframerate(16000)
-            silence = b'\x00\x00' * 16000
+            silence = b"\x00\x00" * 16000
             wav_file.writeframes(silence)
 
         yield audio_path
@@ -233,9 +233,7 @@ class TestTranscriptionServices:
 
     def test_transcribe_with_groq_error(self, transcriber, temp_audio_file):
         """Test Groq transcription error handling."""
-        transcriber.cliente.audio.transcriptions.create = Mock(
-            side_effect=Exception("API Error")
-        )
+        transcriber.cliente.audio.transcriptions.create = Mock(side_effect=Exception("API Error"))
 
         result = transcriber.transcribe_with_groq(temp_audio_file)
 
@@ -268,9 +266,9 @@ class TestTextValidation:
             "update_status_callback": Mock(),
             "transcription_callback": Mock(),
             "localization_manager": Mock(),
-            "overlay_callback": Mock()
+            "overlay_callback": Mock(),
         }
-        with patch('backend.transcriber.Groq'):
+        with patch("backend.transcriber.Groq"):
             return Transcriber(**mock_deps)
 
     def test_validate_text_valid(self, transcriber):
@@ -319,9 +317,9 @@ class TestBlockProcessing:
             "update_status_callback": Mock(),
             "transcription_callback": Mock(),
             "localization_manager": Mock(),
-            "overlay_callback": Mock()
+            "overlay_callback": Mock(),
         }
-        with patch('backend.transcriber.Groq'):
+        with patch("backend.transcriber.Groq"):
             return Transcriber(**mock_deps)
 
     def test_process_with_blocks_enabled(self, transcriber):
@@ -347,7 +345,7 @@ class TestBlockProcessing:
         """Test getting block results."""
         mock_results = [
             {"block": "task_extractor", "result": ["Tarea 1"]},
-            {"block": "summary", "result": "Resumen"}
+            {"block": "summary", "result": "Resumen"},
         ]
         transcriber.block_manager.get_results = Mock(return_value=mock_results)
 
@@ -357,11 +355,7 @@ class TestBlockProcessing:
 
     def test_get_block_stats(self, transcriber):
         """Test getting block statistics."""
-        mock_stats = {
-            "total_blocks": 3,
-            "enabled_blocks": 2,
-            "executed_blocks": 2
-        }
+        mock_stats = {"total_blocks": 3, "enabled_blocks": 2, "executed_blocks": 2}
         transcriber.block_manager.get_stats = Mock(return_value=mock_stats)
 
         stats = transcriber.get_block_stats()
@@ -377,14 +371,16 @@ class TestHotkeyManagement:
     def transcriber(self):
         """Create a Transcriber instance."""
         config_manager = Mock()
-        config_manager.get = Mock(side_effect=lambda k, d=None: {
-            "hotkey": "F5",
-            "record_mode": "toggle",
-            "api_key": "test",
-            "audio_priority_apps": [],
-            "utf8_validation": True,
-            "blocks": {}
-        }.get(k, d))
+        config_manager.get = Mock(
+            side_effect=lambda k, d=None: {
+                "hotkey": "F5",
+                "record_mode": "toggle",
+                "api_key": "test",
+                "audio_priority_apps": [],
+                "utf8_validation": True,
+                "blocks": {},
+            }.get(k, d)
+        )
 
         mock_deps = {
             "config_manager": config_manager,
@@ -393,9 +389,9 @@ class TestHotkeyManagement:
             "update_status_callback": Mock(),
             "transcription_callback": Mock(),
             "localization_manager": Mock(),
-            "overlay_callback": Mock()
+            "overlay_callback": Mock(),
         }
-        with patch('backend.transcriber.Groq'):
+        with patch("backend.transcriber.Groq"):
             return Transcriber(**mock_deps)
 
     def test_update_hotkey(self, transcriber):
@@ -420,9 +416,9 @@ class TestUTF8Validation:
             "update_status_callback": Mock(),
             "transcription_callback": Mock(),
             "localization_manager": Mock(),
-            "overlay_callback": Mock()
+            "overlay_callback": Mock(),
         }
-        with patch('backend.transcriber.Groq'):
+        with patch("backend.transcriber.Groq"):
             return Transcriber(**mock_deps)
 
     def test_validate_transcription_utf8_valid(self, transcriber):
@@ -462,9 +458,9 @@ class TestBlockManagement:
             "update_status_callback": Mock(),
             "transcription_callback": Mock(),
             "localization_manager": Mock(),
-            "overlay_callback": Mock()
+            "overlay_callback": Mock(),
         }
-        with patch('backend.transcriber.Groq'):
+        with patch("backend.transcriber.Groq"):
             return Transcriber(**mock_deps)
 
     def test_enable_block(self, transcriber):
@@ -496,14 +492,16 @@ class TestClientManagement:
     def transcriber(self):
         """Create a Transcriber instance."""
         config_manager = Mock()
-        config_manager.get = Mock(side_effect=lambda k, d=None: {
-            "hotkey": "F5",
-            "record_mode": "toggle",
-            "api_key": "test_key",
-            "audio_priority_apps": [],
-            "utf8_validation": True,
-            "blocks": {}
-        }.get(k, d))
+        config_manager.get = Mock(
+            side_effect=lambda k, d=None: {
+                "hotkey": "F5",
+                "record_mode": "toggle",
+                "api_key": "test_key",
+                "audio_priority_apps": [],
+                "utf8_validation": True,
+                "blocks": {},
+            }.get(k, d)
+        )
 
         mock_deps = {
             "config_manager": config_manager,
@@ -512,14 +510,14 @@ class TestClientManagement:
             "update_status_callback": Mock(),
             "transcription_callback": Mock(),
             "localization_manager": Mock(),
-            "overlay_callback": Mock()
+            "overlay_callback": Mock(),
         }
-        with patch('backend.transcriber.Groq'):
+        with patch("backend.transcriber.Groq"):
             return Transcriber(**mock_deps)
 
     def test_reload_client(self, transcriber):
         """Test reloading Groq client."""
-        with patch('backend.transcriber.Groq') as mock_groq:
+        with patch("backend.transcriber.Groq") as mock_groq:
             transcriber.reload_client()
 
             assert mock_groq.called
