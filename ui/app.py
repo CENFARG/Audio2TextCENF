@@ -129,17 +129,32 @@ class App(ctk.CTk):
 
         self.config_manager = config_manager if config_manager else ConfigManager(config_file="config.json")
         self.localization_manager = self.config_manager.localization_manager # Usa la instancia de localization_manager de config_manager
-        self.title(self.localization_manager.get_string("app_title"))
-        self.geometry("500x400")  # Reducido de 550 a 400
-        self.minsize(400, 350)  # Reducido de 450x450 a 400x350
+        # Título dinámico con versión desde config (no depende de lang files)
+        _version = self.config_manager.get("app_version", "0.0.0")
+        self.title(f"Audio2Text CENF v{_version}")
+        self.geometry("650x550")  # Aumentado para mejor visibilidad de configuración
+        self.minsize(500, 450)  # Mínimo aumentado
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
         
-        try: 
-            self.iconbitmap("icono.ico")
-            self.logger.info("Icono 'icono.ico' cargado exitosamente.")
-        except Exception: # TclError or others
-            print("No se pudo cargar 'icono.ico'") # Keep print for immediate console visibility
-            self.logger.warning("No se pudo cargar 'icono.ico'.")
+        try:
+            # Buscar icono en múltiples ubicaciones
+            import os
+            _icon_paths = [
+                "icono.ico",
+                os.path.join("assets", "icons", "icono.ico"),
+                os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "icons", "icono.ico"),
+            ]
+            _icon_loaded = False
+            for _ip in _icon_paths:
+                if os.path.exists(_ip):
+                    self.iconbitmap(_ip)
+                    self.logger.info(f"Icono cargado desde: {_ip}")
+                    _icon_loaded = True
+                    break
+            if not _icon_loaded:
+                self.logger.warning("No se encontró icono.ico en ninguna ubicación.")
+        except Exception as e:
+            self.logger.warning(f"Error cargando icono: {e}")
 
         self.sound_manager = SoundManager()
         self.file_manager = FileManager(self.config_manager)
@@ -358,18 +373,53 @@ class App(ctk.CTk):
         faster_whisper_info = ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("faster_whisper_info"), text_color="gray", font=("Roboto", 10))
         faster_whisper_info.grid(row=6, column=0, columnspan=3, padx=10, pady=0, sticky="w")
 
-        # Hotkey (v0.13.0 - Ahora con modificadores)
+        # Hotkey (v0.14.0 - Selector inline en config)
         ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("hotkey_label")).grid(row=7, column=0, padx=10, pady=5, sticky="w")
 
-        # Botón para abrir selector de hotkey
+        # Parsear hotkey actual
         current_hotkey = self.config_manager.get('hotkey', default='f12')
-        self.hotkey_display_button = ctk.CTkButton(
-            main_conf_frame,
-            text=current_hotkey.upper(),
-            width=100,
-            command=self._open_hotkey_selector
+        from backend.hotkey_manager import HotkeyManager
+        hm = HotkeyManager()
+        parsed = hm.parse_hotkey_string(current_hotkey)
+
+        # Frame para hotkey selector inline
+        hotkey_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
+        hotkey_frame.grid(row=7, column=1, columnspan=2, padx=5, pady=5, sticky="ew")
+
+        # Modificadores (checkboxes)
+        self.hotkey_ctrl_var = tk.BooleanVar(value="ctrl" in parsed.modifiers)
+        self.hotkey_alt_var = tk.BooleanVar(value="alt" in parsed.modifiers)
+        self.hotkey_shift_var = tk.BooleanVar(value="shift" in parsed.modifiers)
+
+        ctk.CTkCheckBox(hotkey_frame, text="Ctrl", variable=self.hotkey_ctrl_var, command=self._update_hotkey_from_inline).grid(row=0, column=0, padx=2)
+        ctk.CTkCheckBox(hotkey_frame, text="Alt", variable=self.hotkey_alt_var, command=self._update_hotkey_from_inline).grid(row=0, column=1, padx=2)
+        ctk.CTkCheckBox(hotkey_frame, text="Shift", variable=self.hotkey_shift_var, command=self._update_hotkey_from_inline).grid(row=0, column=2, padx=2)
+
+        # Tecla principal (dropdown con F1-F12 y A-Z)
+        self.hotkey_key_var = tk.StringVar(value=parsed.key.upper())
+
+        # Crear optionmenu con todas las teclas
+        all_keys = [f"F{i}" for i in range(1, 13)] + [chr(ord('A') + i) for i in range(26)]
+        self.hotkey_dropdown = ctk.CTkOptionMenu(
+            hotkey_frame,
+            variable=self.hotkey_key_var,
+            values=all_keys,
+            command=lambda x: self._update_hotkey_from_inline(),
+            width=80
         )
-        self.hotkey_display_button.grid(row=7, column=1, padx=5, pady=5, sticky="ew")
+        self.hotkey_dropdown.grid(row=0, column=3, padx=(10, 0))
+
+        # Preview del hotkey completo
+        self.hotkey_preview_label = ctk.CTkLabel(
+            hotkey_frame,
+            text=current_hotkey.upper(),
+            font=ctk.CTkFont(size=14, weight="bold"),
+            fg_color="#1E293B",
+            corner_radius=5,
+            width=120,
+            height=28
+        )
+        self.hotkey_preview_label.grid(row=0, column=4, padx=(10, 0))
         record_hotkey_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("record_hotkey_button"), width=70, command=self._start_hotkey_recording)
         record_hotkey_btn.grid(row=3, column=2, padx=(0,10), pady=5)
 
@@ -380,6 +430,16 @@ class App(ctk.CTk):
         record_mode_frame.grid(row=8, column=1, columnspan=2, padx=5, pady=5, sticky="w")
         ctk.CTkRadioButton(record_mode_frame, text=self.localization_manager.get_string("record_mode_hold"), variable=self.record_mode_var, value="hold", command=self.save_config).grid(row=0, column=0, padx=5, sticky="w")
         ctk.CTkRadioButton(record_mode_frame, text=self.localization_manager.get_string("record_mode_toggle"), variable=self.record_mode_var, value="toggle", command=self.save_config).grid(row=0, column=1, padx=10, sticky="w")
+
+        # Max Recording Duration
+        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("max_duration_label")).grid(row=9, column=0, padx=10, pady=5, sticky="w")
+        current_duration = self.config_manager.get("max_recording_time", 300)
+        duration_options = {"5 min": 300, "10 min": 600, "15 min": 900, "20 min": 1200}
+        reverse_map = {v: k for k, v in duration_options.items()}
+        current_label = reverse_map.get(current_duration, "5 min")
+        self.max_duration_var = tk.StringVar(value=current_label)
+        duration_combo = ctk.CTkComboBox(main_conf_frame, values=list(duration_options.keys()), variable=self.max_duration_var, state="readonly", width=120, command=lambda e: self.save_config())
+        duration_combo.grid(row=9, column=1, padx=5, pady=5, sticky="w")
 
         # Auto-paste & Show panel
         self.auto_paste_var = tk.BooleanVar(value=self.config_manager.get("auto_paste_text"))
@@ -435,27 +495,23 @@ class App(ctk.CTk):
         # ctk.CTkLabel(files_frame, text=self.localization_manager.get_string("client_logo_label")...
 
         # --- Blocks Configuration Frame (v0.11.0) ---
-        blocks_frame = ctk.CTkFrame(scroll_frame)
-        blocks_frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
-        blocks_frame.grid_columnconfigure(1, weight=1)
-
-        ctk.CTkLabel(blocks_frame, text="Bloques de Procesamiento (v0.11.0)", font=DesignSystem.TYPOGRAPHY["heading_medium"]).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
-
-        # Task Extractor Block
-        self.block_task_enabled_var = tk.BooleanVar(value=self.config_manager.get("blocks", {}).get("task_extractor_enabled", True))
-        ctk.CTkSwitch(blocks_frame, text="Extractor de Tareas", variable=self.block_task_enabled_var, command=self.save_config).grid(row=1, column=0, columnspan=3, padx=10, pady=5, sticky="w")
-
-        # Summary Block
-        self.block_summary_enabled_var = tk.BooleanVar(value=self.config_manager.get("blocks", {}).get("summary_enabled", True))
-        ctk.CTkSwitch(blocks_frame, text="Generar Resúmenes", variable=self.block_summary_enabled_var, command=self.save_config).grid(row=2, column=0, columnspan=3, padx=10, pady=5, sticky="w")
-
-        # Keyword Extractor Block
-        self.block_keyword_enabled_var = tk.BooleanVar(value=self.config_manager.get("blocks", {}).get("keyword_extractor_enabled", True))
-        ctk.CTkSwitch(blocks_frame, text="Extractor de Palabras Clave", variable=self.block_keyword_enabled_var, command=self.save_config).grid(row=3, column=0, columnspan=3, padx=10, pady=5, sticky="w")
-
-        # Botón para ver estadísticas de bloques
-        block_stats_btn = ctk.CTkButton(blocks_frame, text="Ver Estadísticas de Bloques", width=150, command=self._show_block_stats)
-        block_stats_btn.grid(row=4, column=0, columnspan=3, padx=10, pady=10, sticky="w")
+        # OCULTO v0.14.0 - Bloques desactivados por completo
+        # blocks_frame = ctk.CTkFrame(scroll_frame)
+        # blocks_frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
+        # blocks_frame.grid_columnconfigure(1, weight=1)
+        # ctk.CTkLabel(blocks_frame, text="Bloques de Procesamiento (v0.11.0)", font=DesignSystem.TYPOGRAPHY["heading_medium"]).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        # self.block_task_enabled_var = tk.BooleanVar(value=self.config_manager.get("blocks", {}).get("task_extractor_enabled", True))
+        # ctk.CTkSwitch(blocks_frame, text="Extractor de Tareas", variable=self.block_task_enabled_var, command=self.save_config).grid(row=1, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        # self.block_summary_enabled_var = tk.BooleanVar(value=self.config_manager.get("blocks", {}).get("summary_enabled", True))
+        # ctk.CTkSwitch(blocks_frame, text="Generar Resúmenes", variable=self.block_summary_enabled_var, command=self.save_config).grid(row=2, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        # self.block_keyword_enabled_var = tk.BooleanVar(value=self.config_manager.get("blocks", {}).get("keyword_extractor_enabled", True))
+        # ctk.CTkSwitch(blocks_frame, text="Extractor de Palabras Clave", variable=self.block_keyword_enabled_var, command=self.save_config).grid(row=3, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        # block_stats_btn = ctk.CTkButton(blocks_frame, text="Ver Estadísticas de Bloques", width=150, command=self._show_block_stats)
+        # block_stats_btn.grid(row=4, column=0, columnspan=3, padx=10, pady=10, sticky="w")
+        # Dummy vars para save_config (bloques siempre desactivados)
+        self.block_task_enabled_var = tk.BooleanVar(value=False)
+        self.block_summary_enabled_var = tk.BooleanVar(value=False)
+        self.block_keyword_enabled_var = tk.BooleanVar(value=False)
 
         # --- Vocabulary Corrections Frame (v0.11.0) ---
         vocab_frame = ctk.CTkFrame(scroll_frame)
@@ -862,6 +918,43 @@ class App(ctk.CTk):
         except Exception as e:
             self.logger.error(f"Error re-registrando hotkey: {e}")
 
+    def _update_hotkey_from_inline(self):
+        """Actualizar hotkey desde el selector inline en config"""
+        try:
+            # Leer modificadores
+            modifiers = []
+            if self.hotkey_ctrl_var.get():
+                modifiers.append("ctrl")
+            if self.hotkey_alt_var.get():
+                modifiers.append("alt")
+            if self.hotkey_shift_var.get():
+                modifiers.append("shift")
+
+            # Leer tecla principal
+            key = self.hotkey_key_var.get().lower()
+
+            # Construir hotkey string
+            modifier_str = "+".join(modifiers)
+            if modifier_str:
+                new_hotkey = f"{modifier_str}+{key}"
+            else:
+                new_hotkey = key
+
+            # Actualizar preview
+            self.hotkey_preview_label.configure(text=new_hotkey.upper())
+
+            # Guardar en config
+            self.config_manager.config["hotkey"] = new_hotkey
+            self.config_manager.save_config()
+
+            # Re-registrar hotkey
+            self._reregister_hotkey(new_hotkey)
+
+            self.logger.info(f"Hotkey actualizado: {new_hotkey}")
+
+        except Exception as e:
+            self.logger.error(f"Error actualizando hotkey: {e}")
+
     def _play_audio_file(self, file_path, button):
         """Reproducir archivo de audio con toggle play/stop"""
         # Si ya está reproduciendo este archivo, detener
@@ -988,33 +1081,10 @@ class App(ctk.CTk):
         tab = self.main_frame.tab(self.localization_manager.get_string("tab_info"))
         tab.grid_rowconfigure(0, weight=1)
         tab.grid_columnconfigure(0, weight=1)
-        
-        try:
-            from tkhtmlview import HTMLScrolledText
-            
-            # Cargar template HTML
-            html_path = "info_template.html"
-            if getattr(sys, 'frozen', False):
-                html_path = os.path.join(sys._MEIPASS, "info_template.html")
-            
-            if os.path.exists(html_path):
-                with open(html_path, 'r', encoding='utf-8') as f:
-                    html_content = f.read()
-                
-                # Reemplazar placeholder de versión
-                html_content = html_content.replace("{version}", self.config_manager.get("app_version"))
-                
-                # Crear visor HTML
-                html_view = HTMLScrolledText(tab, html=html_content)
-                html_view.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-            else:
-                # Fallback si no se encuentra el HTML
-                self._create_info_tab_fallback(tab)
-                
-        except ImportError:
-            self.logger.warning("tkhtmlview no disponible, usando fallback")
-            self._create_info_tab_fallback(tab)
-        
+
+        # Usar directamente fallback de CustomTkinter (tkhtmlview tiene problemas de renderizado)
+        self._create_info_tab_fallback(tab)
+
         self.logger.debug("Pestaña 'Información' creada.")
     
     def _create_info_tab_fallback(self, tab):
@@ -1325,6 +1395,9 @@ class App(ctk.CTk):
             self.save_config()
 
     def save_config(self, event=None):
+        # Guard: no guardar si las variables UI aún no están inicializadas
+        if not hasattr(self, 'hotkey_var') or not hasattr(self, 'api_key_var'):
+            return
         self.logger.info("Guardando configuración...")
         old_lang = self.config_manager.get("default_language")
         old_show_panel = self.config_manager.get("show_transcription_panel")
@@ -1343,6 +1416,7 @@ class App(ctk.CTk):
             "faster_whisper_device": self.faster_whisper_device_var.get(),
             "hotkey": self.hotkey_var.get(),
             "record_mode": self.record_mode_var.get(),
+            "max_recording_time": {"5 min": 300, "10 min": 600, "15 min": 900, "20 min": 1200}.get(self.max_duration_var.get() if hasattr(self, "max_duration_var") else "5 min", 300),
             "auto_paste_text": self.auto_paste_var.get(), "show_transcription_panel": self.show_panel_var.get(),
             "audio_path": self.audio_path_var.get(), "transcriptions_path": self.transcriptions_path_var.get(),
             "save_audio": self.save_audio_var.get(), "save_logs": self.save_logs_var.get(),
@@ -1419,14 +1493,20 @@ class App(ctk.CTk):
         self.after(0, self._update_status_on_main_thread, message, color)
 
     def _safe_display_transcription_on_main_thread(self, text):
-        self.logger.info(f"Mostrando transcripción (truncada): {text[:100]}...")
+        self.logger.info(f"Mostrando transcripcion (truncada): {text[:100]}...")
         if self.config_manager.get("show_transcription_panel") and self.transcription_textbox:
             self.transcription_textbox.delete("1.0", "end")
             self.transcription_textbox.insert("1.0", text)
+
+            # Mostrar resultados de bloques si existen
+            if hasattr(self, "transcriber") and hasattr(self.transcriber, "last_block_display"):
+                block_display = self.transcriber.last_block_display
+                if block_display:
+                    self.transcription_textbox.insert("end", block_display)
+
         pyperclip.copy(text)
         if self.config_manager.get("auto_paste_text"):
-            self.logger.info("Auto-pegando transcripción.")
-            # Pequeño delay para asegurar que el portapapeles esté listo
+            self.logger.info("Auto-pegando transcripcion.")
             import time
             time.sleep(0.1)
             pyautogui.hotkey('ctrl', 'v')
