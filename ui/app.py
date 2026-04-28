@@ -1609,12 +1609,16 @@ class App(ctk.CTk):
         # Solo guardar geometry periódicamente (debounce simple)
         # El evento <Configure> se dispara muchas veces durante redimensionado
         # Guardamos solo cuando el usuario termina de redimensionar (event.width != 1)
-        if hasattr(self, '_last_resize_time'):
+        if not hasattr(self, '_last_resize_time'):
             import time
-            current_time = time.time()
-            if current_time - self._last_resize_time < 0.5:  # Debounce de 500ms
-                return
-        self._last_resize_time = time.time()
+            self._last_resize_time = 0
+            return
+
+        import time
+        current_time = time.time()
+        if current_time - self._last_resize_time < 0.5:  # Debounce de 500ms
+            return
+        self._last_resize_time = current_time
 
         # Guardar geometry actual
         try:
