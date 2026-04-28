@@ -135,7 +135,13 @@ class App(ctk.CTk):
         self.geometry("650x550")  # Aumentado para mejor visibilidad de configuración
         self.minsize(500, 450)  # Mínimo aumentado
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
-        
+
+        # Cargar geometry guardada v0.14.0
+        self._load_window_geometry()
+
+        # Bind para guardar geometry cuando se redimensiona
+        self.bind('<Configure>', self._on_window_resize)
+
         try:
             # Buscar icono en múltiples ubicaciones
             import os
@@ -373,7 +379,7 @@ class App(ctk.CTk):
         faster_whisper_info = ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("faster_whisper_info"), text_color="gray", font=("Roboto", 10))
         faster_whisper_info.grid(row=6, column=0, columnspan=3, padx=10, pady=0, sticky="w")
 
-        # Hotkey (v0.14.0 - Selector inline en config)
+        # Hotkey (v0.14.0 - Selector inline compacto)
         ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("hotkey_label")).grid(row=7, column=0, padx=10, pady=5, sticky="w")
 
         # Parsear hotkey actual
@@ -382,46 +388,43 @@ class App(ctk.CTk):
         hm = HotkeyManager()
         parsed = hm.parse_hotkey_string(current_hotkey)
 
-        # Frame para hotkey selector inline - USAR PACK en lugar de GRID para mejor layout
-        hotkey_container = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
-        hotkey_container.grid(row=7, column=1, columnspan=2, padx=5, pady=5, sticky="ew")
+        # Frame compacto para hotkey selector - GRID interno mejor control
+        hotkey_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
+        hotkey_frame.grid(row=7, column=1, columnspan=2, padx=2, pady=2, sticky="ew")
 
-        # Modificadores (checkboxes) - en fila horizontal
-        modifiers_frame = ctk.CTkFrame(hotkey_container, fg_color="transparent")
-        modifiers_frame.pack(side="left", padx=(0, 10))
-
+        # Fila 1: Modificadores (checkboxes compactos)
         self.hotkey_ctrl_var = tk.BooleanVar(value="ctrl" in parsed.modifiers)
         self.hotkey_alt_var = tk.BooleanVar(value="alt" in parsed.modifiers)
         self.hotkey_shift_var = tk.BooleanVar(value="shift" in parsed.modifiers)
 
-        ctk.CTkCheckBox(modifiers_frame, text="Ctrl", variable=self.hotkey_ctrl_var, command=self._update_hotkey_from_inline).pack(side="left", padx=2)
-        ctk.CTkCheckBox(modifiers_frame, text="Alt", variable=self.hotkey_alt_var, command=self._update_hotkey_from_inline).pack(side="left", padx=2)
-        ctk.CTkCheckBox(modifiers_frame, text="Shift", variable=self.hotkey_shift_var, command=self._update_hotkey_from_inline).pack(side="left", padx=2)
+        ctk.CTkCheckBox(hotkey_frame, text="Ctrl", variable=self.hotkey_ctrl_var, command=self._update_hotkey_from_inline, width=50).grid(row=0, column=0, padx=1)
+        ctk.CTkCheckBox(hotkey_frame, text="Alt", variable=self.hotkey_alt_var, command=self._update_hotkey_from_inline, width=50).grid(row=0, column=1, padx=1)
+        ctk.CTkCheckBox(hotkey_frame, text="Shift", variable=self.hotkey_shift_var, command=self._update_hotkey_from_inline, width=50).grid(row=0, column=2, padx=1)
 
-        # Tecla principal (dropdown compacto)
+        # Fila 2: Tecla principal + Preview
         self.hotkey_key_var = tk.StringVar(value=parsed.key.upper())
         all_keys = [f"F{i}" for i in range(1, 13)] + [chr(ord('A') + i) for i in range(26)]
 
         self.hotkey_dropdown = ctk.CTkOptionMenu(
-            hotkey_container,
+            hotkey_frame,
             variable=self.hotkey_key_var,
             values=all_keys,
             command=lambda x: self._update_hotkey_from_inline(),
-            width=70
+            width=60
         )
-        self.hotkey_dropdown.pack(side="left", padx=(0, 10))
+        self.hotkey_dropdown.grid(row=1, column=0, columnspan=2, padx=1, pady=(3,0), sticky="w")
 
-        # Preview del hotkey completo
+        # Preview compacto
         self.hotkey_preview_label = ctk.CTkLabel(
-            hotkey_container,
+            hotkey_frame,
             text=current_hotkey.upper(),
-            font=ctk.CTkFont(size=13, weight="bold"),
+            font=ctk.CTkFont(size=12, weight="bold"),
             fg_color="#1E293B",
-            corner_radius=5,
-            width=100,
-            height=28
+            corner_radius=4,
+            width=70,
+            height=24
         )
-        self.hotkey_preview_label.pack(side="left")
+        self.hotkey_preview_label.grid(row=1, column=2, padx=(3,0), pady=(3,0))
 
         # OCULTO v0.14.0: Botón "grabar hotkey" eliminado (no tiene sentido con selector inline)
         # record_hotkey_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("record_hotkey_button"), width=70, command=self._start_hotkey_recording)
@@ -1575,7 +1578,51 @@ class App(ctk.CTk):
 
     def on_closing(self):
         self.logger.info("Cerrando aplicación por completo.")
+        # Guardar geometry de la ventana antes de cerrar v0.14.0
+        self._save_window_geometry()
         self.quit_application()
+
+    def _save_window_geometry(self):
+        """Guardar tamaño y posición de la ventana"""
+        try:
+            geometry = self.geometry()  # Formato: "widthxheight+x+y"
+            self.config_manager.config["window_geometry"] = geometry
+            self.config_manager.save_config()
+            self.logger.debug(f"Geometry guardada: {geometry}")
+        except Exception as e:
+            self.logger.warning(f"No se pudo guardar geometry: {e}")
+
+    def _load_window_geometry(self):
+        """Cargar tamaño y posición de la ventana guardada"""
+        try:
+            saved_geometry = self.config_manager.get("window_geometry")
+            if saved_geometry:
+                self.geometry(saved_geometry)
+                self.logger.debug(f"Geometry restaurada: {saved_geometry}")
+        except Exception as e:
+            self.logger.warning(f"No se pudo restaurar geometry: {e}")
+            # Usar geometry por defecto
+            self.geometry("650x550")
+
+    def _on_window_resize(self, event):
+        """Manejar evento de redimensionado de ventana"""
+        # Solo guardar geometry periódicamente (debounce simple)
+        # El evento <Configure> se dispara muchas veces durante redimensionado
+        # Guardamos solo cuando el usuario termina de redimensionar (event.width != 1)
+        if hasattr(self, '_last_resize_time'):
+            import time
+            current_time = time.time()
+            if current_time - self._last_resize_time < 0.5:  # Debounce de 500ms
+                return
+        self._last_resize_time = time.time()
+
+        # Guardar geometry actual
+        try:
+            geometry = self.geometry()
+            self.config_manager.config["window_geometry"] = geometry
+            # No guardar config aquí para no saturar disco, se guarda en on_closing
+        except:
+            pass
 
     def show_system_tray(self):
         self.logger.debug("Mostrando icono en la bandeja del sistema.")
