@@ -947,8 +947,14 @@ class App(ctk.CTk):
             self.config_manager.config["hotkey"] = new_hotkey
             self.config_manager.save_config()
 
-            # Re-registrar hotkey
-            self._reregister_hotkey(new_hotkey)
+            # Re-registrar hotkey en el Transcriber (no en la UI)
+            self.transcriber.update_hotkey(new_hotkey)
+
+            # Actualizar display label en status bar si existe
+            if hasattr(self, 'hotkey_display_label'):
+                self.hotkey_display_label.configure(
+                    text=self.localization_manager.get_string("hotkey_display", hotkey=new_hotkey.upper())
+                )
 
             self.logger.info(f"Hotkey actualizado: {new_hotkey}")
 
