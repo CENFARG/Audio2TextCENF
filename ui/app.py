@@ -382,46 +382,50 @@ class App(ctk.CTk):
         hm = HotkeyManager()
         parsed = hm.parse_hotkey_string(current_hotkey)
 
-        # Frame para hotkey selector inline
-        hotkey_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
-        hotkey_frame.grid(row=7, column=1, columnspan=2, padx=5, pady=5, sticky="ew")
+        # Frame para hotkey selector inline - USAR PACK en lugar de GRID para mejor layout
+        hotkey_container = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
+        hotkey_container.grid(row=7, column=1, columnspan=2, padx=5, pady=5, sticky="ew")
 
-        # Modificadores (checkboxes)
+        # Modificadores (checkboxes) - en fila horizontal
+        modifiers_frame = ctk.CTkFrame(hotkey_container, fg_color="transparent")
+        modifiers_frame.pack(side="left", padx=(0, 10))
+
         self.hotkey_ctrl_var = tk.BooleanVar(value="ctrl" in parsed.modifiers)
         self.hotkey_alt_var = tk.BooleanVar(value="alt" in parsed.modifiers)
         self.hotkey_shift_var = tk.BooleanVar(value="shift" in parsed.modifiers)
 
-        ctk.CTkCheckBox(hotkey_frame, text="Ctrl", variable=self.hotkey_ctrl_var, command=self._update_hotkey_from_inline).grid(row=0, column=0, padx=2)
-        ctk.CTkCheckBox(hotkey_frame, text="Alt", variable=self.hotkey_alt_var, command=self._update_hotkey_from_inline).grid(row=0, column=1, padx=2)
-        ctk.CTkCheckBox(hotkey_frame, text="Shift", variable=self.hotkey_shift_var, command=self._update_hotkey_from_inline).grid(row=0, column=2, padx=2)
+        ctk.CTkCheckBox(modifiers_frame, text="Ctrl", variable=self.hotkey_ctrl_var, command=self._update_hotkey_from_inline).pack(side="left", padx=2)
+        ctk.CTkCheckBox(modifiers_frame, text="Alt", variable=self.hotkey_alt_var, command=self._update_hotkey_from_inline).pack(side="left", padx=2)
+        ctk.CTkCheckBox(modifiers_frame, text="Shift", variable=self.hotkey_shift_var, command=self._update_hotkey_from_inline).pack(side="left", padx=2)
 
-        # Tecla principal (dropdown con F1-F12 y A-Z)
+        # Tecla principal (dropdown compacto)
         self.hotkey_key_var = tk.StringVar(value=parsed.key.upper())
-
-        # Crear optionmenu con todas las teclas
         all_keys = [f"F{i}" for i in range(1, 13)] + [chr(ord('A') + i) for i in range(26)]
+
         self.hotkey_dropdown = ctk.CTkOptionMenu(
-            hotkey_frame,
+            hotkey_container,
             variable=self.hotkey_key_var,
             values=all_keys,
             command=lambda x: self._update_hotkey_from_inline(),
-            width=80
+            width=70
         )
-        self.hotkey_dropdown.grid(row=0, column=3, padx=(10, 0))
+        self.hotkey_dropdown.pack(side="left", padx=(0, 10))
 
         # Preview del hotkey completo
         self.hotkey_preview_label = ctk.CTkLabel(
-            hotkey_frame,
+            hotkey_container,
             text=current_hotkey.upper(),
-            font=ctk.CTkFont(size=14, weight="bold"),
+            font=ctk.CTkFont(size=13, weight="bold"),
             fg_color="#1E293B",
             corner_radius=5,
-            width=120,
+            width=100,
             height=28
         )
-        self.hotkey_preview_label.grid(row=0, column=4, padx=(10, 0))
-        record_hotkey_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("record_hotkey_button"), width=70, command=self._start_hotkey_recording)
-        record_hotkey_btn.grid(row=3, column=2, padx=(0,10), pady=5)
+        self.hotkey_preview_label.pack(side="left")
+
+        # OCULTO v0.14.0: Botón "grabar hotkey" eliminado (no tiene sentido con selector inline)
+        # record_hotkey_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("record_hotkey_button"), width=70, command=self._start_hotkey_recording)
+        # record_hotkey_btn.grid(row=3, column=2, padx=(0,10), pady=5)
 
         # Recording Mode
         ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("record_mode_label")).grid(row=8, column=0, padx=10, pady=5, sticky="w")
@@ -1420,7 +1424,7 @@ class App(ctk.CTk):
             "faster_whisper_enabled": self.faster_whisper_enabled_var.get(),
             "faster_whisper_model": self.faster_whisper_model_var.get(),
             "faster_whisper_device": self.faster_whisper_device_var.get(),
-            "hotkey": self.hotkey_var.get(),
+            # "hotkey": self.hotkey_var.get(),  # REMOVIDO v0.14.0 - Hotkey se guarda en _update_hotkey_from_inline
             "record_mode": self.record_mode_var.get(),
             "max_recording_time": {"5 min": 300, "10 min": 600, "15 min": 900, "20 min": 1200}.get(self.max_duration_var.get() if hasattr(self, "max_duration_var") else "5 min", 300),
             "auto_paste_text": self.auto_paste_var.get(), "show_transcription_panel": self.show_panel_var.get(),
