@@ -1,4 +1,4 @@
-# Build script para Audio2Text v0.10.0 - (Unificado)
+# Build script para Audio2Text v0.14.0 - (Unificado)
 import subprocess
 import sys
 import os
@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-APP_VERSION = "0.13.0"
+APP_VERSION = "0.14.0"
 VARIANT = ""
 APP_NAME = f"Audio2Text_CENF_v{APP_VERSION}"
 
