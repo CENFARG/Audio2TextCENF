@@ -610,13 +610,28 @@ class App(ctk.CTk):
         self.after(15000, self.auto_refresh_history)
         self.logger.debug("Auto-optimizado: solo refresca si hay cambios (cada 15s)")
 
-    def _load_transcriptions_cache(self):
-        """Cargar cache de transcripciones desde el archivo JSONL"""
+    def _load_transcriptions_cache(self, force_reload=False):
+        """
+        Cargar cache de transcripciones desde el archivo JSONL.
+
+        Args:
+            force_reload: Si True, recarga el cache aunque el archivo no haya cambiado.
+                         Si False (default), solo recarga si el archivo fue modificado.
+        """
         transcriptions_path = os.path.join("transcriptions", "transcriptions_log.jsonl")
         if not os.path.exists(transcriptions_path):
             return
 
         try:
+            # Verificar si el archivo cambió desde la última carga (OPTIMIZACIÓN v0.15.0)
+            if not force_reload and hasattr(self, '_transcriptions_cache_mtime'):
+                current_mtime = os.path.getmtime(transcriptions_path)
+                if current_mtime == self._transcriptions_cache_mtime:
+                    # El archivo no cambió, no recargar
+                    return
+
+            # Cargar cache
+            cache = {}
             with open(transcriptions_path, 'r', encoding='utf-8') as f:
                 for line in f:
                     if not line.strip():
@@ -629,9 +644,13 @@ class App(ctk.CTk):
                         if audio_file and transcription:
                             # Extraer solo el nombre del archivo sin la ruta
                             audio_filename = os.path.basename(audio_file)
-                            self.transcriptions_cache[audio_filename] = transcription
+                            cache[audio_filename] = transcription
                     except json.JSONDecodeError:
                         continue
+
+            # Actualizar cache y mtime
+            self.transcriptions_cache = cache
+            self._transcriptions_cache_mtime = os.path.getmtime(transcriptions_path)
 
             self.logger.debug(f"Cache de transcripciones cargado: {len(self.transcriptions_cache)} entradas")
         except Exception as e:
@@ -644,8 +663,13 @@ class App(ctk.CTk):
         Args:
             full_reload: Si True, recarga toda la lista. Si False, solo agrega nuevos archivos.
         """
-        # Recargar cache de transcripciones
-        self._load_transcriptions_cache()
+        # OPTIMIZACIÓN v0.15.0: No recargar cache cada vez
+        # Solo recargar si es full_reload o si el cache está vacío
+        if full_reload or not self.transcriptions_cache:
+            self._load_transcriptions_cache(force_reload=full_reload)
+        else:
+            # Verificar si el archivo de transcripciones cambió
+            self._load_transcriptions_cache(force_reload=False)
 
         audio_path = self.config_manager.get("audio_path")
         if not os.path.exists(audio_path):
@@ -1307,11 +1331,11 @@ class App(ctk.CTk):
                     # Recrear contenido de la ventana
                     for widget in main_frame.winfo_children():
                         if isinstance(widget, ctk.CTkScrollableFrame):
-                            # Limpiar y volver a cargar
+                            # PRIMERO: Limpiar todos los widgets existentes
                             for child in widget.winfo_children():
                                 child.destroy()
 
-                            # Recargar correcciones
+                            # LUEGO: Recargar correcciones desde cero
                             corrections = self.transcriber.custom_vocab.get_corrections()
                             if corrections:
                                 for inc, cor in corrections.items():

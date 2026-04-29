@@ -66,11 +66,18 @@ class FasterWhisperASR:
                 self.compute_type = "float16" if self.device == "cuda" else "int8"
                 logger.info(f"FasterWhisperASR: Compute_type auto-ajustado: {self.compute_type}")
 
-            # Crear modelo
+            # IMPORTANTE v0.15.0: Usar carpeta de modelos personalizada
+            # Esto permite descargar modelos on-demand en lugar de empaquetarlos
+            from .model_downloader import ModelDownloader
+            downloader = ModelDownloader()
+            model_path = downloader.get_model_path(self.model_size)
+
+            # Crear modelo con download_root personalizado
             self.model = WhisperModel(
                 self.model_size,
                 device=self.device,
-                compute_type=self.compute_type
+                compute_type=self.compute_type,
+                download_root=str(model_path.parent)  # Usar carpeta models/
             )
 
             logger.info(f"FasterWhisperASR: Modelo {self.model_size} cargado exitosamente")
