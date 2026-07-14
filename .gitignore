@@ -62,3 +62,6 @@ TranscripcionesYT/
 .gestion/
 .memories/
 .agent/
+.atl/
+.codegraph/
+models/
