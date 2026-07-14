@@ -4,13 +4,13 @@
 > **Phase**: sdd-design
 > **Branch**: `feature/audio2text-v2-core-rearchitecture`
 > **Delivery**: Feature Branch Chain with tracker (chained PRs, ≤400 lines each)
-> **Package import name**: `cenf_core` (observed in `audio2text/api/dependencies.py:17`)
+> **Package import name**: `core_infrastructure` (observed in `audio2text/api/dependencies.py:17`)
 
 ---
 
 ## 1. Technical Approach
 
-The rearchitecture lands core-cenf-py (`cenf_core`) as the sole infrastructure foundation and converts the existing clean `audio2text/` package from direct-import singletons into a **Protocol-dependent, BootstrapOrchestrator-wired** system. The three specs map cleanly: `infrastructure-core` becomes a new `audio2text/infrastructure/` layer that owns all `cenf_core` imports and exposes typed Protocols; `transcription-agents` splits the current monolithic `providers/base.py` ABC into three ports (`TranscriptionProvider`, `MetadataProvider`, `PostProcessingBlock`) with concrete adapters injected by `DependencyManager`; `legacy-elimination` deletes `backend/`, `ui/`, `ui_flet/`, root `main.py` and repoints CI/build to `audio2text/`. Delivery is sliced into chained PRs so no single review exceeds 400 changed lines. The existing `ConfigMigrator` already satisfies most of the XOR→SecretManager spec; it is reused, not rewritten.
+The rearchitecture lands core-cenf-py (`core_infrastructure`) as the sole infrastructure foundation and converts the existing clean `audio2text/` package from direct-import singletons into a **Protocol-dependent, BootstrapOrchestrator-wired** system. The three specs map cleanly: `infrastructure-core` becomes a new `audio2text/infrastructure/` layer that owns all `core_infrastructure` imports and exposes typed Protocols; `transcription-agents` splits the current monolithic `providers/base.py` ABC into three ports (`TranscriptionProvider`, `MetadataProvider`, `PostProcessingBlock`) with concrete adapters injected by `DependencyManager`; `legacy-elimination` deletes `backend/`, `ui/`, `ui_flet/`, root `main.py` and repoints CI/build to `audio2text/`. Delivery is sliced into chained PRs so no single review exceeds 400 changed lines. The existing `ConfigMigrator` already satisfies most of the XOR→SecretManager spec; it is reused, not rewritten.
 
 ---
 
@@ -19,7 +19,7 @@ The rearchitecture lands core-cenf-py (`cenf_core`) as the sole infrastructure f
 | # | Decision | Options | Choice | Rationale |
 |---|---|---|---|---|
 | D1 | Bootstrap wiring order | (a) alphabetical (b) dependency-ordered (c) lazy on first use | **(b) dependency-ordered** | Spec REQ mandates Config→Logger→Secret→Errors→Observability→rest. Deterministic order makes failure halting predictable and testable. |
-| D2 | cenf_core import boundary | (a) import anywhere (b) only in `infrastructure/` (c) only in `api/` | **(b) only in `infrastructure/`** | Golden Rule: business modules depend on Protocols, never adapters. Centralizes the upgrade surface. Current `api/dependencies.py` violates this — it is refactored to consume the registry. |
+| D2 | core_infrastructure import boundary | (a) import anywhere (b) only in `infrastructure/` (c) only in `api/` | **(b) only in `infrastructure/`** | Golden Rule: business modules depend on Protocols, never adapters. Centralizes the upgrade surface. Current `api/dependencies.py` violates this — it is refactored to consume the registry. |
 | D3 | Provider Protocol shape | (a) keep single ABC (b) ABC→`Protocol` + split 3 ports (c) plugin registry | **(b) `Protocol` + 3 ports** | Structural typing enables `isinstance`-free duck typing for tests; splitting ports lets Metadata/PostProcessing vary independently of transcription. |
 | D4 | Block injection pattern | (a) hard-coded pipeline stages (b) list injection into service (c) config-driven plugin scan | **(b) list injection** | Spec REQ: caller composes `[TaskExtractor, Summary]`; service iterates in order. Keeps `TranscriptionPipeline` for text transforms, adds `PostProcessingBlock` list for structured blocks. |
 | D5 | Config migration strategy | (a) rewrite migrator (b) reuse existing `ConfigMigrator` (c) manual JSON edit | **(b) reuse + harden** | `config/migration.py` already does XOR decode + keyring write + `.v015.bak`. Add idempotent backup guard (spec: no second backup on re-run). |
@@ -72,12 +72,12 @@ flowchart TD
 
 ```
 audio2text/
-├── infrastructure/                    ← NEW layer (only place cenf_core is imported)
+├── infrastructure/                    ← NEW layer (only place core_infrastructure is imported)
 │   ├── __init__.py                    ← NEW: exports get_registry()
 │   ├── bootstrap.py                   ← NEW: BootstrapOrchestrator + 18-manager wiring
 │   ├── registry.py                    ← NEW: ManagerRegistry (typed accessors)
-│   ├── ports.py                       ← NEW: Protocol typedefs re-exported from cenf_core
-│   └── adapters/                      ← NEW: cenf_core adapter wrappers (if signature shaping needed)
+│   ├── ports.py                       ← NEW: Protocol typedefs re-exported from core_infrastructure
+│   └── adapters/                      ← NEW: core_infrastructure adapter wrappers (if signature shaping needed)
 │       ├── config_adapter.py
 │       ├── logger_adapter.py
 │       └── secret_adapter.py
@@ -111,7 +111,7 @@ audio2text/
 ├── api/
 │   ├── dependencies.py                ← MODIFY: replace singletons with registry accessors
 │   ├── app.py                         ← MODIFY: accept registry in lifespan
-│   └── routes/...                     ← MODIFY: read via registry, not direct cenf_core
+│   └── routes/...                     ← MODIFY: read via registry, not direct core_infrastructure
 └── main.py                            ← MODIFY: call BootstrapOrchestrator before app launch
 ```
 
@@ -179,10 +179,10 @@ main
 | **CREATE** | `audio2text/infrastructure/__init__.py` | Package init, exports `get_registry()` |
 | **CREATE** | `audio2text/infrastructure/bootstrap.py` | `BootstrapOrchestrator` — wires 18 managers in dependency order |
 | **CREATE** | `audio2text/infrastructure/registry.py` | `ManagerRegistry` — typed accessors for each manager |
-| **CREATE** | `audio2text/infrastructure/ports.py` | Re-exported Protocol typedefs from cenf_core |
-| **CREATE** | `audio2text/infrastructure/adapters/config_adapter.py` | Wraps `cenf_core.ConfigManager` (schema shaping if needed) |
-| **CREATE** | `audio2text/infrastructure/adapters/logger_adapter.py` | Wraps `cenf_core.LoggerManager` |
-| **CREATE** | `audio2text/infrastructure/adapters/secret_adapter.py` | Wraps `cenf_core.SecretManager` (keyring) |
+| **CREATE** | `audio2text/infrastructure/ports.py` | Re-exported Protocol typedefs from core_infrastructure |
+| **CREATE** | `audio2text/infrastructure/adapters/config_adapter.py` | Wraps `core_infrastructure.ConfigManager` (schema shaping if needed) |
+| **CREATE** | `audio2text/infrastructure/adapters/logger_adapter.py` | Wraps `core_infrastructure.LoggerManager` |
+| **CREATE** | `audio2text/infrastructure/adapters/secret_adapter.py` | Wraps `core_infrastructure.SecretManager` (keyring) |
 | **CREATE** | `audio2text/providers/ports/__init__.py` | Ports package |
 | **CREATE** | `audio2text/providers/ports/transcription_provider.py` | `TranscriptionProvider` Protocol |
 | **CREATE** | `audio2text/providers/ports/metadata_provider.py` | `MetadataProvider` Protocol |
@@ -199,12 +199,12 @@ main
 | **MODIFY** | `audio2text/services/metadata_service.py` | Delegate persistence to `MetadataProvider` port |
 | **MODIFY** | `audio2text/config/migration.py` | Add idempotent backup guard (skip 2nd backup if `.v015.bak` exists) |
 | **MODIFY** | `audio2text/providers/factory.py` | Delegate to `DependencyManager`; keep as thin facade for backward-compat |
-| **MODIFY** | `audio2text/api/dependencies.py` | Replace singleton cache + direct `cenf_core` imports with `registry.get_*()` |
+| **MODIFY** | `audio2text/api/dependencies.py` | Replace singleton cache + direct `core_infrastructure` imports with `registry.get_*()` |
 | **MODIFY** | `audio2text/api/app.py` | Accept `ManagerRegistry` in lifespan; remove direct manager construction |
 | **MODIFY** | `audio2text/api/routes/*.py` | Read config/secrets via registry accessors |
 | **MODIFY** | `audio2text/main.py` | Call `BootstrapOrchestrator().bootstrap()` before app launch |
 | **MODIFY** | `.github/workflows/ci.yml` | Target `audio2text/` + `tests/`; remove `backend/` path triggers; bump Python to 3.12 |
-| **MODIFY** | `pyproject.toml` | `include = ["audio2text*"]`; add `cenf_core` dep; remove legacy entry points |
+| **MODIFY** | `pyproject.toml` | `include = ["audio2text*"]`; add `core_infrastructure` dep; remove legacy entry points |
 | **MODIFY** | `setup.py` | Sole package `audio2text`; entry `audio2text.main:main` |
 | **MODIFY** | `scripts/build.py` | PyInstaller targets `audio2text/` |
 | **DELETE** | `audio2text/providers/base.py` | Replaced by `ports/transcription_provider.py` |
@@ -290,8 +290,8 @@ main
 
 | # | Question | Impact | Default if unresolved |
 |---|---|---|---|
-| Q1 | Exact `cenf_core` manager constructor signatures (e.g., does `ErrorHandlingManager` expose `@handle_errors` as decorator factory or instance method?) | Slice 2, 9 wiring | Verify against installed `cenf_core` (`pip show cenf-core`) + `AGENTS_API.md` before slice 2 apply. Fallback: thin adapter shapes the API. |
-| Q2 | Does `cenf_core.StateMachineManager` accept a declarative transition table, or does each FSM need subclassing? | Slice 8 FSM design | Assume declarative table (dict-based); verify before apply. |
+| Q1 | Exact `core_infrastructure` manager constructor signatures (e.g., does `ErrorHandlingManager` expose `@handle_errors` as decorator factory or instance method?) | Slice 2, 9 wiring | Verify against installed `core_infrastructure` (`pip show cenf-core`) + `AGENTS_API.md` before slice 2 apply. Fallback: thin adapter shapes the API. |
+| Q2 | Does `core_infrastructure.StateMachineManager` accept a declarative transition table, or does each FSM need subclassing? | Slice 8 FSM design | Assume declarative table (dict-based); verify before apply. |
 | Q3 | OS keyring availability on headless CI runners (no keychain daemon) — does `SecretManager` fall back to env/file? | Integration test for migration | Use injectable fake keyring in tests; real keyring only in slice 10 smoke. |
 | Q4 | Should `TranscriptionProviderFactory` stay as a thin facade over `DependencyManager` (backward compat) or be deleted entirely? | Slice 5 | Keep as facade for one release; mark deprecated. |
 | Q5 | Whether slice 11+12 (legacy deletion) can merge to main directly or must wait for the full chain (tracker strategy). | Merge order | Feature Branch Chain: all children merge into tracker, tracker merges to main last. |
@@ -300,6 +300,6 @@ main
 
 ## Design Guard Lines
 
-- **Decision needed before apply**: Yes (Q1–Q3 verify against installed `cenf_core`)
+- **Decision needed before apply**: Yes (Q1–Q3 verify against installed `core_infrastructure`)
 - **Chained PRs recommended**: Yes (13 slices, Feature Branch Chain)
 - **400-line budget risk**: Medium (slices 4, 6, 9 near ceiling — split if apply exceeds)

@@ -3,7 +3,7 @@
 > **Change**: `audio2text-v2-core-rearchitecture`
 > **Branch**: `feature/audio2text-v2-core-rearchitecture`
 > **Delivery**: Feature Branch Chain (13 chained PRs, tracker draft, no-merge)
-> **Package import**: `cenf_core` (golden rule: only `infrastructure/` may import it)
+> **Package import**: `core_infrastructure` (golden rule: only `infrastructure/` may import it)
 
 ---
 
@@ -54,13 +54,13 @@ Tracker: `feature/audio2text-v2-core-rearchitecture → main` (draft PR, no-merg
 
 - [x] 1.1 **RED** — Create `tests/infrastructure/test_bootstrap_order.py` asserting M01→M02→M03→M04→M05 instantiation order from spec scenario "Bootstrap initializes all managers in order".
 - [x] 1.2 **GREEN** — Create `audio2text/infrastructure/__init__.py` exporting `get_registry()`; create `audio2text/infrastructure/bootstrap.py` with `BootstrapOrchestrator` wiring ConfigManager + LoggerManager in spec order; halt on `ConfigError`.
-- [x] 1.3 Create `audio2text/infrastructure/registry.py` (`ManagerRegistry` typed accessors) and `audio2text/infrastructure/ports.py` (re-exported `cenf_core` Protocols); single import site for `cenf_core`.
+- [x] 1.3 Create `audio2text/infrastructure/registry.py` (`ManagerRegistry` typed accessors) and `audio2text/infrastructure/ports.py` (re-exported `core_infrastructure` Protocols); single import site for `core_infrastructure`.
 - [x] 1.4 **RED** — Add `test_bootstrap_halts_on_config_failure`: missing `config.toml` raises `ConfigError` before manager #2; assert no half-init state (spec scenario "Bootstrap halts on config failure").
 - [x] 1.5 **GREEN** — Add ConfigError halt guard in `bootstrap.py`; refactor halting path; tests pass.
-- [ ] 2.1 Create `audio2text/infrastructure/adapters/secret_adapter.py` wrapping `cenf_core.SecretManager` (OS keyring).
+- [ ] 2.1 Create `audio2text/infrastructure/adapters/secret_adapter.py` wrapping `core_infrastructure.SecretManager` (OS keyring).
 - [ ] 2.2 Create `audio2text/infrastructure/adapters/config_adapter.py` + `logger_adapter.py` + secret adapter tests with fake keyring fixture.
 - [ ] 2.3 **RED** — Create `tests/config/test_migration_idempotent.py`: golden `config.json` with XOR+Base64 `groq_api_key`; assert `SecretManager.get()` returns `gsk_` plaintext, new config has no key, `.v015.bak` created, 2nd run creates no second backup.
-- [ ] 2.4 **GREEN** — Modify `audio2text/config/migration.py`: add idempotent backup guard (skip if `.v015.bak` exists); inject `cenf_core.SecretManager`; write golden test fixture `tests/fixtures/config_v015.json`.
+- [ ] 2.4 **GREEN** — Modify `audio2text/config/migration.py`: add idempotent backup guard (skip if `.v015.bak` exists); inject `core_infrastructure.SecretManager`; write golden test fixture `tests/fixtures/config_v015.json`.
 - [ ] 3.1 Wire `ObservabilityManager` (M05) into `bootstrap.py`; emit `transcribe.file` span with `provider`, `language`, `duration_seconds`, `status` (spec scenario "Transcription emits RED metrics").
 - [ ] 3.2 Wire `CacheManager` (M07); cache by audio SHA-256; expose `cache_hits_total` counter (spec scenario "Identical audio re-transcribed").
 - [ ] 3.3 Wire `I18nManager` (M17); replace `audio2text/localization/manager.py` usages in services with registry accessors; remove direct `lang/es.json` reads (spec scenario "Locale switch").
@@ -87,8 +87,8 @@ Tracker: `feature/audio2text-v2-core-rearchitecture → main` (draft PR, no-merg
 - [ ] 8.3 **RED** — `tests/services/test_fsm.py`: happy-path (`idle→recording→transcribing→done`) passes; double-`start` from `recording` raises `InvalidTransition` and state stays `recording` (spec scenarios 1+2).
 - [ ] 9.1 **RED** — `tests/services/test_transcription_service_integration.py`: service composed of MockProvider + 2 injected blocks + in-memory MetadataProvider + captured bus events; assert event sequence + result text.
 - [ ] 9.2 **GREEN** — Rewrite `audio2text/services/transcription_service.py`: inject provider, blocks list, metadata port, bus, fsm; wrap public methods with `@handle_errors` from `ErrorHandlingManager` (spec scenario "Service method raises").
-- [ ] 9.3 **RED** — `tests/api/test_dependencies_registry.py`: `api/dependencies.py` reads via `registry.get_config()`, `registry.get_secret()`, etc. — no direct `cenf_core` import in `audio2text/api/`.
-- [ ] 9.4 **GREEN** — Modify `audio2text/api/dependencies.py`: remove singleton cache + direct `cenf_core` imports; replace with `registry.get_*()` accessors. Modify `audio2text/api/app.py` to accept `ManagerRegistry` in lifespan. Modify `audio2text/api/routes/*.py` to read via registry.
+- [ ] 9.3 **RED** — `tests/api/test_dependencies_registry.py`: `api/dependencies.py` reads via `registry.get_config()`, `registry.get_secret()`, etc. — no direct `core_infrastructure` import in `audio2text/api/`.
+- [ ] 9.4 **GREEN** — Modify `audio2text/api/dependencies.py`: remove singleton cache + direct `core_infrastructure` imports; replace with `registry.get_*()` accessors. Modify `audio2text/api/app.py` to accept `ManagerRegistry` in lifespan. Modify `audio2text/api/routes/*.py` to read via registry.
 
 ---
 
@@ -101,7 +101,7 @@ Tracker: `feature/audio2text-v2-core-rearchitecture → main` (draft PR, no-merg
 - [ ] 12.1 Run `rg "from (ui|ui_flet)\." audio2text/ tests/`; fix stragglers; delete `ui/`, `ui_flet/`, root `main.py`, `verification_test.py`; suite green.
 - [ ] 12.2 Verify `git log --oneline -- backend/config_manager.py` still shows historical commits reachable.
 - [ ] 13.1 Modify `.github/workflows/ci.yml`: target `audio2text/` + `tests/`; remove `backend/`, `ui/`, `ui_flet/` path triggers; bump Python to 3.12 (spec REQ "CI/CD Path Update").
-- [ ] 13.2 Modify `pyproject.toml`: `[tool.setuptools.packages.find]` → `include = ["audio2text*"]` only; add `cenf_core` dep; remove legacy entry points (spec REQ "pyproject.toml and setup.py Cleanup").
+- [ ] 13.2 Modify `pyproject.toml`: `[tool.setuptools.packages.find]` → `include = ["audio2text*"]` only; add `core_infrastructure` dep; remove legacy entry points (spec REQ "pyproject.toml and setup.py Cleanup").
 - [ ] 13.3 Modify `setup.py`: sole package `audio2text`; entry `audio2text.main:main`. Modify `scripts/build.py`: PyInstaller targets `audio2text/`, no `backend/`/`ui/` references (spec REQ "Build Script Cleanup").
 
 ---
