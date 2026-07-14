@@ -1,0 +1,255 @@
+# Audio2Text v0.16.0 — English (United States) locale
+# ALL user-facing strings MUST be defined here.
+# Keys follow the pattern: module.section.label
+
+# ── Application ─────────────────────────────────────────────────────
+app:
+  title: "Audio2Text CENF"
+  subtitle: "Smart Audio Transcription"
+  about_title: "About Audio2Text"
+  about_text: "Audio2Text CENF v0.16.0 — Professional audio transcription application using AI. Developed by CENF."
+
+# ── Navigation ──────────────────────────────────────────────────────
+nav:
+  transcribe: "Transcribe"
+  history: "History"
+  settings: "Settings"
+  info: "Information"
+  update: "Update"
+
+# ── Status bar ──────────────────────────────────────────────────────
+status:
+  idle: "Ready"
+  recording: "Recording..."
+  paused: "Paused"
+  processing: "Processing..."
+
+# ── Audio capture ───────────────────────────────────────────────────
+capture:
+  start_recording: "Start Recording"
+  stop_recording: "Stop Recording"
+  press_to_record: "Press to record"
+
+# ── Transcription panel ─────────────────────────────────────────────
+transcription:
+  hint: "Transcribed text will appear here..."
+  copy: "Copy"
+  clear: "Clear"
+  chars: "{count} characters"
+
+# ── Recording overlay ───────────────────────────────────────────────
+overlay:
+  recording: "Recording"
+  cancel: "Cancel"
+  stop: "Stop"
+
+# ── Settings ────────────────────────────────────────────────────────
+settings:
+  title: "Settings"
+  provider: "Transcription Provider"
+  provider_desc: "Select the transcription engine to use."
+  tab_providers: "Providers"
+  tab_hotkeys: "Shortcuts"
+  tab_vocabulary: "Vocabulary"
+  language: "Language"
+  save: "Save Changes"
+  saved: "Settings saved successfully."
+  save_error: "Error saving settings."
+  groq_api_key: "Groq API Key"
+  groq_api_key_hint: "Enter your Groq API Key"
+  groq_api_key_verify: "Verify"
+  groq_api_key_verified: "API Key verified"
+  groq_api_key_invalid: "Invalid API Key"
+  nvidia_api_key: "NVIDIA API Key"
+  nvidia_api_key_hint: "Enter your NVIDIA API Key"
+  nvidia_api_key_verify: "Verify"
+  audio_path: "Audio Folder"
+  audio_path_hint: "Select the folder to save audio files"
+  audio_path_browse: "Browse"
+  transcriptions_path: "Transcriptions Folder"
+  transcriptions_path_hint: "Select the folder to save transcriptions"
+  transcriptions_path_browse: "Browse"
+  asr_provider: "ASR Provider"
+  asr_provider_desc: "Speech recognition engine"
+  fw_model: "faster-whisper Model"
+  fw_model_tiny: "Tiny (75 MB)"
+  fw_model_base: "Base (145 MB)"
+  fw_model_small: "Small (488 MB)"
+  fw_model_medium: "Medium (1.5 GB)"
+  fw_model_large: "Large-v3 (3 GB)"
+  fw_device: "faster-whisper Device"
+  fw_device_auto: "Auto"
+  fw_device_cpu: "CPU"
+  fw_device_cuda: "CUDA (NVIDIA GPU)"
+  record_mode: "Recording Mode"
+  record_mode_toggle: "Toggle (press to start/stop)"
+  record_mode_hold: "Hold (press and hold)"
+  max_recording_time: "Max Recording Time"
+  max_recording_time_5min: "5 minutes"
+  max_recording_time_10min: "10 minutes"
+  max_recording_time_15min: "15 minutes"
+  max_recording_time_20min: "20 minutes"
+  max_audio_files: "Max Audio Files"
+  max_audio_files_hint: "Maximum number of audio files to keep"
+  auto_cleanup: "Auto Cleanup"
+  auto_cleanup_desc: "Automatically delete old audio files"
+  save_audio: "Save Audio Files"
+  save_audio_desc: "Keep audio files after transcription"
+  auto_paste: "Auto-paste"
+  auto_paste_desc: "Automatically paste transcription when finished"
+  show_panel: "Show Transcription Panel"
+  show_panel_desc: "Display the transcribed text panel"
+  post_processing: "Post-processing"
+  post_processing_desc: "Improve transcription with AI after recording"
+  post_model: "Post-processing Model"
+  post_model_groq: "Groq (Llama 3.1 70B)"
+  post_model_openai: "OpenAI (GPT-4o Mini)"
+  blocks_task: "Task Extractor"
+  blocks_task_desc: "Extract tasks and actions from text"
+  blocks_summary: "Summary"
+  blocks_summary_desc: "Generate a summary of the transcription"
+  blocks_keyword: "Keywords"
+  blocks_keyword_desc: "Extract key words and concepts"
+  start_with_windows: "Start with Windows"
+  start_with_windows_desc: "Launch Audio2Text on Windows login"
+  hotkey_config: "Shortcut Configuration"
+
+# ── Providers ───────────────────────────────────────────────────────
+providers:
+  groq: "Groq (Whisper Large v3)"
+  faster_whisper: "faster-whisper (Local)"
+  nvidia_riva: "NVIDIA Riva"
+  mock: "Mock Provider"
+  config_invalid: "Provider configuration is invalid"
+  not_available: "Provider is not available: {provider}"
+  stream_not_implemented: "Streaming transcription is not yet implemented for {provider}"
+  unknown_provider: "Unknown provider: {provider}. Valid: {valid}"
+
+# ── Hotkeys ─────────────────────────────────────────────────────────
+hotkey:
+  title: "Keyboard Shortcut"
+  description: "Configure the key combination to start/stop recording."
+  modifier: "Modifier"
+  key: "Key"
+  none: "None"
+  current: "Current shortcut: {hotkey}"
+
+# ── History ─────────────────────────────────────────────────────────
+history:
+  title: "Transcription History"
+  search: "Search history..."
+  empty: "No saved transcriptions."
+  untitled: "Untitled"
+  view: "View"
+  delete: "Delete"
+  select_hint: "Select a history item to view details."
+  selected: "Selected item: {id}"
+  sample_title: "My sample transcription"
+
+# ── Emoji picker ────────────────────────────────────────────────────
+emoji:
+  title: "Emoji"
+
+# ── Context blocks ──────────────────────────────────────────────────
+blocks:
+  title: "Context Blocks"
+  description: "Select blocks to add context to the transcription."
+  selected_count: "{n} block(s) selected"
+  apply: "Apply to AI Chat"
+  load_error: "Error loading blocks: {error}"
+  task_extractor: "Task Extractor"
+  task_extractor_desc: "Extracts tasks and actions from the text."
+  summary: "Summary"
+  summary_desc: "Generates a summary of the transcription."
+  keywords: "Keywords"
+  keywords_desc: "Extracts key words and concepts."
+
+# ── AI Enhancement ──────────────────────────────────────────────────
+enhance:
+  title: "AI Enhancement"
+  description: "Polish and improve the transcription using artificial intelligence."
+  profile: "Enhancement Profile"
+  profile_light: "Light (punctuation only)"
+  profile_medium: "Medium (grammar & structure)"
+  profile_aggressive: "Aggressive (full rewrite)"
+  trigger: "Enhance with AI"
+  processing: "Processing enhancement..."
+  success: "Enhancement complete."
+  error: "Error: {error}"
+
+# ── Vocabulary ──────────────────────────────────────────────────────
+vocab:
+  title: "Custom Vocabulary"
+  description: "Add vocabulary corrections that will be applied to transcriptions."
+  original: "Original word"
+  correction: "Correction"
+  add: "Add"
+  remove: "Remove"
+  save: "Save"
+  empty: "No vocabulary corrections."
+
+# ── Audio ───────────────────────────────────────────────────────────
+audio:
+  file_not_found: "Audio file not found: {path}"
+  format_unsupported: "Unsupported audio format: {format}"
+
+# ── Transcription (service messages) ────────────────────────────────
+transcription_service:
+  empty_result: "No transcription result produced"
+  success: "Transcription complete ({chars} chars, {duration:.1f}s)"
+  error: "Transcription error: {error}"
+
+# ── Config ──────────────────────────────────────────────────────────
+config:
+  load_error: "Failed to load configuration: {error}"
+  save_error: "Failed to save configuration: {error}"
+
+# ── Error codes ─────────────────────────────────────────────────────
+errors:
+  TRANS_001: "Provider is not available"
+  TRANS_002: "Transcription failed"
+  TRANS_003: "Rate limit exceeded"
+  AUDIO_001: "Audio device not accessible"
+  CFG_001: "Configuration is invalid"
+  SECRET_001: "Secret not found: {key}"
+  NET_001: "Server connection error"
+  NET_002: "Request timed out"
+  UI_001: "Unexpected UI error"
+
+# ── AI Enhancement prompts ───────────────────────────────────────────
+ai_prompts:
+  system: "You are a professional text corrector."
+  light: "Correct only punctuation and capitalization of the following text. Do not change words or structure. Return ONLY the corrected text, without explanations:\n\n{text}"
+  medium: "Improve punctuation, structure and fluency of the following text. Fix minor grammar errors but PRESERVE the original meaning. Do not add new information. Return ONLY the improved text, without explanations:\n\n{text}"
+  aggressive: "Rewrite the following text to improve clarity, fluency and professionalism. PRESERVE the original meaning and intent. Remove filler words, repetitions and pauses. Return ONLY the rewritten text, without explanations:\n\n{text}"
+
+# ── Audio capture status messages ────────────────────────────────────
+capture_status:
+  audio_error_mic_in_use: "Error: microphone in use by another application"
+  buffer_overflow: "Warning: audio buffer full"
+  priority_app_in_use: "Priority app detected — recording blocked"
+  status_recording: "Recording"
+  status_processing: "Processing..."
+
+# ── Info (About) view ───────────────────────────────────────────────
+info:
+  title: "Information"
+  app_version: "Audio2Text CENF v0.16.0"
+  credits: "Developed by CENF — Centro de Estudios y Negocios Financieros"
+  license: "Apache 2.0 License"
+  system_info: "System Information"
+  python_version: "Python: {version}"
+  platform: "Platform: {platform}"
+  close: "Close"
+
+# ── Update view ─────────────────────────────────────────────────────
+update:
+  title: "Update"
+  check: "Check for Updates"
+  checking: "Checking for updates..."
+  up_to_date: "Audio2Text is up to date."
+  new_version: "New version available: {version}"
+  download: "Download"
+  download_progress: "Downloading... {progress}%"
+  error: "Error checking for updates: {error}"
+  current_version: "Current version: {version}"
