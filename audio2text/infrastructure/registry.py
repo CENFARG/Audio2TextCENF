@@ -2,7 +2,7 @@
 ManagerRegistry — typed accessors for core-cenf managers.
 
 Single source of truth for manager instances after bootstrap.
-Only audio2text/infrastructure/ may import cenf_core directly.
+Only audio2text/infrastructure/ may import core_infrastructure directly.
 """
 
 from __future__ import annotations
