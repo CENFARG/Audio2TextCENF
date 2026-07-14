@@ -17,6 +17,13 @@ from cenf_core.logging import LogProfile, LoggerManager
 from audio2text.infrastructure.registry import ManagerRegistry
 
 
+class ConfigError(Exception):
+    """Raised when bootstrap cannot proceed due to invalid configuration.
+
+    Halts the manager chain — no half-init state is possible.
+    """
+
+
 class AppConfigSchema(BaseSchema):
     """Minimal config schema for Audio2Text bootstrap."""
 
@@ -35,10 +42,10 @@ def bootstrap(config_dict: dict[str, Any]) -> ManagerRegistry:
         ManagerRegistry with M01 ConfigManager and M02 LoggerManager.
 
     Raises:
-        ValueError: If config_dict is None (halt — no half-init state).
+        ConfigError: If config_dict is None (halt — no half-init state).
     """
     if config_dict is None:
-        raise ValueError("config_dict must not be None")
+        raise ConfigError("config_dict must not be None — bootstrap halted")
 
     registry = ManagerRegistry()
 
