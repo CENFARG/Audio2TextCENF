@@ -52,11 +52,11 @@ Tracker: `feature/audio2text-v2-core-rearchitecture → main` (draft PR, no-merg
 
 ## Phase 1 — Infrastructure Core (slices 1-4)
 
-- [ ] 1.1 **RED** — Create `tests/infrastructure/test_bootstrap_order.py` asserting M01→M02→M03→M04→M05 instantiation order from spec scenario "Bootstrap initializes all managers in order".
-- [ ] 1.2 **GREEN** — Create `audio2text/infrastructure/__init__.py` exporting `get_registry()`; create `audio2text/infrastructure/bootstrap.py` with `BootstrapOrchestrator` wiring ConfigManager + LoggerManager in spec order; halt on `ConfigError`.
-- [ ] 1.3 Create `audio2text/infrastructure/registry.py` (`ManagerRegistry` typed accessors) and `audio2text/infrastructure/ports.py` (re-exported `cenf_core` Protocols); single import site for `cenf_core`.
-- [ ] 1.4 **RED** — Add `test_bootstrap_halts_on_config_failure`: missing `config.toml` raises `ConfigError` before manager #2; assert no half-init state (spec scenario "Bootstrap halts on config failure").
-- [ ] 1.5 **GREEN** — Add ConfigError halt guard in `bootstrap.py`; refactor halting path; tests pass.
+- [x] 1.1 **RED** — Create `tests/infrastructure/test_bootstrap_order.py` asserting M01→M02→M03→M04→M05 instantiation order from spec scenario "Bootstrap initializes all managers in order".
+- [x] 1.2 **GREEN** — Create `audio2text/infrastructure/__init__.py` exporting `get_registry()`; create `audio2text/infrastructure/bootstrap.py` with `BootstrapOrchestrator` wiring ConfigManager + LoggerManager in spec order; halt on `ConfigError`.
+- [x] 1.3 Create `audio2text/infrastructure/registry.py` (`ManagerRegistry` typed accessors) and `audio2text/infrastructure/ports.py` (re-exported `cenf_core` Protocols); single import site for `cenf_core`.
+- [x] 1.4 **RED** — Add `test_bootstrap_halts_on_config_failure`: missing `config.toml` raises `ConfigError` before manager #2; assert no half-init state (spec scenario "Bootstrap halts on config failure").
+- [x] 1.5 **GREEN** — Add ConfigError halt guard in `bootstrap.py`; refactor halting path; tests pass.
 - [ ] 2.1 Create `audio2text/infrastructure/adapters/secret_adapter.py` wrapping `cenf_core.SecretManager` (OS keyring).
 - [ ] 2.2 Create `audio2text/infrastructure/adapters/config_adapter.py` + `logger_adapter.py` + secret adapter tests with fake keyring fixture.
 - [ ] 2.3 **RED** — Create `tests/config/test_migration_idempotent.py`: golden `config.json` with XOR+Base64 `groq_api_key`; assert `SecretManager.get()` returns `gsk_` plaintext, new config has no key, `.v015.bak` created, 2nd run creates no second backup.
