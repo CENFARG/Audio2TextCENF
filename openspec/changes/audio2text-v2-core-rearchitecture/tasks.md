@@ -57,10 +57,10 @@ Tracker: `feature/audio2text-v2-core-rearchitecture → main` (draft PR, no-merg
 - [x] 1.3 Create `audio2text/infrastructure/registry.py` (`ManagerRegistry` typed accessors) and `audio2text/infrastructure/ports.py` (re-exported `core_infrastructure` Protocols); single import site for `core_infrastructure`.
 - [x] 1.4 **RED** — Add `test_bootstrap_halts_on_config_failure`: missing `config.toml` raises `ConfigError` before manager #2; assert no half-init state (spec scenario "Bootstrap halts on config failure").
 - [x] 1.5 **GREEN** — Add ConfigError halt guard in `bootstrap.py`; refactor halting path; tests pass.
-- [ ] 2.1 Create `audio2text/infrastructure/adapters/secret_adapter.py` wrapping `core_infrastructure.SecretManager` (OS keyring).
-- [ ] 2.2 Create `audio2text/infrastructure/adapters/config_adapter.py` + `logger_adapter.py` + secret adapter tests with fake keyring fixture.
-- [ ] 2.3 **RED** — Create `tests/config/test_migration_idempotent.py`: golden `config.json` with XOR+Base64 `groq_api_key`; assert `SecretManager.get()` returns `gsk_` plaintext, new config has no key, `.v015.bak` created, 2nd run creates no second backup.
-- [ ] 2.4 **GREEN** — Modify `audio2text/config/migration.py`: add idempotent backup guard (skip if `.v015.bak` exists); inject `core_infrastructure.SecretManager`; write golden test fixture `tests/fixtures/config_v015.json`.
+- [x] 2.1 Create adapters: secret_adapter, config_adapter, logger_adapter wrapping core_infrastructure managers
+- [x] 2.2 Adapter tests with fake keyring fixture
+- [x] 2.3 **RED** — `tests/config/test_migration_idempotent.py`: golden `config.json` with XOR+Base64 `groq_api_key`; assert SecretManager receives plaintext; idempotent re-run guard
+- [x] 2.4 **GREEN** — idempotent backup guard in migration.py; `set_secret()` API match; golden test fixture `tests/fixtures/config_v015.json`
 - [ ] 3.1 Wire `ObservabilityManager` (M05) into `bootstrap.py`; emit `transcribe.file` span with `provider`, `language`, `duration_seconds`, `status` (spec scenario "Transcription emits RED metrics").
 - [ ] 3.2 Wire `CacheManager` (M07); cache by audio SHA-256; expose `cache_hits_total` counter (spec scenario "Identical audio re-transcribed").
 - [ ] 3.3 Wire `I18nManager` (M17); replace `audio2text/localization/manager.py` usages in services with registry accessors; remove direct `lang/es.json` reads (spec scenario "Locale switch").
