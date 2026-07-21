@@ -58,9 +58,67 @@ class TestBootstrapOrder:
         registry = bootstrap(config_dict)
 
         logger = registry.get_logger()
-        # InMemoryLoggerAdapter can log without errors
         logger.info("test.event", module="test")
-        # Should not raise
+
+
+class TestSlice2SecretsAndErrors:
+    """Verify M03 SecretManager and M04 ErrorHandlingManager wiring."""
+
+    def test_bootstrap_wires_all_four_managers(self):
+        """Registry contains M01-M04 after bootstrap."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        assert registry.get_config() is not None
+        assert registry.get_logger() is not None
+        assert registry.get_secrets() is not None
+        assert registry.get_errors() is not None
+
+    def test_secrets_wired_after_logger(self):
+        """M03 Secrets MUST be after M02 Logger in init order."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        order = registry.init_order
+        assert order.index("logger") < order.index("secrets")
+
+    def test_errors_wired_after_secrets(self):
+        """M04 Errors MUST be after M03 Secrets in init order."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        order = registry.init_order
+        assert order.index("secrets") < order.index("errors")
+
+    def test_init_order_is_config_logger_secrets_errors(self):
+        """Full init order: config → logger → secrets → errors."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        assert registry.init_order == ["config", "logger", "secrets", "errors"]
+
+    def test_secret_manager_can_set_and_get(self):
+        """InMemorySecretAdapter supports set/get operations."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        secrets = registry.get_secrets()
+        import asyncio
+        secrets.set_secret("test_key", "secret_value")
+        result = asyncio.run(secrets.get_secret("test_key"))
+        assert result == "secret_value"
+
+    def test_error_manager_classify_does_not_raise(self):
+        """CapturingErrorAdapter accepts classify() calls."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        errors = registry.get_errors()
+        # CapturingErrorAdapter captures without re-raising
+        try:
+            raise ValueError("test error")
+        except ValueError as e:
+            errors.classify(e)
 
 
 class TestBootstrapHaltsOnConfigFailure:

@@ -99,7 +99,7 @@ class ConfigMigrator:
                 keyring_key = secret_key
                 migrated[keyring_key] = decoded
                 if self._secret_manager is not None:
-                    self._secret_manager.set(keyring_key, decoded)
+                    self._secret_manager.set_secret(keyring_key, decoded)
                     logger.info("Migrated secret '%s' to keyring.", keyring_key)
 
         return migrated
@@ -164,10 +164,13 @@ class ConfigMigrator:
                 "(missing 'groq_api_key' at root). Already migrated?"
             )
 
-        # 1. Create backup
+        # 1. Create backup (idempotent: skip if already exists)
         backup_path = Path(str(old_config_path) + ".v015.bak")
-        shutil.copy2(str(old_config_path), str(backup_path))
-        logger.info("Backup created: %s", backup_path)
+        if not backup_path.exists():
+            shutil.copy2(str(old_config_path), str(backup_path))
+            logger.info("Backup created: %s", backup_path)
+        else:
+            logger.info("Backup already exists — skipping: %s", backup_path)
 
         # 2. Migrate secrets to keyring
         self.migrate_keys(old_config_path)

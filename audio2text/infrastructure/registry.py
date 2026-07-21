@@ -34,6 +34,14 @@ class ManagerRegistry:
         """Return the LoggerManager (M02) instance."""
         return self._managers.get("logger")
 
+    def get_secrets(self) -> Any:
+        """Return the SecretManager (M03) instance."""
+        return self._managers.get("secrets")
+
+    def get_errors(self) -> Any:
+        """Return the ErrorHandlingManager (M04) instance."""
+        return self._managers.get("errors")
+
     def get(self, key: str) -> Any:
         """Generic accessor for any registered manager."""
         return self._managers.get(key)
