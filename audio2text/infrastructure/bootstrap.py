@@ -3,7 +3,7 @@ Bootstrap orchestrator — wires core-cenf managers in dependency order.
 
 Spec: "ConfigManager (M01) → LoggerManager (M02) → SecretManager (M03)
        → ErrorHandlingManager (M04) → ..."
-Slice 2 adds M03 + M04.
+Slice 3 adds M05 Observability + M07 Cache + M17 I18n.
 
 Golden rule: only audio2text/infrastructure/ may import core_infrastructure.
 """
@@ -12,10 +12,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from core_infrastructure.cache import MemoryCacheAdapter
 from core_infrastructure.common.errors import ValidationError
 from core_infrastructure.config import InMemoryConfigAdapter
 from core_infrastructure.errors import CapturingErrorAdapter
+from core_infrastructure.i18n import InMemoryI18nAdapter
 from core_infrastructure.logger import InMemoryLoggerAdapter
+from core_infrastructure.observability import NoopObservabilityAdapter
 from core_infrastructure.secrets import InMemorySecretAdapter
 
 from audio2text.infrastructure.registry import ManagerRegistry
@@ -24,14 +27,15 @@ from audio2text.infrastructure.registry import ManagerRegistry
 def bootstrap(config_dict: dict[str, Any] | None) -> ManagerRegistry:
     """Wire managers in dependency order and return a populated registry.
 
-    Order: M01 Config → M02 Logger → M03 Secrets → M04 Errors.
+    Order: M01 Config → M02 Logger → M03 Secrets → M04 Errors
+       → M05 Observability → M07 Cache → M17 I18n.
 
     Args:
         config_dict: Configuration values to seed InMemoryConfigAdapter.
             Must not be None.
 
     Returns:
-        ManagerRegistry with M01–M04 wired.
+        ManagerRegistry with M01–M05, M07, M17 wired.
 
     Raises:
         ValidationError: If config_dict is None (halt — no half-init state).
@@ -59,5 +63,21 @@ def bootstrap(config_dict: dict[str, Any] | None) -> ManagerRegistry:
     # M04: ErrorHandlingManager — depends on config + logger + observability
     errors = CapturingErrorAdapter(config=config, logger=logger, observability=None)
     registry.register("errors", errors)
+
+    # M05: ObservabilityManager — depends on config + logger
+    observability = NoopObservabilityAdapter()
+    registry.register("observability", observability)
+
+    # M07: CacheManager — depends on config + logger + errors
+    cache = MemoryCacheAdapter(config=config, logger=logger, error_handler=errors)
+    registry.register("cache", cache)
+
+    # M17: I18nManager — depends on config
+    i18n = InMemoryI18nAdapter(
+        translations={"es_ES": {"app": {"title": "Audio2Text"}}, "en_US": {"app": {"title": "Audio2Text"}}},
+        default_locale=config.get_string("app.language", "es_ES"),
+        fallback_locale="en_US",
+    )
+    registry.register("i18n", i18n)
 
     return registry

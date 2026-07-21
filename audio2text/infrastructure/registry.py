@@ -42,6 +42,18 @@ class ManagerRegistry:
         """Return the ErrorHandlingManager (M04) instance."""
         return self._managers.get("errors")
 
+    def get_observability(self) -> Any:
+        """Return the ObservabilityManager (M05) instance."""
+        return self._managers.get("observability")
+
+    def get_cache(self) -> Any:
+        """Return the CacheManager (M07) instance."""
+        return self._managers.get("cache")
+
+    def get_i18n(self) -> Any:
+        """Return the I18nManager (M17) instance."""
+        return self._managers.get("i18n")
+
     def get(self, key: str) -> Any:
         """Generic accessor for any registered manager."""
         return self._managers.get(key)

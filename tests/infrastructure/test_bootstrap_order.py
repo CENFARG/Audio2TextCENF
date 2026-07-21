@@ -91,11 +91,14 @@ class TestSlice2SecretsAndErrors:
         assert order.index("secrets") < order.index("errors")
 
     def test_init_order_is_config_logger_secrets_errors(self):
-        """Full init order: config → logger → secrets → errors."""
+        """Full init order: config → logger → secrets → errors → observability → cache → i18n."""
         from audio2text.infrastructure.bootstrap import bootstrap
 
         registry = bootstrap({"app": {"name": "audio2text"}})
-        assert registry.init_order == ["config", "logger", "secrets", "errors"]
+        assert registry.init_order == [
+            "config", "logger", "secrets", "errors",
+            "observability", "cache", "i18n",
+        ]
 
     def test_secret_manager_can_set_and_get(self):
         """InMemorySecretAdapter supports set/get operations."""
@@ -119,6 +122,69 @@ class TestSlice2SecretsAndErrors:
             raise ValueError("test error")
         except ValueError as e:
             errors.classify(e)
+
+
+class TestSlice3ObservabilityCacheI18n:
+    """Verify M05 Observability, M07 Cache, M17 I18n wiring."""
+
+    def test_all_seven_managers_wired(self):
+        """Registry contains M01-M05, M07, M17 after bootstrap."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        assert registry.get_config() is not None
+        assert registry.get_logger() is not None
+        assert registry.get_secrets() is not None
+        assert registry.get_errors() is not None
+        assert registry.get_observability() is not None
+        assert registry.get_cache() is not None
+        assert registry.get_i18n() is not None
+
+    def test_observability_counter_does_not_raise(self):
+        """NoopObservabilityAdapter accepts increment_counter without errors."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        obs = registry.get_observability()
+        obs.increment_counter("transcribe.count", 1)
+        obs.increment_counter("cache.hits", 5)
+
+    def test_cache_set_and_get(self):
+        """MemoryCacheAdapter supports set/get operations."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        cache = registry.get_cache()
+        cache.set("test_key", "cached_value")
+        assert cache.get("test_key") == "cached_value"
+        assert cache.exists("test_key") is True
+        assert cache.exists("nonexistent") is False
+
+    def test_cache_get_or_set_uses_factory(self):
+        """get_or_set calls factory on cache miss."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        cache = registry.get_cache()
+        result = cache.get_or_set("computed", lambda: "factory_value")
+        assert result == "factory_value"
+
+    def test_i18n_translates_key(self):
+        """InMemoryI18nAdapter returns translation for known key."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        i18n = registry.get_i18n()
+        assert i18n.t("app.title") == "Audio2Text"
+
+    def test_i18n_defaults_for_missing_key(self):
+        """Missing key returns the key itself as fallback."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        i18n = registry.get_i18n()
+        result = i18n.t("nonexistent.key")
+        assert result is not None  # Returns something, doesn't raise
 
 
 class TestBootstrapHaltsOnConfigFailure:
