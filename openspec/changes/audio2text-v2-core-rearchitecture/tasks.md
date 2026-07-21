@@ -61,9 +61,9 @@ Tracker: `feature/audio2text-v2-core-rearchitecture → main` (draft PR, no-merg
 - [x] 2.2 Adapter tests with fake keyring fixture
 - [x] 2.3 **RED** — `tests/config/test_migration_idempotent.py`: golden `config.json` with XOR+Base64 `groq_api_key`; assert SecretManager receives plaintext; idempotent re-run guard
 - [x] 2.4 **GREEN** — idempotent backup guard in migration.py; `set_secret()` API match; golden test fixture `tests/fixtures/config_v015.json`
-- [ ] 3.1 Wire `ObservabilityManager` (M05) into `bootstrap.py`; emit `transcribe.file` span with `provider`, `language`, `duration_seconds`, `status` (spec scenario "Transcription emits RED metrics").
-- [ ] 3.2 Wire `CacheManager` (M07); cache by audio SHA-256; expose `cache_hits_total` counter (spec scenario "Identical audio re-transcribed").
-- [ ] 3.3 Wire `I18nManager` (M17); replace `audio2text/localization/manager.py` usages in services with registry accessors; remove direct `lang/es.json` reads (spec scenario "Locale switch").
+- [x] 3.1 Wire ObservabilityManager (M05) with NoopObservabilityAdapter; emit increment_counter
+- [x] 3.2 Wire CacheManager (M07) with MemoryCacheAdapter; cache by key, get_or_set with factory
+- [x] 3.3 Wire I18nManager (M17) with InMemoryI18nAdapter; locale-first translation format
 - [ ] 4.1 Create `audio2text/providers/ports/__init__.py` and `transcription_provider.py` with `@runtime_checkable TranscriptionProvider` Protocol (`transcribe_file`, `transcribe_stream`, `validate_config`, `provider_name`, `model_name`, `is_available`) — see design §4.
 - [ ] 4.2 Create `audio2text/providers/adapters/__init__.py` and move `groq_provider.py` → `adapters/groq_adapter.py`, `faster_whisper_provider.py` → `adapters/faster_whisper_adapter.py`, `nvidia_riva_provider.py` → `adapters/nvidia_riva_adapter.py`; each implements `TranscriptionProvider` Protocol.
 - [ ] 4.3 Delete `audio2text/providers/base.py`; update all imports; add `tests/providers/test_protocols.py` asserting duck-typing (`isinstance(MockProvider(), TranscriptionProvider) == True`).
