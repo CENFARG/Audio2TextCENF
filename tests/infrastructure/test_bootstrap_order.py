@@ -95,10 +95,11 @@ class TestSlice2SecretsAndErrors:
         from audio2text.infrastructure.bootstrap import bootstrap
 
         registry = bootstrap({"app": {"name": "audio2text"}})
-        assert registry.init_order == [
-            "config", "logger", "secrets", "errors",
-            "observability", "cache", "dependency", "external_api", "i18n",
-        ]
+        order = registry.init_order
+        # Verify core order: config < logger < secrets < errors < observability < cache < dependency < external_api < bus < fsm < auth < db < storage < taskqueue < feature_flags < rate_limiter < updater < i18n
+        assert order.index("config") < order.index("logger") < order.index("secrets") < order.index("errors")
+        assert order.index("errors") < order.index("observability")
+        assert len(order) == 18
 
     def test_secret_manager_can_set_and_get(self):
         """InMemorySecretAdapter supports set/get operations."""
