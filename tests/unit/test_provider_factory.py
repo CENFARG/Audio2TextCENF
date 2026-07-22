@@ -44,7 +44,7 @@ class TestTranscriptionProviderFactory:
     def test_create_mock_provider(self) -> None:
         """Factory can create a MockProvider."""
         from audio2text.providers.factory import TranscriptionProviderFactory
-        from audio2text.providers.mock_provider import MockProvider
+        from audio2text.providers.adapters.mock_adapter import MockProvider
 
         provider = TranscriptionProviderFactory.create("mock", {})
         assert isinstance(provider, MockProvider)
@@ -53,7 +53,7 @@ class TestTranscriptionProviderFactory:
     def test_create_groq_provider(self) -> None:
         """Factory can create a GroqProvider."""
         from audio2text.providers.factory import TranscriptionProviderFactory
-        from audio2text.providers.groq_provider import GroqProvider
+        from audio2text.providers.adapters.groq_adapter import GroqProvider
 
         provider = TranscriptionProviderFactory.create("groq", {})
         assert isinstance(provider, GroqProvider)
@@ -62,7 +62,7 @@ class TestTranscriptionProviderFactory:
     def test_create_faster_whisper_provider(self) -> None:
         """Factory can create a FasterWhisperProvider."""
         from audio2text.providers.factory import TranscriptionProviderFactory
-        from audio2text.providers.faster_whisper_provider import FasterWhisperProvider
+        from audio2text.providers.adapters.faster_whisper_adapter import FasterWhisperProvider
 
         provider = TranscriptionProviderFactory.create("faster_whisper", {})
         assert isinstance(provider, FasterWhisperProvider)
@@ -71,7 +71,7 @@ class TestTranscriptionProviderFactory:
     def test_create_nvidia_provider(self) -> None:
         """Factory can create a NvidiaRivaProvider."""
         from audio2text.providers.factory import TranscriptionProviderFactory
-        from audio2text.providers.nvidia_riva_provider import NvidiaRivaProvider
+        from audio2text.providers.adapters.nvidia_riva_adapter import NvidiaRivaProvider
 
         provider = TranscriptionProviderFactory.create("nvidia", {})
         assert isinstance(provider, NvidiaRivaProvider)
@@ -101,7 +101,7 @@ class TestTranscriptionProviderFactory:
 
     def test_get_default_returns_first_available_or_mock(self) -> None:
         """get_default returns an available provider (mock is the ultimate fallback)."""
-        from audio2text.providers.base import TranscriptionProvider
+        from audio2text.providers.ports import TranscriptionProvider
         from audio2text.providers.factory import TranscriptionProviderFactory
 
         provider = TranscriptionProviderFactory.get_default()

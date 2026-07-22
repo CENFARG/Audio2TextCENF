@@ -11,7 +11,7 @@ import importlib
 from collections.abc import Callable
 from typing import Any
 
-from audio2text.providers.base import TranscriptionProvider
+from audio2text.providers.ports import TranscriptionProvider
 
 
 class TranscriptionProviderFactory:
@@ -31,10 +31,10 @@ class TranscriptionProviderFactory:
 
     # Maps provider type keys to import paths (lazy imports)
     _PROVIDER_REGISTRY: dict[str, str] = {
-        "groq": "audio2text.providers.groq_provider",
-        "faster_whisper": "audio2text.providers.faster_whisper_provider",
-        "nvidia": "audio2text.providers.nvidia_riva_provider",
-        "mock": "audio2text.providers.mock_provider",
+        "groq": "audio2text.providers.adapters.groq_adapter",
+        "faster_whisper": "audio2text.providers.adapters.faster_whisper_adapter",
+        "nvidia": "audio2text.providers.adapters.nvidia_riva_adapter",
+        "mock": "audio2text.providers.adapters.mock_adapter",
     }
 
     # Maps provider type keys to class names within those modules

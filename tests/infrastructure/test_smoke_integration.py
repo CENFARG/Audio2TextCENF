@@ -16,10 +16,10 @@ def test_bootstrap_with_existing_modules():
     from audio2text.domain.metadata import TranscriptionMetadata  # noqa: F401
 
     # Provider ABC + concrete providers
-    from audio2text.providers.base import TranscriptionProvider  # noqa: F401
-    from audio2text.providers.groq_provider import GroqProvider  # noqa: F401
-    from audio2text.providers.faster_whisper_provider import FasterWhisperProvider  # noqa: F401
-    from audio2text.providers.mock_provider import MockProvider  # noqa: F401
+    from audio2text.providers.ports import TranscriptionProvider  # noqa: F401
+    from audio2text.providers.adapters.groq_adapter import GroqProvider  # noqa: F401
+    from audio2text.providers.adapters.faster_whisper_adapter import FasterWhisperProvider  # noqa: F401
+    from audio2text.providers.adapters.mock_adapter import MockProvider  # noqa: F401
 
     # Config
     from audio2text.config._schema import build_default_config  # noqa: F401
