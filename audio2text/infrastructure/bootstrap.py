@@ -12,18 +12,25 @@ from __future__ import annotations
 
 from typing import Any
 
+from core_infrastructure.auth import StaticAuthAdapter
 from core_infrastructure.bus_event.adapters.memory_bus_adapter import MemoryBusAdapter
 from core_infrastructure.cache import MemoryCacheAdapter
 from core_infrastructure.common.errors import ValidationError
 from core_infrastructure.config import InMemoryConfigAdapter
+from core_infrastructure.database import MemoryDatabaseAdapter
 from core_infrastructure.dependency import InMemoryDependencyAdapter
 from core_infrastructure.errors import CapturingErrorAdapter
 from core_infrastructure.external_api import MockHTTPAdapter
+from core_infrastructure.feature_flags import MemoryFeatureFlagAdapter
+from core_infrastructure.filestorage import MemoryStorageAdapter
 from core_infrastructure.i18n import InMemoryI18nAdapter
 from core_infrastructure.logger import InMemoryLoggerAdapter
 from core_infrastructure.observability import NoopObservabilityAdapter
+from core_infrastructure.ratelimit import InMemoryRateLimitAdapter
 from core_infrastructure.secrets import InMemorySecretAdapter
 from core_infrastructure.state_machine import InMemoryStateMachineAdapter, StateMachineConfig
+from core_infrastructure.taskqueue import MemoryTaskQueueAdapter
+from core_infrastructure.update.adapters.in_memory_update_adapter import InMemoryUpdateAdapter
 
 from audio2text.infrastructure.registry import ManagerRegistry
 
@@ -97,6 +104,34 @@ def bootstrap(config_dict: dict[str, Any] | None) -> ManagerRegistry:
     fsm_config = StateMachineConfig(initial_state="idle")
     fsm = InMemoryStateMachineAdapter(config=fsm_config)
     registry.register("fsm", fsm)
+
+    # M06: AuthManager — JWT token validation
+    auth = StaticAuthAdapter(default_claims={})
+    registry.register("auth", auth)
+
+    # M08: DatabaseManager — generic repository + transactions
+    db = MemoryDatabaseAdapter(config=config, logger=logger, observability=observability, error_handler=errors)
+    registry.register("db", db)
+
+    # M09: FileStorageManager — multi-cloud blob storage
+    storage = MemoryStorageAdapter(config=None)
+    registry.register("storage", storage)
+
+    # M10: TaskQueueManager — async jobs with DLQ
+    taskqueue = MemoryTaskQueueAdapter(config=None)
+    registry.register("taskqueue", taskqueue)
+
+    # M12: FeatureFlagManager — runtime toggles
+    feature_flags = MemoryFeatureFlagAdapter(config=None)
+    registry.register("feature_flags", feature_flags)
+
+    # M16: RateLimiterManager — token bucket rate limiting
+    rate_limiter = InMemoryRateLimitAdapter(mode="token_bucket")
+    registry.register("rate_limiter", rate_limiter)
+
+    # M20: UpdateManager — desktop auto-update
+    updater = InMemoryUpdateAdapter(config=config)
+    registry.register("updater", updater)
 
     # M17: I18nManager — depends on config
     i18n = InMemoryI18nAdapter(

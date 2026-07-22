@@ -70,6 +70,27 @@ class ManagerRegistry:
         """Return the StateMachineManager (M22) instance."""
         return self._managers.get("fsm")
 
+    def get_auth(self) -> Any:
+        return self._managers.get("auth")
+
+    def get_db(self) -> Any:
+        return self._managers.get("db")
+
+    def get_storage(self) -> Any:
+        return self._managers.get("storage")
+
+    def get_taskqueue(self) -> Any:
+        return self._managers.get("taskqueue")
+
+    def get_feature_flags(self) -> Any:
+        return self._managers.get("feature_flags")
+
+    def get_rate_limiter(self) -> Any:
+        return self._managers.get("rate_limiter")
+
+    def get_updater(self) -> Any:
+        return self._managers.get("updater")
+
     def get(self, key: str) -> Any:
         """Generic accessor for any registered manager."""
         return self._managers.get(key)
