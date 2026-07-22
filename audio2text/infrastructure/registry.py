@@ -58,6 +58,10 @@ class ManagerRegistry:
         """Return the DependencyManager (M13) instance."""
         return self._managers.get("dependency")
 
+    def get_external_api(self) -> Any:
+        """Return the ExternalAPIManager (M11) instance."""
+        return self._managers.get("external_api")
+
     def get(self, key: str) -> Any:
         """Generic accessor for any registered manager."""
         return self._managers.get(key)

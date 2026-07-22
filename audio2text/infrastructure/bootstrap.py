@@ -17,6 +17,7 @@ from core_infrastructure.common.errors import ValidationError
 from core_infrastructure.config import InMemoryConfigAdapter
 from core_infrastructure.dependency import InMemoryDependencyAdapter
 from core_infrastructure.errors import CapturingErrorAdapter
+from core_infrastructure.external_api import MockHTTPAdapter
 from core_infrastructure.i18n import InMemoryI18nAdapter
 from core_infrastructure.logger import InMemoryLoggerAdapter
 from core_infrastructure.observability import NoopObservabilityAdapter
@@ -81,6 +82,10 @@ def bootstrap(config_dict: dict[str, Any] | None) -> ManagerRegistry:
         ("audio2text.providers.adapters.mock_adapter", "MockProvider"): None,
     })
     registry.register("dependency", dependency)
+
+    # M11: ExternalAPIManager — depends on config; used for LLM/API calls
+    external_api = MockHTTPAdapter()
+    registry.register("external_api", external_api)
 
     # M17: I18nManager — depends on config
     i18n = InMemoryI18nAdapter(

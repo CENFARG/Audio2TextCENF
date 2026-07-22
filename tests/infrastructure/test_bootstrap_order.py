@@ -97,7 +97,7 @@ class TestSlice2SecretsAndErrors:
         registry = bootstrap({"app": {"name": "audio2text"}})
         assert registry.init_order == [
             "config", "logger", "secrets", "errors",
-            "observability", "cache", "dependency", "i18n",
+            "observability", "cache", "dependency", "external_api", "i18n",
         ]
 
     def test_secret_manager_can_set_and_get(self):
@@ -235,6 +235,48 @@ class TestSlice5DependencyManager:
         order = registry.init_order
         assert "dependency" in order
         assert order.index("cache") < order.index("dependency")
+
+
+class TestSlice6ExternalAPI:
+    """Verify M11 ExternalAPIManager wiring + PostProcessingBlock Protocol."""
+
+    def test_external_api_wired(self):
+        """ExternalAPIManager is accessible from registry."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        api = registry.get_external_api()
+        assert api is not None
+
+    def test_external_api_mock_does_not_raise(self):
+        """MockHTTPAdapter accepts basic async requests."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+        import asyncio
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        api = registry.get_external_api()
+        result = asyncio.run(api.get("https://example.com/test"))
+        assert result is not None
+
+    def test_post_processing_protocol_importable(self):
+        """PostProcessingBlock Protocol imports cleanly."""
+        from audio2text.providers.ports import PostProcessingBlock
+
+        assert PostProcessingBlock is not None
+
+    def test_mock_block_satisfies_protocol(self):
+        """A simple mock block satisfies PostProcessingBlock Protocol."""
+        from audio2text.providers.ports import PostProcessingBlock
+
+        class MockBlock:
+            name = "mock_block"
+            enabled = True
+
+            def process(self, text: str):
+                return {"result": text.upper()}
+
+        block = MockBlock()
+        assert isinstance(block, PostProcessingBlock)
 
 
 class TestBootstrapHaltsOnConfigFailure:
