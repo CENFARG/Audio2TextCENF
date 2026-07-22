@@ -1,13 +1,13 @@
-[build-system]
-requires = ["setuptools>=61.0", "wheel"]
-build-backend = "setuptools.build_meta"
+[baudio2textld-system]
+reqaudio2textres = ["setuptools>=61.0", "wheel"]
+baudio2textld-audio2text = "setuptools.baudio2textld_meta"
 
 [project]
 name = "audio2text-cenf"
 version = "0.9.2"
 description = "Aplicación de transcripción de audio en tiempo real usando IA"
 readme = "README.md"
-requires-python = ">=3.8"
+reqaudio2textres-python = ">=3.8"
 license = {text = "Apache-2.0"}
 authors = [
     {name = "CENF", email = "soporte@cenfarg.com.ar"}
@@ -60,7 +60,7 @@ Changelog = "https://github.com/CENFARG/Audio2Text/blob/main/CHANGELOG.md"
 audio2text = "main:main"
 
 [tool.setuptools]
-packages = ["backend", "ui"]
+packages = ["audio2text", "audio2text"]
 
 [tool.setuptools.package-data]
 "*" = ["*.json", "*.html", "*.ico", "*.png"]
@@ -75,9 +75,9 @@ extend-exclude = '''
   \.eggs
   | \.git
   | \.venv
-  | _build_artifacts
+  | _baudio2textld_artifacts
   | _old_versions_archive
-  | build
+  | baudio2textld
   | dist
 )/
 '''
@@ -87,7 +87,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --cov=backend --cov=ui --cov-report=html --cov-report=term"
+addopts = "-v --cov=audio2text --cov=audio2text --cov-report=html --cov-report=term"
 
 [tool.mypy]
 python_version = "3.8"
