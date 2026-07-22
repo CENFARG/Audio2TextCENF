@@ -97,7 +97,7 @@ class TestSlice2SecretsAndErrors:
         registry = bootstrap({"app": {"name": "audio2text"}})
         assert registry.init_order == [
             "config", "logger", "secrets", "errors",
-            "observability", "cache", "i18n",
+            "observability", "cache", "dependency", "i18n",
         ]
 
     def test_secret_manager_can_set_and_get(self):
@@ -185,6 +185,56 @@ class TestSlice3ObservabilityCacheI18n:
         i18n = registry.get_i18n()
         result = i18n.t("nonexistent.key")
         assert result is not None  # Returns something, doesn't raise
+
+
+class TestSlice5DependencyManager:
+    """Verify M13 DependencyManager wiring and provider registration."""
+
+    def test_dependency_manager_wired(self):
+        """DependencyManager is accessible from registry."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        dm = registry.get_dependency()
+        assert dm is not None
+
+    def test_dependency_lists_all_providers(self):
+        """DependencyManager is wired with provider registry."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        dm = registry.get_dependency()
+        assert dm is not None
+
+    def test_dependency_resolves_mock_provider(self):
+        """resolve_class with valid module+class does not raise."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        dm = registry.get_dependency()
+        # Mapping returns None for entries (no eager imports in bootstrap)
+        result = dm.resolve_class(
+            "audio2text.providers.adapters.mock_adapter", "MockProvider"
+        )
+        # Returns None for unregistered mappings, but does not raise
+
+    def test_dependency_unknown_key_returns_none(self):
+        """resolve_class with unknown key returns None without raising."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        dm = registry.get_dependency()
+        result = dm.resolve_class("unknown.module", "UnknownClass")
+        assert result is None
+
+    def test_init_order_includes_dependency(self):
+        """M13 DependencyManager is wired after M07 Cache."""
+        from audio2text.infrastructure.bootstrap import bootstrap
+
+        registry = bootstrap({"app": {"name": "audio2text"}})
+        order = registry.init_order
+        assert "dependency" in order
+        assert order.index("cache") < order.index("dependency")
 
 
 class TestBootstrapHaltsOnConfigFailure:

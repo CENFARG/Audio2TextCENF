@@ -3,7 +3,7 @@ Bootstrap orchestrator — wires core-cenf managers in dependency order.
 
 Spec: "ConfigManager (M01) → LoggerManager (M02) → SecretManager (M03)
        → ErrorHandlingManager (M04) → ..."
-Slice 3 adds M05 Observability + M07 Cache + M17 I18n.
+Slice 5 adds M13 DependencyManager with provider registration.
 
 Golden rule: only audio2text/infrastructure/ may import core_infrastructure.
 """
@@ -15,6 +15,7 @@ from typing import Any
 from core_infrastructure.cache import MemoryCacheAdapter
 from core_infrastructure.common.errors import ValidationError
 from core_infrastructure.config import InMemoryConfigAdapter
+from core_infrastructure.dependency import InMemoryDependencyAdapter
 from core_infrastructure.errors import CapturingErrorAdapter
 from core_infrastructure.i18n import InMemoryI18nAdapter
 from core_infrastructure.logger import InMemoryLoggerAdapter
@@ -35,7 +36,7 @@ def bootstrap(config_dict: dict[str, Any] | None) -> ManagerRegistry:
             Must not be None.
 
     Returns:
-        ManagerRegistry with M01–M05, M07, M17 wired.
+        ManagerRegistry with M01–M05, M07, M13, M17 wired.
 
     Raises:
         ValidationError: If config_dict is None (halt — no half-init state).
@@ -71,6 +72,15 @@ def bootstrap(config_dict: dict[str, Any] | None) -> ManagerRegistry:
     # M07: CacheManager — depends on config + logger + errors
     cache = MemoryCacheAdapter(config=config, logger=logger, error_handler=errors)
     registry.register("cache", cache)
+
+    # M13: DependencyManager — depends on config; registers provider adapters
+    dependency = InMemoryDependencyAdapter(mapping={
+        ("audio2text.providers.adapters.groq_adapter", "GroqProvider"): None,
+        ("audio2text.providers.adapters.faster_whisper_adapter", "FasterWhisperProvider"): None,
+        ("audio2text.providers.adapters.nvidia_riva_adapter", "NvidiaRivaProvider"): None,
+        ("audio2text.providers.adapters.mock_adapter", "MockProvider"): None,
+    })
+    registry.register("dependency", dependency)
 
     # M17: I18nManager — depends on config
     i18n = InMemoryI18nAdapter(

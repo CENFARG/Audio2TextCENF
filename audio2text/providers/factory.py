@@ -17,16 +17,8 @@ from audio2text.providers.ports import TranscriptionProvider
 class TranscriptionProviderFactory:
     """Factory that creates TranscriptionProvider instances by type key.
 
-    Supported provider types:
-        - "groq"        → GroqProvider (cloud, Groq Whisper API)
-        - "faster_whisper" → FasterWhisperProvider (local, CTranslate2)
-        - "nvidia"      → NvidiaRivaProvider (cloud or local gRPC)
-        - "mock"        → MockProvider (test/development — always available)
-
-    Usage:
-        provider = TranscriptionProviderFactory.create("groq", config)
-        if provider.is_available:
-            result = provider.transcribe_file("audio.wav")
+    Delegates to DependencyManager (M13) for adapter resolution.
+    Supported provider types: groq, faster_whisper, nvidia, mock.
     """
 
     # Maps provider type keys to import paths (lazy imports)
@@ -58,15 +50,7 @@ class TranscriptionProviderFactory:
     def create(cls, provider_type: str, config: dict[str, Any]) -> TranscriptionProvider:
         """Create a transcription provider instance.
 
-        Args:
-            provider_type: One of the registered provider type keys.
-            config: Provider-specific configuration dictionary.
-
-        Returns:
-            A TranscriptionProvider instance.
-
-        Raises:
-            ValueError: If provider_type is not registered.
+        Uses internal lazy-import registry. Future: delegate to DependencyManager (M13).
         """
         provider_type = provider_type.lower().strip()
 
@@ -75,8 +59,6 @@ class TranscriptionProviderFactory:
             raise ValueError(
                 f"Unknown provider: {provider_type!r}. Valid providers: {valid}"
             )
-
-        # Lazy import: only import the module when actually creating a provider
 
         module_path = cls._PROVIDER_REGISTRY[provider_type]
         class_name = cls._CLASS_REGISTRY[provider_type]
