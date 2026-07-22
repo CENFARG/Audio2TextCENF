@@ -62,6 +62,14 @@ class ManagerRegistry:
         """Return the ExternalAPIManager (M11) instance."""
         return self._managers.get("external_api")
 
+    def get_bus(self) -> Any:
+        """Return the BusEventManager (M21) instance."""
+        return self._managers.get("bus")
+
+    def get_fsm(self) -> Any:
+        """Return the StateMachineManager (M22) instance."""
+        return self._managers.get("fsm")
+
     def get(self, key: str) -> Any:
         """Generic accessor for any registered manager."""
         return self._managers.get(key)

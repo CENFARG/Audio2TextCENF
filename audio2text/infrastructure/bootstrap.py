@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from core_infrastructure.bus_event.adapters.memory_bus_adapter import MemoryBusAdapter
 from core_infrastructure.cache import MemoryCacheAdapter
 from core_infrastructure.common.errors import ValidationError
 from core_infrastructure.config import InMemoryConfigAdapter
@@ -22,6 +23,7 @@ from core_infrastructure.i18n import InMemoryI18nAdapter
 from core_infrastructure.logger import InMemoryLoggerAdapter
 from core_infrastructure.observability import NoopObservabilityAdapter
 from core_infrastructure.secrets import InMemorySecretAdapter
+from core_infrastructure.state_machine import InMemoryStateMachineAdapter, StateMachineConfig
 
 from audio2text.infrastructure.registry import ManagerRegistry
 
@@ -86,6 +88,15 @@ def bootstrap(config_dict: dict[str, Any] | None) -> ManagerRegistry:
     # M11: ExternalAPIManager — depends on config; used for LLM/API calls
     external_api = MockHTTPAdapter()
     registry.register("external_api", external_api)
+
+    # M21: BusEventManager — decoupled pub/sub for component events
+    bus = MemoryBusAdapter(config=None)
+    registry.register("bus", bus)
+
+    # M22: StateMachineManager — deterministic FSM for recording lifecycle
+    fsm_config = StateMachineConfig(initial_state="idle")
+    fsm = InMemoryStateMachineAdapter(config=fsm_config)
+    registry.register("fsm", fsm)
 
     # M17: I18nManager — depends on config
     i18n = InMemoryI18nAdapter(
