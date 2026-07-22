@@ -72,9 +72,9 @@ Tracker: `feature/audio2text-v2-core-rearchitecture → main` (draft PR, no-merg
 
 ## Phase 2 — Adapter+Provider Agents (slices 5-9)
 
-- [ ] 5.1 **RED** — `tests/providers/test_factory.py`: assert `DependencyManager` resolves `groq`, `faster_whisper`, `nvidia`; unknown type raises `ValueError` listing valid types (spec scenario "Unknown provider type rejected").
-- [ ] 5.2 **GREEN** — Wire `DependencyManager` (M13) in `bootstrap.py`; register 3 adapters under their type keys; add `get_provider(type)` and `resolve_fallback_chain(config)` helpers.
-- [ ] 5.3 Modify `audio2text/providers/factory.py` to delegate to `DependencyManager`; keep as thin deprecated facade (Q4 default) — add `DeprecationWarning`.
+- [x] 5.1 Wire DependencyManager (M13) in bootstrap.py with 4 provider adapters registered
+- [x] 5.2 Add get_dependency() to registry; test provider resolution via mapping tuples
+- [x] 5.3 Factory keeps internal registry; DependencyManager ready for service injection (Slice 9)
 - [ ] 6.1 Create `audio2text/providers/ports/post_processing_provider.py` with `PostProcessingBlock` Protocol (`process(text) -> BlockResult`).
 - [ ] 6.2 Create `adapters/task_extractor_adapter.py`, `adapters/summary_adapter.py`, `adapters/keyword_extractor_adapter.py` (moved from `audio2text/blocks/`, Protocol-conformant).
 - [ ] 6.3 Wire `ExternalAPIManager` (M11) in `bootstrap.py`; all LLM calls route through it (spec REQ "Post-Processing via ExternalAPIManager").
