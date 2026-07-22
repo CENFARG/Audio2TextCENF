@@ -19,11 +19,20 @@ logger = logging.getLogger("api.lifespan")
 def _init_services() -> None:
     """Initialize application services on startup.
 
-    Validates configuration, pre-loads models, and setup service singletons.
+    Bootstraps the ManagerRegistry with all 18 core_infrastructure managers.
     Called once at application startup via lifespan event.
     """
     logger.info("========== Audio2Text API v0.16.0 — SESSION START ==========")
-    logger.info("Audio2Text API starting up — initializing services...")
+    logger.info("Audio2Text API starting up — bootstrapping infrastructure...")
+    from audio2text.infrastructure import get_registry
+
+    registry = get_registry()
+    logger.info(
+        "Registry bootstrapped: %d managers wired (%s)",
+        len(registry.init_order),
+        ", ".join(registry.init_order[:5]) + "...",
+    )
+    logger.info("Audio2Text API — infrastructure ready")
 
 
 def _shutdown_services() -> None:

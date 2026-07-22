@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from audio2text.domain.transcription import TranscriptionResult
 from audio2text.pipeline.pipeline import TranscriptionPipeline
-from audio2text.providers.base import TranscriptionProvider
+from audio2text.providers.ports import TranscriptionProvider
 from audio2text.services.metadata_service import MetadataService
 
 
