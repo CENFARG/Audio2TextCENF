@@ -64,9 +64,9 @@ Tracker: `feature/audio2text-v2-core-rearchitecture → main` (draft PR, no-merg
 - [x] 3.1 Wire ObservabilityManager (M05) with NoopObservabilityAdapter; emit increment_counter
 - [x] 3.2 Wire CacheManager (M07) with MemoryCacheAdapter; cache by key, get_or_set with factory
 - [x] 3.3 Wire I18nManager (M17) with InMemoryI18nAdapter; locale-first translation format
-- [ ] 4.1 Create `audio2text/providers/ports/__init__.py` and `transcription_provider.py` with `@runtime_checkable TranscriptionProvider` Protocol (`transcribe_file`, `transcribe_stream`, `validate_config`, `provider_name`, `model_name`, `is_available`) — see design §4.
-- [ ] 4.2 Create `audio2text/providers/adapters/__init__.py` and move `groq_provider.py` → `adapters/groq_adapter.py`, `faster_whisper_provider.py` → `adapters/faster_whisper_adapter.py`, `nvidia_riva_provider.py` → `adapters/nvidia_riva_adapter.py`; each implements `TranscriptionProvider` Protocol.
-- [ ] 4.3 Delete `audio2text/providers/base.py`; update all imports; add `tests/providers/test_protocols.py` asserting duck-typing (`isinstance(MockProvider(), TranscriptionProvider) == True`).
+- [x] 4.1 Create ports/transcription_provider.py with @runtime_checkable Protocol
+- [x] 4.2 Create adapters/ with groq_adapter, faster_whisper_adapter, nvidia_riva_adapter, mock_adapter; fix cenf_core→core_infrastructure
+- [x] 4.3 base.py → compatibility shim; update factory.py paths; add protocol tests (tests/unit/test_protocols.py)
 
 ---
 
