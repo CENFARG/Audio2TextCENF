@@ -1,9 +1,15 @@
 # SPEC_07_DASHBOARD_ARCHITECTURE — Audio2Text v0.16.0 UI Inventory
 
-> **Propósito**: Inventario exhaustivo de la interfaz actual de Audio2Text (versión Flet 0.16.0)
+> **Propósito**: Inventario exhaustivo de la interfaz actual de Audio2Text (v0.16.0)
 > para fundamentar la especificación de la nueva UI Tauri v2 + TypeScript + core-cenf-ts.
 > **Metodología**: spec_SDD_TDD_desing.md — Nivel 1 Macro-Arquitectura + Nivel 2 Puertos y Contratos.
 > **Estado**: Inventario completo — sin decisiones de stack aún.
+> 
+> **NOTA**: Existen DOS interfaces implementadas:
+> 1. **Flet** (`audio2text/ui/`) — UI actual, en desarrollo activo, ~1500 líneas
+> 2. **CustomTkinter** (`ui/` — ELIMINADA en Slice 11, preservada en git history) — UI legacy más completa, ~1289 líneas + 6 módulos auxiliares. **La interfaz de referencia para features.**
+> 
+> Este documento cubre AMBAS y marca qué features existen en cuál.
 
 ---
 
@@ -399,3 +405,38 @@ Basado en el análisis del código actual y comments/documentación:
 
 *Documentación generada desde análisis del código fuente real de `audio2text/ui/` v0.16.0.*
 *Ubicación: `openspec/changes/audio2text-v2-tauri-ui/current-ui-inventory.md`*
+
+---
+
+## 10. COMPARATIVA: Flet vs CustomTkinter
+
+La UI CustomTkinter (recuperada de git history en `ui/`) tiene características que la Flet no implementa:
+
+| Feature | Flet | CustomTkinter |
+|---|---|---|
+| **Tutorial interactivo de onboarding** | ❌ | ✅ 6 pasos (tooltips in-app) |
+| **Reproducir audio desde historial** | ❌ | ✅ Botón play/stop por item |
+| **Cache de transcripciones (JSONL)** | ❌ | ✅ Carga diferida de transcripciones |
+| **Auto-refresh inteligente de historial** | ❌ | ✅ Solo refresca si hay cambios (15s) |
+| **Estadísticas de bloques** | ❌ | ✅ Ventana con métricas de procesamiento |
+| **Tooltips flotantes custom** | ❌ | ✅ Ventanas emergentes con diseño propio |
+| **Selector de hotkeys con modifier** | ❌ | ✅ Ctrl+Alt+Shift+F1-F12 |
+| **Branding link inferior** | ❌ | ✅ "CENF" link al sitio web |
+| **Mostrar/ocultar transcripciones** | ❌ | ✅ Toggle por item |
+| **Editar transcripción inline** | ❌ | ✅ Doble click para editar |
+| **Copy rápido al portapapeles** | ✅ | ✅ Ambos |
+| **Emoji picker** | ✅ | ✅ |
+| **Overlay de grabación con LED+Timer** | ✅ | ✅ Ambos (Flet más moderno) |
+| **Dark/Light mode** | ✅ | ✅ |
+| **System tray** | ✅ | ✅ |
+| **Hotkeys globales** | ✅ | ✅ |
+| **Tabs (5 vistas)** | ✅ | ✅ |
+| **Settings con auto-save** | ✅ | ✅ |
+| **Vocabulario custom CRUD** | ✅ | ✅ |
+| **Bloques de contexto** | ✅ | ✅ |
+| **AI Enhancement** | ✅ | ✅ |
+| **Proveedores (Groq, FW, NVIDIA)** | ✅ | ✅ |
+| **Update manager** | ✅ | ✅ |
+| **Streaming WebSocket** | ✅ | ❌ (usa POST sincrónico) |
+
+**Conclusión**: La CustomTkinter tiene ~8 features que la Flet NO implementa. La UI definitiva debe combinar lo mejor de ambas: la modernidad visual de Flet + las features completas de CustomTkinter.
