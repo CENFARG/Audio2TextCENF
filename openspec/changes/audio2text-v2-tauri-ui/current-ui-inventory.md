@@ -351,7 +351,70 @@ Toggle de idioma (ES/EN) en la parte inferior de la sidebar.
 
 ---
 
-## 9. MODO DE USO COMPLETO
+## 9. OVERLAY DE GRABACIÓN Y TEMPORIZADOR
+
+El overlay es uno de los componentes más visibles de la app — aparece cuando se está grabando y desaparece al terminar.
+
+### 9.1 Versión CustomTkinter (`ui/recording_overlay.py`)
+
+| Propiedad | Valor |
+|---|---|
+| **Tipo** | Ventana flotante independiente (CTkToplevel) |
+| **Tamaño** | 150×75 píxeles |
+| **Posición inicial** | Esquina superior derecha de la pantalla |
+| **Siempre visible** | `attributes('-topmost', True)` |
+| **Decoración** | Sin bordes (`overrideredirect(True)`) |
+| **Arrastrable** | Click + drag en cualquier parte de la ventana |
+
+**LED (indicador de estado)**:
+| Estado | Color LED | Acción |
+|---|---|---|
+| Reposo | Gris (oculto) | `withdraw()` |
+| Grabando | Verde `#10B981` | `deiconify()` + timer corre |
+| Procesando | Amarillo `#F59E0B` | Timer se congela |
+| Error | Rojo `#EF4444` | Timer se congela |
+| Listo | Gris | `withdraw()` (oculta) |
+
+**Timer**: Formato `MM:SS`, fuente Segoe UI 24pt bold, actualizado desde el Transcriber via callback `update_overlay(state, minutes, seconds)`.
+
+### 9.2 Versión Flet (`audio2text/ui/components/recording_overlay.py`)
+
+| Propiedad | Valor |
+|---|---|
+| **Tipo** | Overlay semi-transparente dentro de la ventana Flet |
+| **LED** | Icono círculo (verde = grabando, naranja = pausado) |
+| **Timer** | Formato `MM:SS`, actualizado vía `on_timer_tick` desde AppState |
+| **Botones** | Cancel (rojo) + Stop (primario) |
+| **Visibilidad** | Controlada por RecordingState (RECORDING/PAUSED = visible) |
+| **Conexión** | Observer pattern: se suscribe a `on_recording_state_change` y `on_timer_tick` en `did_mount()` |
+
+### 9.3 Estados del temporizador
+
+| Estado | LED | Timer | Botones | Visibilidad |
+|---|---|---|---|---|
+| `IDLE` | Apagado/gris | 00:00 (oculto) | — | Oculto |
+| `RECORDING` | Verde (puede pulsar) | Corriendo MM:SS | Cancel + Stop | Visible |
+| `PAUSED` | Naranja | Congelado | Cancel + Resume | Visible (solo Flet) |
+| `PROCESSING` | Amarillo | Congelado | — | Visible (solo CTk) |
+| `ERROR` | Rojo | Congelado | — | Visible (solo CTk) |
+
+### 9.4 Flujo de actualización del timer (customTkinter)
+
+```
+Transcriber.update_overlay(state, minutes, seconds)
+  → App.after(0, _update)   ← thread-safe, corre en hilo principal
+    → RecordingOverlay.update_timer(minutes, seconds)
+      → timer_label.configure(text=f"{minutes:02d}:{seconds:02d}")
+```
+
+### 9.5 Flujo de actualización del timer (Flet)
+
+```
+AppState.recording_elapsed_s = 123.4   ← setter
+  → on_timer_tick(123.4)               ← callback
+    → RecordingOverlay._on_timer_tick(elapsed_s)
+      → _timer.value = "02:03"
+      → _safe_update()
 
 ### Flujo típico del usuario:
 
@@ -385,7 +448,7 @@ Toggle de idioma (ES/EN) en la parte inferior de la sidebar.
 
 ---
 
-## 10. CAPABILITIES DEL FUTURO (Wishlist detectada)
+## 11. CAPABILITIES DEL FUTURO (Wishlist detectada)
 
 Basado en el análisis del código actual y comments/documentación:
 
@@ -408,7 +471,7 @@ Basado en el análisis del código actual y comments/documentación:
 
 ---
 
-## 10. COMPARATIVA: Flet vs CustomTkinter
+## 12. COMPARATIVA: Flet vs CustomTkinter
 
 La UI CustomTkinter (recuperada de git history en `ui/`) tiene características que la Flet no implementa:
 
