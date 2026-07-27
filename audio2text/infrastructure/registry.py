@@ -1,0 +1,96 @@
+"""
+ManagerRegistry — typed accessors for core-cenf managers.
+
+Single source of truth for manager instances after bootstrap.
+Only audio2text/infrastructure/ may import core_infrastructure directly.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+
+class ManagerRegistry:
+    """Typed registry holding references to wired core-cenf managers.
+
+    Attributes:
+        init_order: Ordered list of manager keys reflecting bootstrap sequence.
+    """
+
+    def __init__(self) -> None:
+        self._managers: dict[str, Any] = {}
+        self.init_order: list[str] = []
+
+    def register(self, key: str, manager: Any) -> None:
+        """Register a manager under a key and record its init order."""
+        self._managers[key] = manager
+        self.init_order.append(key)
+
+    def get_config(self) -> Any:
+        """Return the ConfigManager (M01) instance."""
+        return self._managers.get("config")
+
+    def get_logger(self) -> Any:
+        """Return the LoggerManager (M02) instance."""
+        return self._managers.get("logger")
+
+    def get_secrets(self) -> Any:
+        """Return the SecretManager (M03) instance."""
+        return self._managers.get("secrets")
+
+    def get_errors(self) -> Any:
+        """Return the ErrorHandlingManager (M04) instance."""
+        return self._managers.get("errors")
+
+    def get_observability(self) -> Any:
+        """Return the ObservabilityManager (M05) instance."""
+        return self._managers.get("observability")
+
+    def get_cache(self) -> Any:
+        """Return the CacheManager (M07) instance."""
+        return self._managers.get("cache")
+
+    def get_i18n(self) -> Any:
+        """Return the I18nManager (M17) instance."""
+        return self._managers.get("i18n")
+
+    def get_dependency(self) -> Any:
+        """Return the DependencyManager (M13) instance."""
+        return self._managers.get("dependency")
+
+    def get_external_api(self) -> Any:
+        """Return the ExternalAPIManager (M11) instance."""
+        return self._managers.get("external_api")
+
+    def get_bus(self) -> Any:
+        """Return the BusEventManager (M21) instance."""
+        return self._managers.get("bus")
+
+    def get_fsm(self) -> Any:
+        """Return the StateMachineManager (M22) instance."""
+        return self._managers.get("fsm")
+
+    def get_auth(self) -> Any:
+        return self._managers.get("auth")
+
+    def get_db(self) -> Any:
+        return self._managers.get("db")
+
+    def get_storage(self) -> Any:
+        return self._managers.get("storage")
+
+    def get_taskqueue(self) -> Any:
+        return self._managers.get("taskqueue")
+
+    def get_feature_flags(self) -> Any:
+        return self._managers.get("feature_flags")
+
+    def get_rate_limiter(self) -> Any:
+        return self._managers.get("rate_limiter")
+
+    def get_updater(self) -> Any:
+        return self._managers.get("updater")
+
+    def get(self, key: str) -> Any:
+        """Generic accessor for any registered manager."""
+        return self._managers.get(key)

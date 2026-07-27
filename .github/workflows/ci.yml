@@ -20,7 +20,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.8'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Install dependencies
@@ -32,14 +32,14 @@ jobs:
     - name: Run flake8
       run: |
         # Stop the build if there are Python syntax errors or undefined names
-        flake8 backend/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 audio2text/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
         # Exit-zero treats all errors as warnings
-        flake8 backend/ tests/ --count --exit-zero --max-complexity=20 --statistics
+        flake8 audio2text/ tests/ --count --exit-zero --max-complexity=20 --statistics
       continue-on-error: false
 
     - name: Run black --check (non-blocking for now)
       run: |
-        black --check backend/ tests/ || echo "Black formatting issues found (will fix in next commit)"
+        black --check audio2text/ tests/ || echo "Black formatting issues found (will fix in next commit)"
       continue-on-error: true
 
   type-check:
@@ -54,7 +54,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.8'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Install dependencies
@@ -66,7 +66,7 @@ jobs:
     - name: Run mypy (non-blocking)
       run: |
         echo "Running mypy type check (informational only, will not block CI)"
-        mypy backend/ --ignore-missing-imports --no-error-summary || echo "mypy found type issues (non-blocking)"
+        mypy audio2text/ --ignore-missing-imports --no-error-summary || echo "mypy found type issues (non-blocking)"
 
   test:
     name: Test (pytest)
@@ -149,7 +149,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.8'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Install Bandit
@@ -158,7 +158,7 @@ jobs:
 
     - name: Run Bandit
       run: |
-        bandit -r backend/ -f json -o bandit-report.json || true
+        bandit -r audio2text/ -f json -o bandit-report.json || true
       continue-on-error: true
 
     - name: Upload Bandit report
