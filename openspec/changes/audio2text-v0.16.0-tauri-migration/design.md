@@ -2,7 +2,7 @@
 
 ## Technical Approach
 
-Replace the Flet presentation layer with Tauri v2 + Svelte 5 while keeping the FastAPI backend untouched. Backend (Python sidecar) is spawned by Rust on startup, killed on shutdown. Frontend communicates via HTTP + WebSocket directly to `127.0.0.1:8765`. The Rust layer is minimal (~250 lines): IPC commands, system tray, global shortcuts. Svelte 5 uses Runes (`$state`, `$derived`, `$effect`) with BootstrapOrchestrator from core-cenf-ts (v0.2.0, local install). Dark Goldenrod design tokens drive shadcn-svelte via Tailwind v4 `@theme`.
+Replace the Flet presentation layer with Tauri v2 + Svelte 5 while keeping the FastAPI backend untouched. Backend (Python sidecar) is spawned by Rust on startup, killed on shutdown. Frontend communicates via HTTP + WebSocket directly to `127.0.0.1:8765`. The Rust layer is minimal (~400 lines): IPC commands, system tray, global shortcuts. Svelte 5 uses Runes (`$state`, `$derived`, `$effect`) with BootstrapOrchestrator from core-cenf-ts (v0.2.0, local install). Dark Goldenrod design tokens drive shadcn-svelte via Tailwind v4 `@theme`.
 
 ## Architecture Decisions
 
@@ -17,7 +17,7 @@ Replace the Flet presentation layer with Tauri v2 + Svelte 5 while keeping the F
 | D7 | Hotkey impl | (a) Tauri global-shortcut plugin (b) Python keyboard lib | (a) Tauri plugin | Spec REQ: `Ctrl+Shift+R` default, native, no Python dependency for hotkeys |
 | D8 | API client | (a) TypeScript class (b) OpenAPI gen (c) Tauri IPC proxy | (a) TypeScript + Zod | Spec REQ: typed HTTP + WS. Direct from webview — no Rust middleman per user decision |
 | D9 | Component library | (a) shadcn-svelte (b) custom (c) Flowbite | (a) shadcn-svelte | CES mandated. bits-ui + lucide-svelte. Dark Goldenrod via CSS var inheritance |
-| D10 | Delivery strategy | (a) single PR (b) Feature Branch Chain (c) stacked PRs | (b) Feature Branch Chain | ~1500+ lines total across 4 slices. Feature must integrate before `main`. PR1 targets tracker branch |
+| D10 | Delivery strategy | (a) single PR (b) Feature Branch Chain (c) stacked PRs | (b) Chained PRs to tracker | ~1500+ lines total across 5 slices. Each PR targets previous PR branch. Tracker PR aggregates to `main` |
 
 ## Bootstrap Wiring (Mermaid)
 
@@ -30,8 +30,8 @@ sequenceDiagram
     participant CET as core-cenf-ts Bootstrap
 
     OS->>Rust: launch app
-    Rust->>Sidecar: spawn (tauri-plugin-shell)
-    Sidecar->>Sidecar: uvicorn start (127.0.0.1:8765)
+    Rust->>Sidecar: check PyInstaller binary exists
+    Rust->>Sidecar: spawn sidecar binary (uvicorn 127.0.0.1:8765)
     Rust->>WS: mount SvelteKit
     WS->>CET: BootstrapOrchestrator.startup()
     CET-->>WS: managers ready (Config, Log, I18n, etc.)
@@ -66,6 +66,9 @@ graph TD
     HV --> HS[HistorySearch.svelte]
     HV --> EP[EmojiPicker.svelte]
 
+    App --> LS[LanguageSelect.svelte]
+    App --> AE[AIEnhancementTrigger.svelte]
+
     subgraph infra[infrastructure/]
         API[APIClient.ts - HTTP + WS]
         Boot[BootstrapOrchestrator.ts]
@@ -85,8 +88,9 @@ Tracker branch: `feature/audio2text-v0.16.0-tauri-migration` (draft PR, no-merge
 |---|---|---|---|---|
 | 1 | `feat(tauri): Tauri shell + SvelteKit + design tokens + core-cenf-ts` | CTA scaffold, Rust sidecar, tokens.json/tokens.css, Tailwind @theme, BootstrapOrchestrator, Navigation shell, App shell, `pnpm-workspace.yaml` | ~350 | `feat/audio2text-v0.16.0-tauri-migration` |
 | 2 | `feat(ui): TranscribeView + WS streaming + recording overlay + API client` | APIClient (HTTP+WS), TranscribeView, AudioCapture, RecordingOverlay, TranscriptionPanel, StatusBar, ContextBlocksSelector, hotkey store, WS reconnect | ~380 | PR #1 |
-| 3 | `feat(ui): Settings + History + Info + Update views` | SettingsView (8 panels), HistoryView (search+emoji), InfoView, UpdateView, emoji picker | ~400 | PR #2 |
-| 4 | `feat(cleanup): Polish + Playwright E2E + CI/CD + delete Flet UI` | Playwright tests, CI workflow (tauri-action), `audio2text/ui/` deletion, `audio2text/main.py` simplification, docs update | ~350 | PR #3 |
+| 3 | `feat(ui): SettingsView — 8 panels + debounce + auto-save` | SettingsView (ProviderConfig, HotkeyConfig, VocabularyEditor, AudioCapture, all toggles), debounced PUT, I18nManager | ~380 | PR #2 |
+| 4 | `feat(ui): History + Info + Update views` | HistoryView (search+emoji+CRUD), InfoView, UpdateView, AllView navigation | ~350 | PR #3 |
+| 5 | `feat(cleanup): Polish + Playwright E2E + CI/CD + delete Flet UI` | Playwright tests, CI workflow (tauri-action), `audio2text/ui/` deletion, `audio2text/main.py` simplification, docs update | ~350 | PR #4 |
 
 ## Data Flow (Transcription)
 
@@ -99,10 +103,9 @@ sequenceDiagram
     participant ASR as Transcriber
 
     User->>UI: Click Record
-    UI->>Rust: toggle_recording
-    Rust-->>UI: { recording: true }
     UI->>API: POST /api/v1/transcribe/start
-    API-->>UI: { session_id }
+    API-->>UI: { session_id, status: "recording" }
+    UI->>UI: set $state recording = true
     UI->>API: WS connect ws://127.0.0.1:8765/api/v1/transcribe/stream
     API->>ASR: buffer audio chunks
     ASR-->>API: partial text
@@ -112,6 +115,7 @@ sequenceDiagram
     UI->>API: POST /api/v1/transcribe/stop
     API-->>UI: { final_text }
     UI->>UI: persist transcript, reset state
+    Note over UI,API: If POST /start fails → error snackbar, reset button state
 ```
 
 ## File Changes
@@ -129,7 +133,8 @@ sequenceDiagram
 | `src/app.svelte` | Create | Root component — Navigation + Content routing |
 | `src/lib/infrastructure/bootstrap.ts` | Create | core-cenf-ts BootstrapOrchestrator startup |
 | `src/lib/infrastructure/api-client.ts` | Create | Typed APIClient (16 endpoints + WS), Zod schemas |
-| `src/lib/infrastructure/ws-reconnect.ts` | Create | WebSocket exponential backoff helper |
+| `src/lib/infrastructure/ws-reconnect.ts` | Create | WebSocket exponential backoff helper (max 3 retries) |
+| `src/lib/infrastructure/mock-api-client.ts` | Create | MockApiClient for frontend dev without backend |
 | `src/lib/state/transcription.svelte.ts` | Create | `$state` rune for transcription text, recording status |
 | `src/lib/state/navigation.svelte.ts` | Create | `$state` rune for current view |
 | `src/lib/state/hotkey.svelte.ts` | Create | Hotkey registration + event listener |
@@ -149,7 +154,7 @@ sequenceDiagram
 | `src/routes/+page.svelte` | Create | Single-page entry (no SSR) |
 | `static/` | Create | Static assets |
 | `package.json` (root) | Create | pnpm workspace root |
-| `pnpm-workspace.yaml` | Create | `packages: ['src', 'src-tauri']` |
+| `pnpm-workspace.yaml` | Create | `packages: ['src']` |
 | `turbo.json` | Create | Turborepo pipeline config |
 | `svelte.config.js` | Create | SvelteKit adapter-static for Tauri |
 | `vite.config.ts` | Create | Vite config, Tailwind plugin |
@@ -188,7 +193,8 @@ N/A — `references/threat-matrix.md` not found in project. Sidecar execution is
 
 ## Open Questions
 
-- [ ] core-cenf-ts v0.2.0 local install path: `pnpm add` from relative path `../../core-cenf-ts` or `npm link`?
-- [ ] SvelteKit adapter: `adapter-static` (for Tauri) or `adapter-cloudflare`? Static is standard for Tauri.
-- [ ] Pablo's design tokens: are they delivered as a `.zip` with `tokens.json` or as an npm package? Assume `tokens.json` file copy.
-- [ ] Playwright E2E: run against Tauri binary or against `vite dev`? Prefer `vite dev` for CI speed, Tauri binary for release validation.
+- [x] core-cenf-ts v0.2.0 local install path: `pnpm add` from relative path `../../core-cenf-ts` (confirmed — core-cenf-ts exists at C:\Dropbox\DOC.RECA\06-Software\core-cenf-ts)
+- [x] SvelteKit adapter: `adapter-static` (standard for Tauri, no SSR needed)
+- [x] Pablo's design tokens: delivered as files in design-package-gonza/, copied manually to src/design-tokens/
+- [ ] Playwright E2E: run against `vite dev` for CI speed, Tauri binary for release validation. Backend Python mock needed (json-server or MSW stub)
+- [ ] MockApiClient for frontend development without backend — implement Zod-compatible stub returning canned responses

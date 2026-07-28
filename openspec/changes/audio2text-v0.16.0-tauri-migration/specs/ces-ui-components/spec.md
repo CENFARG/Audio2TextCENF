@@ -29,7 +29,7 @@ The TranscribeView SHALL contain: an AudioCapture record button, a Transcription
 - The WebSocket stream SHALL connect to `ws://127.0.0.1:8765/api/v1/transcribe/stream` directly from TypeScript.
 - Partial frames SHALL append text to `$state` rune `transcriptionText`.
 - A final frame SHALL stop the recording and persist the transcript.
-- One automatic reconnect SHALL be attempted on WebSocket disconnection.
+- Exponential backoff reconnection (up to 3 retries, doubling delay) SHALL be attempted on WebSocket disconnection.
 - The RecordingOverlay SHALL show a red/gray LED and MM:SS timer.
 
 #### Scenario: Successful transcription stream
@@ -45,9 +45,9 @@ The TranscribeView SHALL contain: an AudioCapture record button, a Transcription
 
 - GIVEN an active WebSocket connection
 - WHEN the connection drops unexpectedly
-- THEN the client SHALL attempt one automatic reconnect
-- AND IF the reconnect succeeds SHALL resume streaming
-- AND IF the reconnect fails SHALL display an error snackbar
+- THEN the client SHALL attempt exponential backoff reconnection (max 3 retries, doubling delay)
+    - AND IF reconnection succeeds within retries SHALL resume streaming
+    - AND IF all retries exhausted SHALL display an error snackbar
 
 ### Requirement: SettingsView — 8 Configuration Panels
 

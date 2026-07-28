@@ -24,14 +24,14 @@ The `src-tauri/` directory MUST be initialized via `create-tauri-app` with the S
 
 ### Requirement: Rust Sidecar — Python Backend Lifecycle
 
-The Rust binary MUST launch the Python FastAPI backend as a Tauri sidecar process on application startup and terminate it on exit.
+The Rust binary MUST launch the Python FastAPI backend as a Tauri sidecar process on application startup and terminate it on exit. The Python source SHALL be pre-compiled to a standalone executable via PyInstaller or Nuitka before bundling.
 
 - `src-tauri/capabilities/default.json` SHALL grant `shell:allow-execute` for the sidecar.
-- tauri.conf.json SHALL declare a `"sidecar"` entry pointing to the Python process.
+- tauri.conf.json SHALL declare a `bundle.externalBin` entry pointing to the compiled Python binary.
 - A Rust command `start_backend` SHALL spawn the sidecar and return `{ status: "started" | "already_running" }`.
 - A Rust command `stop_backend` SHALL send SIGTERM to the child process and return `{ status: "stopped" }`.
 - A Rust command `get_backend_status` SHALL return `{ running: bool, pid: number | null }`.
-- Rust code MUST NOT exceed ~250 lines total.
+- Rust code MUST NOT exceed ~400 lines total.
 
 #### Scenario: Sidecar start on app launch
 
@@ -76,7 +76,7 @@ The shell MUST provide Tauri plugins for window management, global hotkeys, and 
 
 The `capabilities/default.json` file SHALL define a minimal permission set.
 
-- Permissions SHALL include: `core:default`, `shell:allow-execute`, `global-shortcut:allow-register`, `global-shortcut:allow-unregister`, `window:allow-close`, `window:allow-hide`, `window:allow-show`.
+- Permissions SHALL include: `core:default`, `shell:allow-execute`, `plugin:global-shortcut:allow-register`, `plugin:global-shortcut:allow-unregister`, `window:allow-close`, `window:allow-hide`, `window:allow-show`.
 
 #### Scenario: Capability enforcement
 

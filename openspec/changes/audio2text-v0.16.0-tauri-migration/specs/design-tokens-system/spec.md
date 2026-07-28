@@ -22,7 +22,7 @@ A `tokens.json` file SHALL serve as the single source of truth for all design va
 
 ### Requirement: Color System — Dark Goldenrod Theme
 
-The color palette SHALL support exactly one theme (dark) with these token groups:
+The color palette SHALL define a dark theme with light theme tokens reserved for v0.16.1. Dark is the default and only active theme in this version:
 
 - **Background**: primary `#1a1b1e`, secondary `#25262b`, tertiary `#2c2e33`
 - **Surface**: card `#1e1f23`, elevated `#25262b`, overlay `rgba(0,0,0,0.7)`
@@ -37,7 +37,7 @@ The color palette SHALL support exactly one theme (dark) with these token groups
 - GIVEN a Tab component uses `var(--dt-color-accent)`
 - WHEN the tab is selected
 - THEN its text color SHALL be `#DAA520`
-- AND an `rgba(218,165,32,0.15)` background SHALL fill 20% opacity behind the label
+- AND an `rgba(218,165,32,0.15)` background SHALL fill behind the label at 15% opacity
 
 #### Scenario: Status colors on UpdateView
 
