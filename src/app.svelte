@@ -3,6 +3,9 @@
   import Navigation from './lib/components/Navigation.svelte';
   import TranscribeView from './lib/views/TranscribeView.svelte';
   import SettingsView from './lib/views/SettingsView.svelte';
+  import HistoryView from './lib/views/HistoryView.svelte';
+  import InfoView from './lib/views/InfoView.svelte';
+  import UpdateView from './lib/views/UpdateView.svelte';
   import './app.css';
 
   let currentView = $state('transcribe');
@@ -21,18 +24,16 @@
 <div class="app-container">
   <Navigation bind:currentView />
   <main class="content">
-    {#if currentView === 'transcribe'}
+{#if currentView === 'transcribe'}
       <TranscribeView />
     {:else if currentView === 'settings'}
       <SettingsView />
     {:else if currentView === 'history'}
-      <p>HistoryView — coming in Slice 4</p>
-    {:else if currentView === 'settings'}
-      <p>SettingsView — coming in Slice 3</p>
+      <HistoryView />
     {:else if currentView === 'info'}
-      <p>InfoView — coming in Slice 4</p>
+      <InfoView />
     {:else if currentView === 'update'}
-      <p>UpdateView — coming in Slice 4</p>
+      <UpdateView />
     {/if}
   </main>
 </div>
