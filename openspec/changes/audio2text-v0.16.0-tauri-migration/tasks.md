@@ -37,16 +37,16 @@ Chain strategy: feature-branch-chain
 
 ## Phase 1 — Tauri Shell + Foundation (Slice 1, ~350 lines)
 
-- [ ] 1.1 Scaffold Tauri v2 with `create-tauri-app` (SvelteKit template)
-- [ ] 1.2 Configure `src-tauri/Cargo.toml`: tauri v2, serde, serde_json, tauri-plugin-shell, tauri-plugin-global-shortcut
-- [ ] 1.3 Configure `src-tauri/tauri.conf.json`: window 1100x760, identifier `com.cenf.audio2text`, `bundle.externalBin`
-- [ ] 1.4 Configure `src-tauri/capabilities/default.json`: scoped `shell:allow-execute`, `plugin:global-shortcut`, `window:allow-*`
-- [ ] 1.5 Implement `src-tauri/src/lib.rs`: commands `start_backend`, `stop_backend`, `get_backend_status`, `toggle_recording`, `get_hotkeys`, `set_hotkey`, `show_tray` (~400 lines)
-- [ ] 1.6 Copy Pablo's `design-tokens/tokens.json` + `tokens.css` to `src/design-tokens/`
+- [x] 1.1 Scaffold Tauri v2 — Cargo.toml, src-tauri/src/lib.rs, src-tauri/src/main.rs
+- [x] 1.2 Configure `src-tauri/Cargo.toml`: tauri v2, serde, serde_json, tauri-plugin-shell, tauri-plugin-global-shortcut
+- [x] 1.3 Configure tauri.conf.json`: window 1100x760, identifier `com.cenf.audio2text`, `bundle.externalBin`
+- [x] 1.4 Configure capabilities/default.json`: scoped `shell:allow-execute`, `plugin:global-shortcut`, `window:allow-*`
+- [x] 1.5 Implement src-tauri/src/lib.rs`: commands `start_backend`, `stop_backend`, `get_backend_status`, `toggle_recording`, `get_hotkeys`, `set_hotkey`, `show_tray` (~400 lines)
+- [x] 1.6 Copy Pablo's `design-tokens/tokens.json` + `tokens.css` to `src/design-tokens/`
 - [ ] 1.7 Create `src/app.css` with Tailwind v4 `@theme` referencing `--dt-*` CSS vars
-- [ ] 1.8 Wire core-cenf-ts `BootstrapOrchestrator` in `src/lib/infrastructure/bootstrap.ts`
-- [ ] 1.9 Create `src/app.svelte` root component + `Navigation.svelte` with 5 tabs + LanguageSelect
-- [ ] 1.10 Configure `pnpm-workspace.yaml`, `turbo.json`, `svelte.config.js`, `vite.config.ts`, `tailwind.config.ts`, `tsconfig.json`, `components.json`
+- [x] 1.8 Wire core-cenf-ts `BootstrapOrchestrator` in `src/lib/infrastructure/bootstrap.ts`
+- [x] 1.9 Create src/app.svelte` root component + `Navigation.svelte` with 5 tabs + LanguageSelect
+- [x] 1.10 Configure pnpm-workspace, svelte, vite, tailwind, tsconfig-workspace.yaml`, `turbo.json`, `svelte.config.js`, `vite.config.ts`, `tailwind.config.ts`, `tsconfig.json`, `components.json`
 
 ## Phase 2 — Transcription Core (Slice 2, ~380 lines)
 
