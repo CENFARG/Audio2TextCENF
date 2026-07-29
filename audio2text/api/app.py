@@ -20,59 +20,32 @@ from audio2text.api.middleware import (
     LoggingMiddleware,
     configure_cors,
 )
-from cenf_core.logging.manager import LoggerManager
-from cenf_core.logging.profiles import LogProfile
-
 # ── Logging — API backend ──────────────────────────────────────────────────
-# Configured ONCE at module import so all api.* loggers inherit DEBUG level.
-# Attaches console handler (DEVELOPMENT profile) + logs/api.log RotatingFileHandler.
+# Standard Python logging with RotatingFileHandler.
 
 _API_LOG_DIR = Path("logs")
-
-_api_logger_manager = LoggerManager(
-    profile=LogProfile.DEVELOPMENT,
-    log_dir=_API_LOG_DIR,
-)
-
-# Suppress noisy third-party libraries in API context
-_api_logger_manager.suppress_library("httpx", logging.INFO)
-_api_logger_manager.suppress_library("httpcore.connection", logging.INFO)
-_api_logger_manager.suppress_library("httpcore.http11", logging.INFO)
-_api_logger_manager.suppress_library("asyncio", logging.INFO)
-_api_logger_manager.suppress_library("urllib3", logging.INFO)
-
-# Add dedicated api.log RotatingFileHandler (in addition to cenf_dev.log from
-# the LoggerManager profile).  This is the canonical API log file.
 _API_LOG_DIR.mkdir(parents=True, exist_ok=True)
 _api_log_path = _API_LOG_DIR / "api.log"
 
-# Session separator — raw write before the handler opens, so it is the first
-# thing in the file for this run.
-_api_separator = (
-    f"========== Audio2Text API v0.16.0 — SESSION START "
-    f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ==========\n"
-)
+# Session separator
 with _api_log_path.open("a", encoding="utf-8") as _f:
-    _f.write(_api_separator)
+    _f.write(f"\n========== Audio2Text API v0.16.0 — SESSION START {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ==========\n")
 
 _api_file_handler = RotatingFileHandler(
-    str(_api_log_path),
-    maxBytes=10 * 1024 * 1024,  # 10 MB
-    backupCount=3,
-    encoding="utf-8",
-    delay=False,
+    str(_api_log_path), maxBytes=10 * 1024 * 1024, backupCount=3, encoding="utf-8", delay=False,
 )
 _api_file_handler.setLevel(logging.DEBUG)
-_api_file_handler.setFormatter(
-    logging.Formatter(
-        "%(asctime)s [%(levelname)-8s] %(name)s:%(lineno)d: %(message)s",
-        "%Y-%m-%d %H:%M:%S",
-    )
-)
+_api_file_handler.setFormatter(logging.Formatter(
+    "%(asctime)s [%(levelname)-8s] %(name)s:%(lineno)d: %(message)s", "%Y-%m-%d %H:%M:%S",
+))
 logging.getLogger().addHandler(_api_file_handler)
 
-_api_logger = _api_logger_manager.get_logger("api.app")
-_api_logger.info("API logging configured — DEVELOPMENT profile (DEBUG), logs/api.log active")
+# Suppress noisy libraries
+for _lib in ("httpx", "httpcore.connection", "httpcore.http11", "asyncio", "urllib3"):
+    logging.getLogger(_lib).setLevel(logging.INFO)
+
+_api_logger = logging.getLogger("api.app")
+_api_logger.info("API logging configured — DEBUG level, logs/api.log active")
 
 
 def create_app() -> FastAPI:
