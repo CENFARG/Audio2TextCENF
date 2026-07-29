@@ -1,0 +1,54 @@
+name: Tauri CI — Build + Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-backend:
+    name: Backend Tests (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -r requirements.txt
+      - run: pip install pytest
+      - run: pytest tests/infrastructure/ tests/config/ -v --no-cov
+
+  test-frontend:
+    name: Frontend Tests (Vitest + Playwright)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: cd src && pnpm install
+      - run: cd src && pnpm exec vitest run --reporter=verbose
+      - run: cd src && pnpm exec playwright test --project=chromium
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: { name: playwright-report, path: src/playwright-report/ }
+
+  build-tauri:
+    name: Tauri Build (Windows)
+    needs: [test-backend, test-frontend]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - run: cd src && pnpm install && pnpm build
+      - name: Build Tauri
+        uses: tauri-apps/tauri-action@v0
+        with:
+          projectPath: src-tauri
+          args: --target x86_64-pc-windows-msvc

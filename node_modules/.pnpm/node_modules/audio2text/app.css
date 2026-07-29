@@ -1,0 +1,23 @@
+@import './design-tokens/tokens.css';
+
+@import 'tailwindcss';
+
+@theme {
+  --color-bg-primary: var(--dt-color-bg-primary);
+  --color-bg-secondary: var(--dt-color-bg-secondary);
+  --color-bg-tertiary: var(--dt-color-bg-tertiary);
+  --color-text-primary: var(--dt-color-text-primary);
+  --color-text-secondary: var(--dt-color-text-secondary);
+  --color-accent: var(--dt-color-accent-default);
+  --color-success: var(--dt-color-status-success);
+  --color-danger: var(--dt-color-status-danger);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--dt-color-bg-primary);
+  color: var(--dt-color-text-primary);
+  font-family: var(--dt-font-family);
+  font-size: var(--dt-font-size-base);
+}

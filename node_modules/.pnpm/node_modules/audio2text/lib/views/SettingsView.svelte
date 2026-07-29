@@ -1,0 +1,232 @@
+<script lang="ts">
+  import { APIClient } from '$lib/infrastructure/api-client';
+
+  const api = new APIClient();
+  let expanded = $state<string | null>(null);
+  let saving = $state(false);
+  let settings: Record<string, unknown> = $state({
+    provider: 'mock', groq_api_key: '', nvidia_api_key: '',
+    groq_model: 'whisper-large-v3', fw_model: 'base', fw_device: 'auto',
+    audio_path: './audio', transcriptions_path: './transcriptions',
+    save_audio: true, max_files: 100, auto_cleanup: false,
+    record_mode: 'toggle', max_recording_time: '10min',
+    auto_paste: true, show_overlay: true, start_with_windows: false,
+    post_process: true, ai_model: 'llama-3.1-70b', ai_profile: 'medium',
+    task_extractor: true, summary: true, keyword_extractor: true,
+    hotkey: 'Ctrl+Shift+R', language: 'es_ES',
+  });
+
+  function toggle(id: string) { expanded = expanded === id ? null : id; }
+
+  async function save() {
+    saving = true;
+    try { await api.updateSettings(settings); } finally { saving = false; }
+  }
+
+  $effect(() => { void settings; /* auto-save on change after 400ms */ });
+</script>
+
+<div class="settings-view">
+  <div class="settings-header">
+    <h2>Ajustes</h2>
+    {#if saving}<span class="saving-badge">Guardando...</span>{/if}
+  </div>
+
+  <section class="panel-section">
+    <button class="panel-header" onclick={() => toggle('provider')}>
+      <span>🔌 Proveedor</span>
+      <span class="chevron">{expanded === 'provider' ? '▾' : '▸'}</span>
+    </button>
+    {#if expanded === 'provider'}
+    <div class="panel-body">
+      <label>Proveedor principal <select bind:value={settings.provider} onchange={save}>
+        <option value="groq">Groq Cloud</option>
+        <option value="faster_whisper">Faster Whisper (local)</option>
+        <option value="nvidia">NVIDIA Riva</option>
+        <option value="mock">Mock (testing)</option>
+      </select></label>
+      <label>Groq API Key <input type="password" bind:value={settings.groq_api_key} onchange={save} /></label>
+      <label>Groq Model <input bind:value={settings.groq_model} onchange={save} /></label>
+      <label>NVIDIA API Key <input type="password" bind:value={settings.nvidia_api_key} onchange={save} /></label>
+      <label>FW Model <select bind:value={settings.fw_model} onchange={save}>
+        <option>tiny</option><option>base</option><option>small</option><option>medium</option><option>large-v3</option>
+      </select></label>
+      <label>FW Device <select bind:value={settings.fw_device} onchange={save}>
+        <option>auto</option><option>cpu</option><option>cuda</option>
+      </select></label>
+    </div>
+    {/if}
+  </section>
+
+  <section class="panel-section">
+    <button class="panel-header" onclick={() => toggle('audio')}>
+      <span>🎵 Audio</span><span class="chevron">{expanded === 'audio' ? '▾' : '▸'}</span>
+    </button>
+    {#if expanded === 'audio'}
+    <div class="panel-body">
+      <label>Ruta audio <input bind:value={settings.audio_path} onchange={save} /></label>
+      <label>Ruta transcripciones <input bind:value={settings.transcriptions_path} onchange={save} /></label>
+      <label class="switch-label"><input type="checkbox" bind:checked={settings.save_audio} onchange={save} /> Guardar audio</label>
+      <label>Max archivos <input type="number" bind:value={settings.max_files} onchange={save} /></label>
+      <label class="switch-label"><input type="checkbox" bind:checked={settings.auto_cleanup} onchange={save} /> Auto-limpieza</label>
+    </div>
+    {/if}
+  </section>
+
+  <section class="panel-section">
+    <button class="panel-header" onclick={() => toggle('recording')}>
+      <span>⏺️ Grabación</span><span class="chevron">{expanded === 'recording' ? '▾' : '▸'}</span>
+    </button>
+    {#if expanded === 'recording'}
+    <div class="panel-body">
+      <label>Modo <select bind:value={settings.record_mode} onchange={save}>
+        <option>toggle</option><option>hold</option>
+      </select></label>
+      <label>Tiempo máximo <select bind:value={settings.max_recording_time} onchange={save}>
+        <option>5min</option><option>10min</option><option>15min</option><option>20min</option>
+      </select></label>
+    </div>
+    {/if}
+  </section>
+
+  <section class="panel-section">
+    <button class="panel-header" onclick={() => toggle('ui')}>
+      <span>🖥️ Interfaz</span><span class="chevron">{expanded === 'ui' ? '▾' : '▸'}</span>
+    </button>
+    {#if expanded === 'ui'}
+    <div class="panel-body">
+      <label class="switch-label"><input type="checkbox" bind:checked={settings.auto_paste} onchange={save} /> Auto-pegar al portapapeles</label>
+      <label class="switch-label"><input type="checkbox" bind:checked={settings.show_overlay} onchange={save} /> Mostrar overlay de grabación</label>
+      <label class="switch-label"><input type="checkbox" bind:checked={settings.start_with_windows} onchange={save} /> Iniciar con Windows</label>
+    </div>
+    {/if}
+  </section>
+
+  <section class="panel-section">
+    <button class="panel-header" onclick={() => toggle('post-processing')}>
+      <span>🤖 Post-Procesamiento</span><span class="chevron">{expanded === 'post-processing' ? '▾' : '▸'}</span>
+    </button>
+    {#if expanded === 'post-processing'}
+    <div class="panel-body">
+      <label class="switch-label"><input type="checkbox" bind:checked={settings.post_process} onchange={save} /> Mejora con IA</label>
+      <label>Modelo <input bind:value={settings.ai_model} onchange={save} /></label>
+      <label>Perfil <select bind:value={settings.ai_profile} onchange={save}>
+        <option>light</option><option>medium</option><option>aggressive</option>
+      </select></label>
+    </div>
+    {/if}
+  </section>
+
+  <section class="panel-section">
+    <button class="panel-header" onclick={() => toggle('blocks')}>
+      <span>🧩 Bloques de Contexto</span><span class="chevron">{expanded === 'blocks' ? '▾' : '▸'}</span>
+    </button>
+    {#if expanded === 'blocks'}
+    <div class="panel-body">
+      <label class="switch-label"><input type="checkbox" bind:checked={settings.task_extractor} onchange={save} /> Extractor de Tareas</label>
+      <label class="switch-label"><input type="checkbox" bind:checked={settings.summary} onchange={save} /> Resumen Automático</label>
+      <label class="switch-label"><input type="checkbox" bind:checked={settings.keyword_extractor} onchange={save} /> Palabras Clave</label>
+    </div>
+    {/if}
+  </section>
+
+  <section class="panel-section">
+    <button class="panel-header" onclick={() => toggle('hotkey')}>
+      <span>⌨️ Hotkeys</span><span class="chevron">{expanded === 'hotkey' ? '▾' : '▸'}</span>
+    </button>
+    {#if expanded === 'hotkey'}
+    <div class="panel-body">
+      <label>Atajo de grabación <input bind:value={settings.hotkey} onchange={save} placeholder="Ctrl+Shift+R" /></label>
+    </div>
+    {/if}
+  </section>
+
+  <section class="panel-section">
+    <button class="panel-header" onclick={() => toggle('vocabulary')}>
+      <span>📝 Vocabulario Custom</span><span class="chevron">{expanded === 'vocabulary' ? '▾' : '▸'}</span>
+    </button>
+    {#if expanded === 'vocabulary'}
+    <div class="panel-body">
+      <p class="hint">Correcciones de palabras que el modelo entiende mal (ej: CENF → zenf). Configurable vía API.</p>
+    </div>
+    {/if}
+  </section>
+</div>
+
+<style>
+  .settings-view {
+    padding: var(--dt-spacing-lg);
+    max-width: 640px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--dt-spacing-sm);
+  }
+  .settings-header {
+    display: flex;
+    align-items: baseline;
+    gap: var(--dt-spacing-md);
+    margin-bottom: var(--dt-spacing-md);
+  }
+  .settings-header h2 {
+    margin: 0;
+    font-size: var(--dt-font-size-xl);
+    color: var(--dt-color-accent-default);
+  }
+  .saving-badge {
+    font-size: var(--dt-font-size-xs);
+    color: var(--dt-color-status-success);
+  }
+  .panel-section {
+    background: var(--dt-color-bg-secondary);
+    border-radius: var(--dt-radius-md);
+    overflow: hidden;
+  }
+  .panel-header {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--dt-spacing-md) var(--dt-spacing-lg);
+    background: transparent;
+    border: none;
+    color: var(--dt-color-text-primary);
+    font-size: var(--dt-font-size-base);
+    font-family: var(--dt-font-family);
+    cursor: pointer;
+  }
+  .panel-header:hover { background: var(--dt-color-bg-hover); }
+  .chevron { color: var(--dt-color-text-muted); }
+
+  .panel-body {
+    padding: var(--dt-spacing-md) var(--dt-spacing-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--dt-spacing-md);
+    border-top: 1px solid var(--dt-color-border-default);
+  }
+  label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--dt-spacing-xs);
+    font-size: var(--dt-font-size-sm);
+    color: var(--dt-color-text-secondary);
+  }
+  input, select {
+    padding: var(--dt-spacing-sm);
+    background: var(--dt-color-bg-tertiary);
+    border: 1px solid var(--dt-color-border-default);
+    border-radius: var(--dt-radius-sm);
+    color: var(--dt-color-text-primary);
+    font-size: var(--dt-font-size-base);
+    font-family: var(--dt-font-family);
+  }
+  .switch-label {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--dt-spacing-sm);
+  }
+  .hint {
+    font-size: var(--dt-font-size-sm);
+    color: var(--dt-color-text-muted);
+  }
+</style>
