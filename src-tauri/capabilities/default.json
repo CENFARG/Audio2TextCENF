@@ -1,0 +1,17 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for Audio2Text",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [{ "name": "audio2text-backend", "sidecar": true }]
+    },
+    "plugin:global-shortcut:allow-register",
+    "plugin:global-shortcut:allow-unregister",
+    "window:allow-close",
+    "window:allow-hide",
+    "window:allow-show"
+  ]
+}

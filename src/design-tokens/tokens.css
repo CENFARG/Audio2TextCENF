@@ -1,0 +1,97 @@
+/* ============================================================
+   Design Tokens — amBotHs Dark Theme
+   Source of truth: tokens.json
+   Prefix: dt (design token)
+   ============================================================ */
+
+:root {
+  /* Colors - Background */
+  --dt-color-bg-primary: #1a1b1e;
+  --dt-color-bg-secondary: #25262b;
+  --dt-color-bg-tertiary: #2c2e33;
+  --dt-color-bg-hover: #373a40;
+  --dt-color-bg-overlay: rgba(0, 0, 0, 0.6);
+
+  /* Colors - Text */
+  --dt-color-text-primary: #c1c2c5;
+  --dt-color-text-secondary: #909296;
+  --dt-color-text-muted: #5c5f66;
+  --dt-color-text-inverse: #ffffff;
+
+  /* Colors - Accent (Goldenrod) */
+  --dt-color-accent-default: #DAA520;
+  --dt-color-accent-hover: #e0b830;
+  --dt-color-accent-muted: rgba(218, 165, 32, 0.15);
+  --dt-color-accent-border: rgba(218, 165, 32, 0.3);
+
+  /* Colors - Border */
+  --dt-color-border-default: #373a40;
+  --dt-color-border-strong: #4a4d52;
+
+  /* Colors - Status */
+  --dt-color-status-success: #51cf66;
+  --dt-color-status-success-bg: rgba(81, 207, 102, 0.15);
+  --dt-color-status-warning: #fcc419;
+  --dt-color-status-danger: #ff6b6b;
+  --dt-color-status-danger-bg: rgba(255, 107, 107, 0.15);
+
+  /* Colors - Code */
+  --dt-color-code-bg: #1e1f22;
+  --dt-color-code-text: #e6e6e6;
+
+  /* Spacing */
+  --dt-spacing-xxs: 2px;
+  --dt-spacing-xs: 4px;
+  --dt-spacing-sm: 8px;
+  --dt-spacing-md: 12px;
+  --dt-spacing-lg: 16px;
+  --dt-spacing-xl: 24px;
+  --dt-spacing-xxl: 32px;
+
+  /* Border Radius */
+  --dt-radius-sm: 4px;
+  --dt-radius-md: 8px;
+  --dt-radius-lg: 12px;
+  --dt-radius-full: 9999px;
+
+  /* Typography */
+  --dt-font-family: system-ui, -apple-system, sans-serif;
+  --dt-font-family-mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  --dt-font-size-xs: 11px;
+  --dt-font-size-sm: 12px;
+  --dt-font-size-base: 14px;
+  --dt-font-size-lg: 16px;
+  --dt-font-size-xl: 20px;
+  --dt-font-size-xxl: 24px;
+  --dt-font-weight-normal: 400;
+  --dt-font-weight-medium: 500;
+  --dt-font-weight-semibold: 600;
+  --dt-font-weight-bold: 700;
+  --dt-line-height-tight: 1.2;
+  --dt-line-height-normal: 1.5;
+  --dt-line-height-relaxed: 1.75;
+
+  /* Shadows */
+  --dt-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --dt-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
+  --dt-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+
+  /* Transitions */
+  --dt-transition-fast: 0.15s ease;
+  --dt-transition-normal: 0.25s ease;
+  --dt-transition-slow: 0.35s ease;
+
+  /* Z-Index */
+  --dt-z-base: 1;
+  --dt-z-dropdown: 100;
+  --dt-z-sticky: 200;
+  --dt-z-modal: 300;
+  --dt-z-tooltip: 400;
+
+  /* Layout */
+  --dt-size-sidebar-width: 420px;
+  --dt-size-sidebar-height: 900px;
+  --dt-size-icon-sm: 14px;
+  --dt-size-icon-md: 18px;
+  --dt-size-scrollbar-width: 6px;
+}
