@@ -17,6 +17,7 @@
     "@tailwindcss/vite": "^4.0.0"
   },
   "dependencies": {
-    "lucide-svelte": "^0.460.0"
+    "lucide-svelte": "^0.460.0",
+    "zod": "^3.23.0"
   }
 }

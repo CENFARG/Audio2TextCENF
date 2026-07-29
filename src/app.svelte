@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Navigation from './lib/components/Navigation.svelte';
+  import TranscribeView from './lib/views/TranscribeView.svelte';
   import './app.css';
 
   let currentView = $state('transcribe');
@@ -20,7 +21,7 @@
   <Navigation bind:currentView />
   <main class="content">
     {#if currentView === 'transcribe'}
-      <p>TranscribeView — coming in Slice 2</p>
+      <TranscribeView />
     {:else if currentView === 'history'}
       <p>HistoryView — coming in Slice 4</p>
     {:else if currentView === 'settings'}
