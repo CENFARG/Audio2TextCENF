@@ -26,8 +26,8 @@ The `src-tauri/` directory MUST be initialized via `create-tauri-app` with the S
 
 The Rust binary MUST launch the Python FastAPI backend as a Tauri sidecar process on application startup and terminate it on exit. The Python source SHALL be pre-compiled to a standalone executable via PyInstaller or Nuitka before bundling.
 
-- `src-tauri/capabilities/default.json` SHALL grant `shell:allow-execute` for the sidecar.
-- tauri.conf.json SHALL declare a `bundle.externalBin` entry pointing to the compiled Python binary.
+- `src-tauri/capabilities/default.json` SHALL grant `shell:allow-execute` with scoped sidecar permission: `{ "identifier": "shell:allow-execute", "allow": [{ "name": "audio2text-backend", "sidecar": true }] }`.
+- tauri.conf.json SHALL declare a `bundle.externalBin` entry pointing to the compiled Python binary as `"audio2text-backend"`.
 - A Rust command `start_backend` SHALL spawn the sidecar and return `{ status: "started" | "already_running" }`.
 - A Rust command `stop_backend` SHALL send SIGTERM to the child process and return `{ status: "stopped" }`.
 - A Rust command `get_backend_status` SHALL return `{ running: bool, pid: number | null }`.
