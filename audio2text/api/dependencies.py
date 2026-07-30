@@ -85,3 +85,21 @@ def get_transcription_service():
     except Exception as exc:
         logger.error("Failed to create TranscriptionService: %s", exc)
         return None
+
+
+# ── Stubs for routes not yet migrated to registry ─────────────────────────
+
+def get_ai_enhancement():
+    return None
+
+
+def get_metadata_service():
+    return None
+
+
+def get_vocabulary_service():
+    return None
+
+
+def get_block_processor():
+    return None
