@@ -4,7 +4,8 @@
  */
 export async function bootstrap() {
   try {
-    const { BootstrapOrchestrator } = await import('@cenf/core-cenf-ts');
+    const pkg = '@cenf/core-cenf-ts';
+    const { BootstrapOrchestrator } = await import(pkg);
     const orchestrator = new BootstrapOrchestrator();
     await orchestrator.startup();
     console.log('core-cenf-ts bootstrapped successfully');
