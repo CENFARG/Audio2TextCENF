@@ -94,7 +94,9 @@ def get_ai_enhancement():
 
 
 def get_metadata_service():
-    return None
+    from audio2text.services.metadata_service import MetadataService
+
+    return MetadataService()
 
 
 def get_vocabulary_service():
