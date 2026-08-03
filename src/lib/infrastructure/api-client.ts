@@ -36,7 +36,7 @@ export class APIClient {
 
   async updateSettings(data: Record<string, unknown>) {
     return this.fetch('/api/v1/settings', SettingsSchema, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ config: data }),
     });
   }
 
