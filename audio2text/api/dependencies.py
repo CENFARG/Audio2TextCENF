@@ -65,7 +65,7 @@ def get_provider():
     from audio2text.providers.factory import TranscriptionProviderFactory
 
     config = get_config()
-    primary = config.get_string("providers.primary", "mock")
+    primary = config.get_string("providers.primary", "groq")
     return TranscriptionProviderFactory.create(primary, {})
 
 
