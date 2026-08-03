@@ -1,4 +1,8 @@
+use std::sync::Mutex;
+use std::process::{Child, Command};
 use tauri::Manager;
+
+static BACKEND: Mutex<Option<Child>> = Mutex::new(None);
 
 #[tauri::command]
 fn toggle_recording() -> String {
@@ -6,20 +10,36 @@ fn toggle_recording() -> String {
 }
 
 #[tauri::command]
-fn start_backend(app: tauri::AppHandle) -> Result<String, String> {
-    use tauri_plugin_shell::ShellExt;
-    let _ = app;
+fn start_backend() -> Result<String, String> {
+    let mut guard = BACKEND.lock().map_err(|e| e.to_string())?;
+    if guard.is_some() {
+        return Ok(r#"{"status":"already_running"}"#.into());
+    }
+    let child = Command::new(".venv/Scripts/python.exe")
+        .arg("audio2text/main.py")
+        .spawn()
+        .map_err(|e| format!("Failed to start backend: {}", e))?;
+    *guard = Some(child);
     Ok(r#"{"status":"started"}"#.into())
 }
 
 #[tauri::command]
 fn stop_backend() -> Result<String, String> {
-    Ok(r#"{"status":"stopped"}"#.into())
+    let mut guard = BACKEND.lock().map_err(|e| e.to_string())?;
+    if let Some(mut child) = guard.take() {
+        child.kill().map_err(|e| format!("Failed to stop: {}", e))?;
+        child.wait().ok();
+        Ok(r#"{"status":"stopped"}"#.into())
+    } else {
+        Ok(r#"{"status":"not_running"}"#.into())
+    }
 }
 
 #[tauri::command]
 fn get_backend_status() -> String {
-    r#"{"running":false,"pid":null}"#.into()
+    let guard = BACKEND.lock().ok();
+    let running = guard.as_ref().and_then(|g| g.as_ref()).is_some();
+    format!(r#"{{"running":{},"pid":null}}"#, running)
 }
 
 #[tauri::command]
