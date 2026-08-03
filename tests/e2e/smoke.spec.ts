@@ -3,8 +3,8 @@ import { test, expect } from '@playwright/test';
 test.describe('Audio2Text — Smoke Tests', () => {
   test('app loads and shows navigation', async ({ page }) => {
     await page.goto('/');
-    await expect(page.locator('.sidebar')).toBeVisible();
-    await expect(page.locator('.sidebar-header')).toContainText('Audio2Text');
+    await expect(page.locator('nav.sidebar')).toBeVisible();
+    await expect(page.locator('nav.sidebar .sidebar-header')).toContainText('Audio2Text');
   });
 
   test('navigation tabs render', async ({ page }) => {
