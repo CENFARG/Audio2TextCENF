@@ -346,14 +346,22 @@ class App(ctk.CTk):
         verify_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("verify_button"), width=70, command=self._check_api_key)
         verify_btn.grid(row=1, column=2, padx=(0,10))
 
-        # ASR Provider Selection (solo Groq visible — faster-whisper ERRADICADO, NVIDIA oculto)
+        # ASR Provider Selection (Groq y Gemini visibles — faster-whisper ERRADICADO, NVIDIA oculto)
         ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("asr_provider_label")).grid(row=2, column=0, padx=10, pady=5, sticky="w")
         self.asr_provider_var = tk.StringVar(value=self.config_manager.get("asr_provider", "groq"))
         asr_provider_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
         asr_provider_frame.grid(row=2, column=1, columnspan=2, padx=5, pady=5, sticky="w")
         ctk.CTkRadioButton(asr_provider_frame, text=self.localization_manager.get_string("asr_provider_groq"), variable=self.asr_provider_var, value="groq", command=self.save_config).grid(row=0, column=0, padx=5, sticky="w")
-        # FIX: faster-whisper (modelo local) ERRADICADO — solo API cloud Groq
+        ctk.CTkRadioButton(asr_provider_frame, text=self.localization_manager.get_string("asr_provider_gemini"), variable=self.asr_provider_var, value="gemini", command=self.save_config).grid(row=0, column=1, padx=10, sticky="w")
+        # FIX: faster-whisper (modelo local) ERRADICADO — solo API cloud (Groq o Gemini)
         # NVIDIA oculto de la UI pero funcional en config.json
+
+        # Gemini API Key (FIX v0.15.0: segundo proveedor con key propia)
+        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("gemini_api_key_label")).grid(row=3, column=0, padx=10, pady=5, sticky="w")
+        self.gemini_api_key_var = tk.StringVar(value=self.config_manager.get("gemini_api_key"))
+        gemini_entry = ctk.CTkEntry(main_conf_frame, textvariable=self.gemini_api_key_var, show="*", placeholder_text=self.localization_manager.get_string("gemini_api_key_placeholder"))
+        gemini_entry.grid(row=3, column=1, columnspan=2, padx=5, pady=5, sticky="ew")
+        gemini_entry.bind("<FocusOut>", lambda e: self.save_config())  # Autosave on focus out
 
         # Hotkey (v0.14.0 - Selector inline compacto)
         ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("hotkey_label")).grid(row=7, column=0, padx=10, pady=5, sticky="w")
@@ -1176,7 +1184,30 @@ class App(ctk.CTk):
     def _check_api_key(self):
         self.logger.info("Verificando claves API...")
 
-        # Groq Check
+        # FIX v0.15.0: verificar el proveedor SELECCIONADO (Groq o Gemini)
+        provider = self.config_manager.get("asr_provider", "groq")
+
+        if provider == "gemini":
+            # Gemini Check
+            gemini_key = self.gemini_api_key_var.get() if hasattr(self, 'gemini_api_key_var') else ""
+            if gemini_key:
+                self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["warning"]); self.update_idletasks()
+                try:
+                    import urllib.request
+                    import urllib.error
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={gemini_key}"
+                    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                    with urllib.request.urlopen(req, timeout=15) as resp:
+                        if resp.status == 200:
+                            self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["success"])
+                except Exception as e:
+                    self.logger.error(f"Error verificando API Key de Gemini: {e}")
+                    self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["error"])
+            else:
+                self.api_key_status_label.configure(text="●", text_color="grey")
+            return
+
+        # Groq Check (default)
         groq_key = self.api_key_var.get()
         if groq_key:
             self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["warning"]); self.update_idletasks()
@@ -1577,6 +1608,7 @@ class App(ctk.CTk):
         settings = {
             "groq_api_key": self.api_key_var.get(),
             "asr_provider": self.asr_provider_var.get(),
+            "gemini_api_key": self.gemini_api_key_var.get() if hasattr(self, 'gemini_api_key_var') else "",
             "nvidia_enabled": self.nvidia_enabled_var.get() if hasattr(self, 'nvidia_enabled_var') else False,
             "nvidia_api_key": self.nvidia_api_key_var.get() if hasattr(self, 'nvidia_api_key_var') else "",
             "nvidia_mode": self.nvidia_mode_var.get() if hasattr(self, 'nvidia_mode_var') else "cloud",

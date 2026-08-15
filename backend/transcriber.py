@@ -17,6 +17,7 @@ from .blocks.task_extractor_block import TaskExtractorBlock
 from .blocks.summary_block import SummaryBlock
 from .blocks.keyword_extractor_block import KeywordExtractorBlock
 from .nvidia_asr import NvidiaASR
+from .gemini_asr import GeminiASR
 from .transcription_metadata import TranscriptionMetadata
 from .transcription_metadata_generator import TranscriptionMetadataGenerator
 
@@ -53,6 +54,7 @@ class Transcriber:
         self.input_stream = None # sounddevice InputStream
         self.cliente = self._init_groq_client()
         self.nvidia_client = self._init_nvidia_client()
+        self.gemini_client = self._init_gemini_client()
 
         self.hotkey_thread = threading.Thread(target=self.hotkey_listener, daemon=True)
         self.hotkey_thread.start()
@@ -166,33 +168,54 @@ class Transcriber:
         """FIX: faster-whisper (modelo local) ERRADICADO — la app usa API cloud (Groq)."""
         return None
 
+    def _init_gemini_client(self):
+        """Inicializar cliente Gemini (API gratuita) si está configurado."""
+        gemini_api_key = self.config_manager.get("gemini_api_key") or os.environ.get("GEMINI_API_KEY")
+        if not gemini_api_key:
+            self.logger.info("Gemini deshabilitado (sin API key).")
+            return None
+        try:
+            model = self.config_manager.get("gemini_model", "gemini-flash-lite-latest")
+            client = GeminiASR(api_key=gemini_api_key, model=model)
+            if client.is_available():
+                self.logger.info(f"Cliente Gemini inicializado (modelo: {client.get_model_info()['model']}, tier free)")
+                return client
+            return None
+        except Exception as e:
+            self.logger.warning(f"Error al inicializar Gemini: {e}")
+            return None
+
     def get_transcription_service(self):
         """
         Obtener el servicio de transcripción activo.
 
         Returns:
-            'nvidia', 'groq' o None si no hay ninguno disponible.
+            'nvidia', 'gemini', 'groq' o None si no hay ninguno disponible.
         """
-        asr_provider = self.config_manager.get("asr_provider", "groq")  # "groq" o "nvidia"
+        asr_provider = self.config_manager.get("asr_provider", "groq")  # "groq", "nvidia" o "gemini"
 
         if asr_provider == "nvidia" and self.nvidia_client:
             return "nvidia"
+        elif asr_provider == "gemini" and self.gemini_client:
+            return "gemini"
         elif self.cliente:
             return "groq"
         else:
             return None
 
     def reload_client(self):
-        """Reinicializa los clientes de transcripción (Groq y NVIDIA)."""
+        """Reinicializa los clientes de transcripción (Groq, NVIDIA y Gemini)."""
         self.logger.info("Recargando clientes de transcripción...")
         self.cliente = self._init_groq_client()
         self.nvidia_client = self._init_nvidia_client()
+        self.gemini_client = self._init_gemini_client()
 
         service = self.get_transcription_service()
         if service:
             service_names = {
                 "nvidia": "NVIDIA Riva",
                 "groq": "Groq",
+                "gemini": "Gemini",
             }
             service_name = service_names.get(service, service)
             self.update_status(f"Cliente {service_name} listo", "white")
@@ -498,6 +521,7 @@ class Transcriber:
             service_names = {
                 "nvidia": "NVIDIA Riva",
                 "groq": "Groq",
+                "gemini": "Gemini",
             }
             service_name = service_names.get(service, service)
             self.logger.info(f"Iniciando transcripción con {service_name}.")
@@ -620,9 +644,56 @@ class Transcriber:
             self.logger.error(f"Error de NVIDIA Riva: {e}")
             return None
 
+    def transcribe_with_gemini(self, audio_path):
+        """Transcribir audio usando la API gratuita de Gemini."""
+        if not self.gemini_client:
+            self.update_status("Cliente Gemini no inicializado", "red")
+            return None
+        try:
+            self.logger.debug(f"Enviando audio {audio_path} a Gemini.")
+            response = self.gemini_client.transcribe(
+                audio_path=audio_path,
+                language_code=self.config_manager.get("default_language", "es")
+            )
+
+            if not response:
+                self.logger.error("Gemini: No se pudo transcribir el audio")
+                return None
+
+            # Aplicar validación UTF-8 si está habilitada
+            if self.utf8_validation_enabled and response:
+                response = self.validate_transcription_utf8(response)
+
+            # Aplicar correcciones de vocabulario personalizado
+            if response:
+                response = self.custom_vocab.apply_corrections(response)
+
+            # Procesar con bloques POST-transcripción
+            if response:
+                response = self._process_with_blocks(response)
+
+            # Generar metadatos automáticos (reglas simples, sin LLM)
+            if response:
+                try:
+                    filename = os.path.basename(audio_path)
+                    auto_metadata = self.metadata_generator.generate_metadata(
+                        transcription=response,
+                        filename=filename
+                    )
+                    self.metadata_manager.set_auto_metadata(filename, auto_metadata)
+                    self.logger.info(f"Metadatos automáticos generados para {filename}")
+                except Exception as e:
+                    self.logger.warning(f"Error generando metadatos automáticos: {e}")
+
+            return response
+        except Exception as e:
+            self.update_status(f'Error de Gemini: {e}', "red")
+            self.logger.error(f"Error de Gemini: {e}")
+            return None
+
     def transcribe(self, audio_path):
         """
-        Transcribir audio usando el servicio configurado (Groq o NVIDIA).
+        Transcribir audio usando el servicio configurado (Groq, Gemini o NVIDIA).
 
         Elige automáticamente según la configuración 'asr_provider'.
         """
@@ -630,7 +701,10 @@ class Transcriber:
 
         if service == "nvidia":
             return self.transcribe_with_nvidia(audio_path)
+        elif service == "gemini":
+            return self.transcribe_with_gemini(audio_path)
         else:
+            return self.transcribe_with_groq(audio_path)
             return self.transcribe_with_groq(audio_path)
 
     def _process_with_blocks(self, text: str) -> str:

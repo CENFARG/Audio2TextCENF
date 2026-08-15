@@ -117,5 +117,8 @@
   "hotkey_cancel": "Cancelar",
   "hotkey_confirm": "Confirmar",
   "hotkey_tab_f_keys": "Teclas F",
-  "hotkey_tab_alpha_keys": "A-Z"
+  "hotkey_tab_alpha_keys": "A-Z",
+  "asr_provider_gemini": "Gemini (gratis)",
+  "gemini_api_key_label": "API Key Gemini:",
+  "gemini_api_key_placeholder": "AIza... (console.google.com/apis)"
 }

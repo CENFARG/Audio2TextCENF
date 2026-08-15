@@ -32,7 +32,9 @@ class ConfigManager:
             "auto_paste_text": True,  # FIX: auto-pegar habilitado por defecto (pedido del usuario)
             "client_logo_path": "",
             "utf8_validation": True,  # Validación y corrección UTF-8 para caracteres españoles
-            "asr_provider": "groq",   # Servicio de transcripción: "groq" o "nvidia"
+            "asr_provider": "groq",   # Servicio de transcripción: "groq", "gemini" o "nvidia"
+            "gemini_api_key": "",     # API key de Gemini (tier free, opcional)
+            "gemini_model": "gemini-flash-lite-latest",  # Modelo gratuito de Gemini
             "nvidia_enabled": False,  # Habilitar NVIDIA Riva ASR
             "nvidia_api_key": "",     # API key de NVIDIA (se ofuscará al guardar)
             "nvidia_mode": "cloud"    # Modo NVIDIA: "cloud" (API) o "local" (Docker)
