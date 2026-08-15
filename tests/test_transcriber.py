@@ -246,10 +246,10 @@ class TestTranscriptionServices:
         service = transcriber.get_transcription_service()
         assert service == "groq"
 
-        # Test faster-whisper service
-        transcriber.config_manager.get = Mock(return_value="faster-whisper")
+        # FIX: faster-whisper ERRADICADO — con asr_provider desconocido cae a Groq
+        transcriber.config_manager.get = Mock(return_value="faster_whisper")
         service = transcriber.get_transcription_service()
-        assert service == "faster-whisper"
+        assert service == "groq"
 
 
 @pytest.mark.unit

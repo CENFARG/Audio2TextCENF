@@ -17,7 +17,6 @@ from .blocks.task_extractor_block import TaskExtractorBlock
 from .blocks.summary_block import SummaryBlock
 from .blocks.keyword_extractor_block import KeywordExtractorBlock
 from .nvidia_asr import NvidiaASR
-from .faster_whisper_asr import FasterWhisperASR
 from .transcription_metadata import TranscriptionMetadata
 from .transcription_metadata_generator import TranscriptionMetadataGenerator
 
@@ -38,6 +37,8 @@ class Transcriber:
 
         self.is_recording = False
         self.recording_lock = threading.Lock()
+        # FIX Bug F: lock dedicado para audio_data (compartido entre _record_loop y process_recording)
+        self.audio_lock = threading.Lock()
         self.stop_event = threading.Event()
         self.last_key_event_time = 0
         self.debounce_time = 0.2
@@ -52,7 +53,6 @@ class Transcriber:
         self.input_stream = None # sounddevice InputStream
         self.cliente = self._init_groq_client()
         self.nvidia_client = self._init_nvidia_client()
-        self.faster_whisper_client = self._init_faster_whisper_client()
 
         self.hotkey_thread = threading.Thread(target=self.hotkey_listener, daemon=True)
         self.hotkey_thread.start()
@@ -79,7 +79,9 @@ class Transcriber:
         self.logger.info("TranscriptionMetadata inicializado")
 
         # Inicializar generador de metadatos automáticos con LLM
-        self.metadata_generator = TranscriptionMetadataGenerator(use_llm=True)
+        # FIX Bug H: use_llm=False — evitar SEGUNDA llamada a la API por cada transcripción
+        # (duplicaba costo y latencia). Con False usa reglas simples, sin llamada extra.
+        self.metadata_generator = TranscriptionMetadataGenerator(use_llm=False)
         self.logger.info("TranscriptionMetadataGenerator inicializado (LLM enabled)")
 
     def _setup_blocks(self):
@@ -161,61 +163,36 @@ class Transcriber:
             return None
 
     def _init_faster_whisper_client(self):
-        """Inicializar cliente faster-whisper (transcripción local sin Docker)."""
-        faster_whisper_enabled = self.config_manager.get("faster_whisper_enabled", False)
-
-        if not faster_whisper_enabled:
-            self.logger.info("faster-whisper deshabilitado en configuración.")
-            return None
-
-        try:
-            # Obtener configuración del modelo
-            model_size = self.config_manager.get("faster_whisper_model", "base")
-            device = self.config_manager.get("faster_whisper_device", "auto")
-
-            client = FasterWhisperASR(model_size=model_size, device=device)
-            if client.is_available():
-                model_info = client.get_model_info()
-                self.logger.info(f"Cliente faster-whisper inicializado (modelo={model_size}, device={model_info['device']})")
-                return client
-            else:
-                self.logger.warning("faster-whisper: no se pudo inicializar el modelo")
-                return None
-        except Exception as e:
-            self.logger.warning(f"Error al inicializar faster-whisper: {e}")
-            return None
+        """FIX: faster-whisper (modelo local) ERRADICADO — la app usa API cloud (Groq)."""
+        return None
 
     def get_transcription_service(self):
         """
         Obtener el servicio de transcripción activo.
 
         Returns:
-            'nvidia', 'groq', 'faster_whisper' o None si no hay ninguno disponible.
+            'nvidia', 'groq' o None si no hay ninguno disponible.
         """
-        asr_provider = self.config_manager.get("asr_provider", "groq")  # "groq", "nvidia" o "faster_whisper"
+        asr_provider = self.config_manager.get("asr_provider", "groq")  # "groq" o "nvidia"
 
         if asr_provider == "nvidia" and self.nvidia_client:
             return "nvidia"
-        elif asr_provider == "faster_whisper" and self.faster_whisper_client:
-            return "faster_whisper"
         elif self.cliente:
             return "groq"
         else:
             return None
 
     def reload_client(self):
-        """Reinicializa los clientes de transcripción (Groq, NVIDIA y faster-whisper)."""
+        """Reinicializa los clientes de transcripción (Groq y NVIDIA)."""
         self.logger.info("Recargando clientes de transcripción...")
         self.cliente = self._init_groq_client()
         self.nvidia_client = self._init_nvidia_client()
-        self.faster_whisper_client = self._init_faster_whisper_client()
 
         service = self.get_transcription_service()
         if service:
             service_names = {
                 "nvidia": "NVIDIA Riva",
                 "groq": "Groq",
-                "faster_whisper": "faster-whisper"
             }
             service_name = service_names.get(service, service)
             self.update_status(f"Cliente {service_name} listo", "white")
@@ -404,7 +381,9 @@ class Transcriber:
             return
 
         self.is_recording = True
-        self.audio_data = []
+        # FIX Bug F: reset de audio_data bajo lock (evita correr contra process_recording)
+        with self.audio_lock:
+            self.audio_data = []
         self.stop_event.clear()
         self.sound_manager.sound_start_recording()
         self.update_status(self.localization_manager.get_string("status_recording"), "green")
@@ -437,7 +416,9 @@ class Transcriber:
                     data, overflowed = self.input_stream.read(1024)
                     if overflowed:
                         self.logger.warning("Audio buffer overflow")
-                    self.audio_data.append(data)
+                    # FIX Bug F: proteger audio_data contra race condition con process_recording
+                    with self.audio_lock:
+                        self.audio_data.append(data)
                 
                 elapsed_time = time.time() - start_time
                 if elapsed_time > max_time:
@@ -484,8 +465,14 @@ class Transcriber:
         self.logger.info("Iniciando procesamiento de grabación.")
         temp_path = None
         try:
+            # FIX Bug F: tomar snapshot bajo lock para no correr contra un reset de audio_data
+            with self.audio_lock:
+                audio_snapshot = list(self.audio_data)
+            if not audio_snapshot:
+                self.update_status(self.localization_manager.get_string("no_audio_captured"), "red")
+                return
             # Combine audio data chunks
-            full_audio = np.concatenate(self.audio_data, axis=0)
+            full_audio = np.concatenate(audio_snapshot, axis=0)
             duration = len(full_audio) / self.freq
             
             if duration < MIN_AUDIO_DURATION:
@@ -511,7 +498,6 @@ class Transcriber:
             service_names = {
                 "nvidia": "NVIDIA Riva",
                 "groq": "Groq",
-                "faster_whisper": "faster-whisper"
             }
             service_name = service_names.get(service, service)
             self.logger.info(f"Iniciando transcripción con {service_name}.")
@@ -634,57 +620,9 @@ class Transcriber:
             self.logger.error(f"Error de NVIDIA Riva: {e}")
             return None
 
-    def transcribe_with_faster_whisper(self, audio_path):
-        """Transcribir audio usando faster-whisper (local sin Docker)."""
-        if not self.faster_whisper_client:
-            self.update_status("Cliente faster-whisper no inicializado", "red")
-            return None
-        try:
-            self.logger.debug(f"Transcribiendo audio {audio_path} con faster-whisper.")
-            response = self.faster_whisper_client.transcribe(
-                audio_path=audio_path,
-                language_code=self.config_manager.get("default_language", "es")
-            )
-
-            if not response:
-                self.logger.error("faster-whisper: No se pudo transcribir el audio")
-                return None
-
-            # Aplicar validación UTF-8 si está habilitada
-            if self.utf8_validation_enabled and response:
-                response = self.validate_transcription_utf8(response)
-
-            # Aplicar correcciones de vocabulario personalizado
-            if response:
-                response = self.custom_vocab.apply_corrections(response)
-
-            # Procesar con bloques POST-transcripción
-            if response:
-                response = self._process_with_blocks(response)
-
-            # Generar metadatos automáticos con LLM
-            if response:
-                try:
-                    filename = os.path.basename(audio_path)
-                    auto_metadata = self.metadata_generator.generate_metadata(
-                        transcription=response,
-                        filename=filename
-                    )
-                    # Guardar metadatos automáticos
-                    self.metadata_manager.set_auto_metadata(filename, auto_metadata)
-                    self.logger.info(f"Metadatos automáticos generados para {filename}")
-                except Exception as e:
-                    self.logger.warning(f"Error generando metadatos automáticos: {e}")
-
-            return response
-        except Exception as e:
-            self.update_status(f'Error de faster-whisper: {e}', "red")
-            self.logger.error(f"Error de faster-whisper: {e}")
-            return None
-
     def transcribe(self, audio_path):
         """
-        Transcribir audio usando el servicio configurado (Groq, NVIDIA o faster-whisper).
+        Transcribir audio usando el servicio configurado (Groq o NVIDIA).
 
         Elige automáticamente según la configuración 'asr_provider'.
         """
@@ -692,8 +630,6 @@ class Transcriber:
 
         if service == "nvidia":
             return self.transcribe_with_nvidia(audio_path)
-        elif service == "faster_whisper":
-            return self.transcribe_with_faster_whisper(audio_path)
         else:
             return self.transcribe_with_groq(audio_path)
 

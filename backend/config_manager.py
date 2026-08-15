@@ -11,7 +11,7 @@ class ConfigManager:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.config_file = config_file
         self.default_config = {
-            "app_version": "0.13.0",  # Actualizado versión
+            "app_version": "0.15.0",  # FIX: versión real (estaba hardcodeada 0.13.0)
             "audio_path": "./audio",
             "transcriptions_path": "./transcriptions",
             "save_audio": True,
@@ -32,13 +32,11 @@ class ConfigManager:
             "auto_paste_text": False,
             "client_logo_path": "",
             "utf8_validation": True,  # Validación y corrección UTF-8 para caracteres españoles
-            "asr_provider": "groq",   # Servicio de transcripción: "groq", "nvidia" o "faster_whisper"
+            "asr_provider": "groq",   # Servicio de transcripción: "groq" o "nvidia"
             "nvidia_enabled": False,  # Habilitar NVIDIA Riva ASR
             "nvidia_api_key": "",     # API key de NVIDIA (se ofuscará al guardar)
-            "nvidia_mode": "cloud",   # Modo NVIDIA: "cloud" (API) o "local" (Docker)
-            "faster_whisper_enabled": False,  # Habilitar faster-whisper (local sin Docker)
-            "faster_whisper_model": "base",   # Modelo faster-whisper: "tiny", "base", "small", "medium", "large-v3"
-            "faster_whisper_device": "auto"   # Dispositivo: "auto", "cpu", "cuda"
+            "nvidia_mode": "cloud"    # Modo NVIDIA: "cloud" (API) o "local" (Docker)
+            # FIX v0.15.0: faster-whisper ERRADICADO (modelo local) — solo API cloud
         }
         # Cargar configuración ANTES de inicializar localization_manager
         self.config = self.load_config()
