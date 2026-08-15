@@ -346,38 +346,14 @@ class App(ctk.CTk):
         verify_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("verify_button"), width=70, command=self._check_api_key)
         verify_btn.grid(row=1, column=2, padx=(0,10))
 
-        # ASR Provider Selection (Groq y faster-whisper visibles, NVIDIA oculto)
+        # ASR Provider Selection (solo Groq visible — faster-whisper ERRADICADO, NVIDIA oculto)
         ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("asr_provider_label")).grid(row=2, column=0, padx=10, pady=5, sticky="w")
         self.asr_provider_var = tk.StringVar(value=self.config_manager.get("asr_provider", "groq"))
         asr_provider_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
         asr_provider_frame.grid(row=2, column=1, columnspan=2, padx=5, pady=5, sticky="w")
         ctk.CTkRadioButton(asr_provider_frame, text=self.localization_manager.get_string("asr_provider_groq"), variable=self.asr_provider_var, value="groq", command=self.save_config).grid(row=0, column=0, padx=5, sticky="w")
-        ctk.CTkRadioButton(asr_provider_frame, text=self.localization_manager.get_string("asr_provider_faster_whisper"), variable=self.asr_provider_var, value="faster_whisper", command=self.save_config).grid(row=0, column=1, padx=10, sticky="w")
+        # FIX: faster-whisper (modelo local) ERRADICADO — solo API cloud Groq
         # NVIDIA oculto de la UI pero funcional en config.json
-
-        # faster-whisper Configuration
-        self.faster_whisper_enabled_var = tk.BooleanVar(value=self.config_manager.get("faster_whisper_enabled", False))
-        ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("faster_whisper_enabled_label"), variable=self.faster_whisper_enabled_var, command=self.save_config).grid(row=3, column=0, columnspan=3, padx=10, pady=5, sticky="w")
-
-        # faster-whisper Model Selection
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("faster_whisper_model_label")).grid(row=4, column=0, padx=10, pady=5, sticky="w")
-        self.faster_whisper_model_var = tk.StringVar(value=self.config_manager.get("faster_whisper_model", "base"))
-        faster_whisper_model_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
-        faster_whisper_model_frame.grid(row=4, column=1, columnspan=2, padx=5, pady=5, sticky="w")
-        ctk.CTkRadioButton(faster_whisper_model_frame, text=self.localization_manager.get_string("faster_whisper_model_base"), variable=self.faster_whisper_model_var, value="base", command=self.save_config).grid(row=0, column=0, padx=5, sticky="w")
-        ctk.CTkRadioButton(faster_whisper_model_frame, text=self.localization_manager.get_string("faster_whisper_model_small"), variable=self.faster_whisper_model_var, value="small", command=self.save_config).grid(row=0, column=1, padx=10, sticky="w")
-
-        # faster-whisper Device Selection
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("faster_whisper_device_label")).grid(row=5, column=0, padx=10, pady=5, sticky="w")
-        self.faster_whisper_device_var = tk.StringVar(value=self.config_manager.get("faster_whisper_device", "auto"))
-        faster_whisper_device_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
-        faster_whisper_device_frame.grid(row=5, column=1, columnspan=2, padx=5, pady=5, sticky="w")
-        ctk.CTkRadioButton(faster_whisper_device_frame, text=self.localization_manager.get_string("faster_whisper_device_auto"), variable=self.faster_whisper_device_var, value="auto", command=self.save_config).grid(row=0, column=0, padx=5, sticky="w")
-        ctk.CTkRadioButton(faster_whisper_device_frame, text=self.localization_manager.get_string("faster_whisper_device_cpu"), variable=self.faster_whisper_device_var, value="cpu", command=self.save_config).grid(row=0, column=1, padx=10, sticky="w")
-
-        # faster-whisper Info
-        faster_whisper_info = ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("faster_whisper_info"), text_color="gray", font=("Roboto", 10))
-        faster_whisper_info.grid(row=6, column=0, columnspan=3, padx=10, pady=0, sticky="w")
 
         # Hotkey (v0.14.0 - Selector inline compacto)
         ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("hotkey_label")).grid(row=7, column=0, padx=10, pady=5, sticky="w")
@@ -1363,16 +1339,16 @@ class App(ctk.CTk):
             for widget in self.vocab_list_frame.winfo_children():
                 widget.destroy()
 
-            if hasattr(self.transcriber, 'custom_vocab'):
+            if hasattr(self, 'transcriber') and hasattr(self.transcriber, 'custom_vocab'):
                 corrections = self.transcriber.custom_vocab.get_corrections()
 
                 if not corrections:
                     ctk.CTkLabel(self.vocab_list_frame, text="No hay correcciones configuradas", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(pady=5)
                 else:
-                    # Mostrar últimas 5 correcciones
-                    for incorrect, correct in list(corrections.items())[:5]:
+                    # FIX: mostrar TODAS las correcciones, no solo las primeras 5
+                    for incorrect, correct in corrections.items():
                         item = ctk.CTkLabel(self.vocab_list_frame, text=f"{incorrect} → {correct}", font=DesignSystem.TYPOGRAPHY["body_small"])
-                        item.pack(anchor="w", padx=10, pady=2)
+                        item.pack(anchor="w", padx=10, pady=1)
 
         except Exception as e:
             self.logger.error(f"Error refrescando lista de vocabulario: {e}")
@@ -1409,7 +1385,9 @@ class App(ctk.CTk):
                 self.after(0, self.hotkey_recording_window.destroy)
 
     def _set_new_hotkey(self, hotkey):
-        self.hotkey_var.set(hotkey.upper())
+        # FIX: hotkey_var fue reemplazado por el selector inline (hotkey_key_var) en v0.14.0
+        if hasattr(self, 'hotkey_key_var'):
+            self.hotkey_key_var.set(hotkey.upper())
         self.logger.info(f"Nuevo hotkey establecido: {hotkey.upper()}")
         if self.hotkey_recording_window: self.hotkey_recording_window.destroy()
 
@@ -1432,8 +1410,11 @@ class App(ctk.CTk):
             self.save_config()
 
     def save_config(self, event=None):
-        # Guard: no guardar si las variables UI aún no están inicializadas
-        if not hasattr(self, 'hotkey_var') or not hasattr(self, 'api_key_var'):
+        # FIX Bug G: el guard original chequeaba 'hotkey_var' (StringVar eliminado en v0.14.0,
+        # reemplazado por hotkey_ctrl_var/alt_var/shift_var/key_var del selector inline).
+        # Como 'hotkey_var' ya no existía, save_config() SIEMPRE retornaba temprano y NUNCA guardaba.
+        # Ahora chequeamos una variable que SÍ existe: 'api_key_var' (creada en create_config_tab).
+        if not hasattr(self, 'api_key_var') or not hasattr(self, 'asr_provider_var'):
             return
         self.logger.info("Guardando configuración...")
         old_lang = self.config_manager.get("default_language")
@@ -1441,6 +1422,7 @@ class App(ctk.CTk):
 
         # Obtener configuración de bloques actual
         blocks_config = self.config_manager.get("blocks", {})
+        hotkey_actual = self.config_manager.get("hotkey", "f12")
 
         settings = {
             "groq_api_key": self.api_key_var.get(),
@@ -1448,10 +1430,7 @@ class App(ctk.CTk):
             "nvidia_enabled": self.nvidia_enabled_var.get() if hasattr(self, 'nvidia_enabled_var') else False,
             "nvidia_api_key": self.nvidia_api_key_var.get() if hasattr(self, 'nvidia_api_key_var') else "",
             "nvidia_mode": self.nvidia_mode_var.get() if hasattr(self, 'nvidia_mode_var') else "cloud",
-            "faster_whisper_enabled": self.faster_whisper_enabled_var.get(),
-            "faster_whisper_model": self.faster_whisper_model_var.get(),
-            "faster_whisper_device": self.faster_whisper_device_var.get(),
-            # "hotkey": self.hotkey_var.get(),  # REMOVIDO v0.14.0 - Hotkey se guarda en _update_hotkey_from_inline
+            "hotkey": hotkey_actual,  # FIX: el hotkey se mantiene con su valor actual (viene del config_manager)
             "record_mode": self.record_mode_var.get(),
             "max_recording_time": {"5 min": 300, "10 min": 600, "15 min": 900, "20 min": 1200}.get(self.max_duration_var.get() if hasattr(self, "max_duration_var") else "5 min", 300),
             "auto_paste_text": self.auto_paste_var.get(), "show_transcription_panel": self.show_panel_var.get(),
@@ -1683,6 +1662,14 @@ class App(ctk.CTk):
     def quit_application(self):
         self.logger.info("Cerrando aplicación.")
         self.transcriber.stop()
+        # FIX: destruir overlay de grabación ANTES de cerrar la ventana principal,
+        # para que el timer no quede huérfano y colgado en pantalla
+        try:
+            if self.recording_overlay:
+                self.recording_overlay.withdraw()
+                self.recording_overlay.destroy()
+        except Exception as e:
+            self.logger.warning(f"Error destruyendo overlay: {e}")
         if self.tray_icon: self.tray_icon.stop()
         self.destroy()
         sys.exit()

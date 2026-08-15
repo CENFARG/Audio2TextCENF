@@ -81,6 +81,47 @@ except Exception as e:
 from ui.app import App
 from backend.config_manager import ConfigManager
 
+# --- FIX: single-instance — evitar dos instancias montadas con el mismo hotkey ---
+def ensure_single_instance():
+    """
+    Evitar múltiples instancias de Audio2Text corriendo a la vez.
+
+    Dos instancias (ej: 0.9.0 y 0.15.0) escuchan el MISMO hotkey y se pisan:
+    graban juntas y al cerrar una, la otra queda colgada con el timer arriba.
+    """
+    if not getattr(sys, 'frozen', False):
+        return True  # En desarrollo (python main.py) no aplicar la restricción
+    try:
+        import psutil
+        current_pid = os.getpid()
+        my_name = os.path.basename(sys.executable).lower()
+        for proc in psutil.process_iter(['pid', 'name']):
+            try:
+                if proc.info['pid'] == current_pid:
+                    continue
+                name = (proc.info.get('name') or '').lower()
+                if 'audio2text' in name and name != my_name:
+                    return False
+            except Exception:
+                continue
+        return True
+    except Exception:
+        return True  # Si psutil falla, permitir arranque (no bloquear la app)
+
+if not ensure_single_instance():
+    import tkinter as tk
+    from tkinter import messagebox
+    _root = tk.Tk(); _root.withdraw()
+    messagebox.showwarning(
+        "Audio2Text CENF",
+        "Ya hay otra instancia de Audio2Text en ejecución.\n"
+        "Cerrá la otra ventana antes de abrir esta, para evitar\n"
+        "que ambas escuchen el mismo hotkey."
+    )
+    _root.destroy()
+    sys.exit(0)
+# --- FIN single-instance ---
+
 # --- Logging Configuration ---
 # Config and logs should be in the external path (next to executable)
 config_manager = ConfigManager(config_file=os.path.join(external_path, "config.json"))
