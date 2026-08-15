@@ -415,20 +415,24 @@ class App(ctk.CTk):
         ctk.CTkRadioButton(record_mode_frame, text=self.localization_manager.get_string("record_mode_toggle"), variable=self.record_mode_var, value="toggle", command=self.save_config).grid(row=0, column=1, padx=10, sticky="w")
 
         # Max Recording Duration
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("max_duration_label")).grid(row=9, column=0, padx=10, pady=5, sticky="w")
+        # FIX layout: el label va ARRIBA del combo (col 1, columna derecha) para no
+        # superponerse con el switch de auto-paste que antes ocupaba la misma fila 9
+        duration_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
+        duration_frame.grid(row=9, column=1, columnspan=2, padx=5, pady=5, sticky="w")
+        ctk.CTkLabel(duration_frame, text=self.localization_manager.get_string("max_duration_label"), font=DesignSystem.TYPOGRAPHY["body_small"]).pack(anchor="w")
         current_duration = self.config_manager.get("max_recording_time", 300)
         duration_options = {"5 min": 300, "10 min": 600, "15 min": 900, "20 min": 1200}
         reverse_map = {v: k for k, v in duration_options.items()}
         current_label = reverse_map.get(current_duration, "5 min")
         self.max_duration_var = tk.StringVar(value=current_label)
-        duration_combo = ctk.CTkComboBox(main_conf_frame, values=list(duration_options.keys()), variable=self.max_duration_var, state="readonly", width=120, command=lambda e: self.save_config())
-        duration_combo.grid(row=9, column=1, padx=5, pady=5, sticky="w")
+        duration_combo = ctk.CTkComboBox(duration_frame, values=list(duration_options.keys()), variable=self.max_duration_var, state="readonly", width=120, command=lambda e: self.save_config())
+        duration_combo.pack(anchor="w", pady=(2, 0))
 
-        # Auto-paste & Show panel
+        # Auto-paste & Show panel (filas propias, sin superposición)
         self.auto_paste_var = tk.BooleanVar(value=self.config_manager.get("auto_paste_text"))
-        ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("auto_paste_switch"), variable=self.auto_paste_var, command=self.save_config).grid(row=9, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("auto_paste_switch"), variable=self.auto_paste_var, command=self.save_config).grid(row=10, column=0, columnspan=3, padx=10, pady=5, sticky="w")
         self.show_panel_var = tk.BooleanVar(value=self.config_manager.get("show_transcription_panel"))
-        ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("show_panel_switch"), variable=self.show_panel_var, command=self.save_config).grid(row=10, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("show_panel_switch"), variable=self.show_panel_var, command=self.save_config).grid(row=11, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
         # Windows autostart (sincronizado con estado real de Startup folder)
         from backend.startup_manager import StartupManager
@@ -438,13 +442,13 @@ class App(ctk.CTk):
         self.config_manager.set("autostart_windows", actual_autostart_state)
 
         self.autostart_windows_var = tk.BooleanVar(value=actual_autostart_state)
-        ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("autostart_windows_switch"), variable=self.autostart_windows_var, command=self.save_config).grid(row=11, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("autostart_windows_switch"), variable=self.autostart_windows_var, command=self.save_config).grid(row=12, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
         # Language selection
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("language_label")).grid(row=12, column=0, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("language_label")).grid(row=13, column=0, padx=10, pady=5, sticky="w")
         self.language_var = tk.StringVar(value=self.config_manager.get("default_language"))
         # Command triggers when selection changes
-        ctk.CTkComboBox(main_conf_frame, values=["es", "en"], variable=self.language_var, state="readonly", command=lambda e: self.save_config()).grid(row=12, column=1, padx=5, pady=5, sticky="ew", columnspan=2)
+        ctk.CTkComboBox(main_conf_frame, values=["es", "en"], variable=self.language_var, state="readonly", command=lambda e: self.save_config()).grid(row=13, column=1, padx=5, pady=5, sticky="ew", columnspan=2)
 
         # --- File Management Frame ---
         files_frame = ctk.CTkFrame(scroll_frame)
@@ -528,9 +532,15 @@ class App(ctk.CTk):
         self.vocab_list_frame = ctk.CTkScrollableFrame(vocab_frame, height=100)
         self.vocab_list_frame.grid(row=3, column=0, columnspan=3, padx=10, pady=5, sticky="nsew")
 
-        # Botón para ver/editar correcciones
-        manage_vocab_btn = ctk.CTkButton(vocab_frame, text="Ver/Editar Correcciones", width=150, command=self._show_vocab_corrections)
-        manage_vocab_btn.grid(row=4, column=0, columnspan=3, padx=10, pady=10, sticky="w")
+        # Botones: ver/editar, importar archivo, exportar (FIX v0.15.0)
+        vocab_buttons_frame = ctk.CTkFrame(vocab_frame, fg_color="transparent")
+        vocab_buttons_frame.grid(row=4, column=0, columnspan=3, padx=10, pady=10, sticky="w")
+        manage_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text="Ver/Editar Correcciones", width=150, command=self._show_vocab_corrections)
+        manage_vocab_btn.pack(side="left", padx=(0, 5))
+        import_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text="📂 Importar archivo (TXT/MD/JSON)", width=200, command=self._import_vocab_file)
+        import_vocab_btn.pack(side="left", padx=5)
+        export_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text="💾 Exportar", width=100, command=self._export_vocab_file)
+        export_vocab_btn.pack(side="left", padx=5)
 
         # Cargar lista de correcciones al iniciar
         self._refresh_vocab_list()
@@ -656,7 +666,7 @@ class App(ctk.CTk):
             return
 
         # Obtener lista de archivos actuales
-        max_display_files = 100
+        max_display_files = 200  # FIX: subido a 200 (antes 100)
         files_list = self.file_manager.get_audio_files_list(limit=max_display_files)
 
         if not files_list:
@@ -677,15 +687,43 @@ class App(ctk.CTk):
         new_files = [f for f in files_list if f["name"] not in self.loaded_history_files]
 
         if new_files:
-            # Agregar solo los archivos nuevos
-            for file_info in new_files:
-                self._create_history_item(file_info["name"], file_info["path"])
-                self.loaded_history_files.add(file_info["name"])
-
-            self.logger.debug(f"Agregados {len(new_files)} archivos nuevos al historial")
+            # FIX: carga por LOTES (batch) para no congelar la UI con muchos archivos.
+            # Crear cientos de widgets de golpe bloqueaba la interfaz.
+            self._history_pending = new_files
+            self._history_pending_pos = 0
+            self._process_history_batch(batch_size=20)
+            self.logger.debug(f"Agregados {len(new_files)} archivos nuevos al historial (por lotes)")
 
         # Actualizar archivos conocidos
         self.loaded_history_files = current_files
+
+    def _process_history_batch(self, batch_size=20):
+        """
+        FIX: crear items de historial en lotes para no congelar la UI.
+
+        Con cientos de audios, crear todos los widgets de golpe en el hilo
+        principal bloqueaba la interfaz (la app se 'trababa'). Se procesan
+        de a 20 y se reprograma el resto con after(), dejando que la UI respire.
+        """
+        pending = getattr(self, '_history_pending', [])
+        pos = getattr(self, '_history_pending_pos', 0)
+
+        end = min(pos + batch_size, len(pending))
+        for file_info in pending[pos:end]:
+            try:
+                self._create_history_item(file_info["name"], file_info["path"])
+                self.loaded_history_files.add(file_info["name"])
+            except Exception as e:
+                self.logger.error(f"Error creando item de historial: {e}")
+
+        self._history_pending_pos = end
+        if end < len(pending):
+            # Programar el siguiente lote — deja que la UI pinte entre lotes
+            self.after(15, self._process_history_batch, batch_size)
+        else:
+            # Terminado: limpiar estado temporal
+            self._history_pending = []
+            self._history_pending_pos = 0
 
     def _create_history_item(self, filename, full_path):
         """Crear item de historial con emoji personalizable, play button y menú contextual"""
@@ -1241,6 +1279,60 @@ class App(ctk.CTk):
                 self.update_status("Error al agregar corrección", "red")
         else:
             self.update_status("CustomVocabulary no disponible", "red")
+
+    def _import_vocab_file(self):
+        """Importar correcciones de vocabulario desde un archivo (TXT/MD/JSON)."""
+        try:
+            if not hasattr(self.transcriber, 'custom_vocab'):
+                self.update_status("CustomVocabulary no disponible", "red")
+                return
+
+            from tkinter import filedialog
+            file_path = filedialog.askopenfilename(
+                title="Importar vocabulario",
+                filetypes=[
+                    ("Archivos de vocabulario", "*.txt;*.md;*.json"),
+                    ("Texto", "*.txt;*.md"),
+                    ("JSON", "*.json"),
+                    ("Todos", "*.*")
+                ]
+            )
+            if not file_path:
+                return
+
+            count = self.transcriber.custom_vocab.import_from_file(file_path)
+            if count > 0:
+                self.update_status(f"✅ {count} correcciones importadas de {os.path.basename(file_path)}", "green")
+                self._refresh_vocab_list()
+            else:
+                self.update_status("No se importó ninguna corrección (revisá el formato: 'incorrecta → correcta' por línea)", "orange")
+        except Exception as e:
+            self.logger.error(f"Error importando vocabulario: {e}")
+            self.update_status(f"Error importando vocabulario: {e}", "red")
+
+    def _export_vocab_file(self):
+        """Exportar el vocabulario actual a un archivo de texto."""
+        try:
+            if not hasattr(self.transcriber, 'custom_vocab'):
+                self.update_status("CustomVocabulary no disponible", "red")
+                return
+
+            from tkinter import filedialog
+            file_path = filedialog.asksaveasfilename(
+                title="Exportar vocabulario",
+                defaultextension=".txt",
+                filetypes=[("Texto", "*.txt"), ("Markdown", "*.md"), ("Todos", "*.*")]
+            )
+            if not file_path:
+                return
+
+            if self.transcriber.custom_vocab.export_to_file(file_path):
+                self.update_status(f"✅ Vocabulario exportado a {os.path.basename(file_path)}", "green")
+            else:
+                self.update_status("Error exportando vocabulario", "red")
+        except Exception as e:
+            self.logger.error(f"Error exportando vocabulario: {e}")
+            self.update_status(f"Error exportando vocabulario: {e}", "red")
 
     def _show_vocab_corrections(self):
         """Mostrar ventana para ver/editar correcciones de vocabulario."""

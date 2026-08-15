@@ -16,8 +16,8 @@ class ConfigManager:
             "transcriptions_path": "./transcriptions",
             "save_audio": True,
             "save_logs": True,
-            "hotkey": "f12",  # Formato: "f12", "ctrl+f12", "ctrl+shift+f12", "alt+f12", etc.
-            "hotkey_modifier": "",  # DEPRECATED: Usar formato "ctrl+f12" en hotkey
+            "hotkey": "f9",  # FIX: default F9 (estaba f12) — pedido del usuario
+            "hotkey_modifier": "",  # DEPRECATED: Usar formato "ctrl+f9" en hotkey
             "record_mode": "toggle", # Opciones: "hold" o "toggle"
             "default_language": "es",
             "max_audio_files": 100,
@@ -29,7 +29,7 @@ class ConfigManager:
             "gift_key_encoded": "JDYlGSgLcSgkLwUNLTk8CxQEBD0cHi11GQE7KidwFBwSOhc5LmwpHQkIH2d6D3kMBxkKCAoKHBI=", # Encoded user-provided key
             "audio_priority_apps": ["zoom.exe", "teams.exe", "meet.exe", "skype.exe"],
             "show_transcription_panel": False,
-            "auto_paste_text": False,
+            "auto_paste_text": True,  # FIX: auto-pegar habilitado por defecto (pedido del usuario)
             "client_logo_path": "",
             "utf8_validation": True,  # Validación y corrección UTF-8 para caracteres españoles
             "asr_provider": "groq",   # Servicio de transcripción: "groq" o "nvidia"

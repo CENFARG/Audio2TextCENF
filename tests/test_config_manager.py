@@ -42,7 +42,7 @@ class TestConfigManagerInitialization:
             assert manager.config is not None
             assert "app_version" in manager.config
             assert manager.config["app_version"] == "0.15.0"
-            assert manager.config["hotkey"] == "f12"
+            assert manager.config["hotkey"] == "f9"  # FIX: default F9 (pedido del usuario)
             assert manager.config["default_language"] == "es"
         finally:
             if os.path.exists(config_file):
