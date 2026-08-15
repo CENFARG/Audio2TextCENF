@@ -189,19 +189,23 @@ class Transcriber:
         """
         Obtener el servicio de transcripción activo.
 
+        FIX v0.15.0 (bug A): respetar el provider CONFIGURADO aunque su cliente
+        no esté disponible. Antes, si asr_provider='gemini' sin key, caía al
+        fallback silencioso a Groq — el usuario creía usar Gemini pero usaba Groq.
+        Ahora se devuelve el provider configurado; si su cliente falta, la
+        transcripción avisará del error con claridad.
+
         Returns:
             'nvidia', 'gemini', 'groq' o None si no hay ninguno disponible.
         """
         asr_provider = self.config_manager.get("asr_provider", "groq")  # "groq", "nvidia" o "gemini"
 
-        if asr_provider == "nvidia" and self.nvidia_client:
-            return "nvidia"
-        elif asr_provider == "gemini" and self.gemini_client:
-            return "gemini"
-        elif self.cliente:
-            return "groq"
+        if asr_provider == "nvidia":
+            return "nvidia" if self.nvidia_client else None
+        elif asr_provider == "gemini":
+            return "gemini" if self.gemini_client else None
         else:
-            return None
+            return "groq" if self.cliente else None
 
     def reload_client(self):
         """Reinicializa los clientes de transcripción (Groq, NVIDIA y Gemini)."""
@@ -429,30 +433,41 @@ class Transcriber:
             self.logger.error(f"Error al iniciar el stream de audio: {e}")
 
     def _record_loop(self):
+        """Bucle de grabación optimizado.
+
+        FIX v0.15.0 (punto 0): en grabaciones largas, actualizar la UI (update_status
+        + overlay) en CADA lectura de 64ms congelaba la captura de audio → buffer
+        overflow → chunks perdidos → audio corrupto → Groq devolvía texto con basura
+        a mitad (el síntoma "funciona, deja de funcionar, vuelve"). Ahora la lectura
+        de audio es prioritaria y el timer se actualiza cada 250ms máximo.
+        """
         start_time = time.time()
         max_time = self.config_manager.get("max_recording_time", 300)
-        
+        last_ui_update = 0.0
+        ui_update_interval = 0.25  # 250ms — suficiente para el timer, no congela la captura
+
         while not self.stop_event.is_set():
             try:
-                # Read from stream
+                # 1) PRIORIDAD: leer audio (rápido, sin UI en el medio)
                 if self.input_stream.active:
                     data, overflowed = self.input_stream.read(1024)
                     if overflowed:
                         self.logger.warning("Audio buffer overflow")
-                    # FIX Bug F: proteger audio_data contra race condition con process_recording
                     with self.audio_lock:
                         self.audio_data.append(data)
-                
-                elapsed_time = time.time() - start_time
+
+                # 2) UI: actualizar timer SOLO cada 250ms (no en cada lectura)
+                now = time.time()
+                elapsed_time = now - start_time
                 if elapsed_time > max_time:
                     self.stop_recording(); break
-                minutes, seconds = divmod(int(elapsed_time), 60)
-                self.update_status(f'{self.localization_manager.get_string("status_recording")} {minutes:02d}:{seconds:02d}', "green")
-                
-                # Actualizar overlay si existe
-                if self.overlay_callback:
-                    self.overlay_callback("recording", minutes, seconds)
-                    
+                if now - last_ui_update >= ui_update_interval:
+                    last_ui_update = now
+                    minutes, seconds = divmod(int(elapsed_time), 60)
+                    self.update_status(f'{self.localization_manager.get_string("status_recording")} {minutes:02d}:{seconds:02d}', "green")
+                    if self.overlay_callback:
+                        self.overlay_callback("recording", minutes, seconds)
+
             except Exception as e:
                 self.logger.error(f"Error en bucle de grabación: {e}")
                 self.stop_recording()
