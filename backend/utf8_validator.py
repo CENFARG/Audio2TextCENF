@@ -1,4 +1,4 @@
-# -*- coding: latin-1 -*-
+# -*- coding: utf-8 -*-
 """
 Módulo de Validación y Corrección de Encoding UTF-8.
 
@@ -6,7 +6,7 @@ Este módulo se encarga de validar y corregir problemas de encoding
 que causan bloqueos o caracteres incorrectos en transcripciones de audio.
 
 Author: Audio2Text Team
-Version: 0.10.0
+Version: 0.15.0
 """
 
 import logging
@@ -42,6 +42,18 @@ SPANISH_CHARS = {
     "»": "»",
 }
 
+# FIX Bug B: patrones reales de mojibake (doble-encoding UTF-8 → latin-1)
+# Texto con acentos leído como latin-1 produce estos pares de caracteres.
+MOJIBAKE_MAP = {
+    "Ã¡": "á", "Ã©": "é", "Ã­": "í", "Ã³": "ó", "Ãº": "ú",
+    "Ã": "Á", "Ã‰": "É", "Ã": "Í", "Ã“": "Ó", "Ãš": "Ú",
+    "Ã±": "ñ", "Ã‘": "Ñ",
+    "Â¿": "¿", "Â¡": "¡",
+    "Ã¼": "ü", "Ã¶": "ö", "Ã¤": "ä", "Ã«": "ë", "Ã¯": "ï", "Ã¶": "ö",
+    "Â«": "«", "Â»": "»", "â€": "€", "â€œ": "“", "â€�": "”", "â€˜": "‘", "â€™": "’",
+    "â€“": "–", "â€”": "—", "â€¦": "…",
+}
+
 
 class UTF8Validator:
     """
@@ -61,6 +73,11 @@ class UTF8Validator:
         """
         Validar encoding de un texto.
 
+        FIX Bug B: la versión anterior era una TAUTOLOGÍA — codificar y
+        decodificar en UTF-8 siempre devuelve el mismo string (round-trip
+        sin pérdida), por lo que NUNCA detectaba mojibake y el texto
+        quedaba corrupto. Ahora se detectan patrones reales de doble-encoding.
+
         Args:
             text: Texto a validar
 
@@ -69,30 +86,18 @@ class UTF8Validator:
         """
         problems = []
 
-        try:
-            # Intentar codificar/decodificar como UTF-8
-            encoded = text.encode('utf-8')
-            decoded = encoded.decode('utf-8')
+        # FIX: detección real de mojibake (patrones de doble-encoding)
+        for bad in MOJIBAKE_MAP:
+            if bad in text:
+                problems.append(f"mojibake: {bad} -> {MOJIBAKE_MAP[bad]}")
 
-            # Verificar que la decodificación es correcta
-            if decoded == text:
-                # No hay problemas de encoding
-                pass
-            else:
-                # Hay problema de encoding
-                problems.append(f"encoding_mismatch: {text[:50]} != {decoded[:50]}")
+        # BOM al inicio
+        if text.startswith('\ufeff'):
+            problems.append("bom_present")
 
-        except UnicodeEncodeError as e:
-            problems.append(f"unicode_encode_error: {e}")
-            self.logger.error(f"Error de encoding: {e}")
-
-        except UnicodeDecodeError as e:
-            problems.append(f"unicode_decode_error: {e}")
-            self.logger.error(f"Error de decodificacion: {e}")
-
-        except Exception as e:
-            problems.append(f"validation_error: {e}")
-            self.logger.error(f"Error de validacion: {e}")
+        # Caracteres de control problemáticos
+        if '\x00' in text:
+            problems.append("null_bytes")
 
         return (len(problems) == 0, problems)
 
@@ -107,6 +112,11 @@ class UTF8Validator:
             Texto con caracteres normalizados
         """
         result = text
+
+        # FIX Bug B: corregir mojibake REAL (doble-encoding UTF-8 → latin-1)
+        # Debe ir ANTES de la corrección de caracteres individuales
+        for bad, correct in MOJIBAKE_MAP.items():
+            result = result.replace(bad, correct)
 
         # Corregir combinaciones incorrectas
         for malformed, correct in MALFORMED_CHARS.items():
@@ -170,9 +180,10 @@ class UTF8Validator:
         """
         result = text
 
-        # Remover BOM (Byte Order Mark) al inicio
+        # FIX Bug C: el BOM es UN carácter (\ufeff = U+FEFF), no 3.
+        # La versión anterior hacía result[3:] que se comía 3 caracteres REALES del texto.
         if result.startswith('\ufeff'):
-            result = result[3:]
+            result = result[1:]
             self.logger.debug("BOM removido del inicio")
 
         # Remover caracteres nulos y otros caracteres de control

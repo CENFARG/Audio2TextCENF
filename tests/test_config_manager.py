@@ -41,7 +41,7 @@ class TestConfigManagerInitialization:
             assert manager.config_file == config_file
             assert manager.config is not None
             assert "app_version" in manager.config
-            assert manager.config["app_version"] == "0.13.0"
+            assert manager.config["app_version"] == "0.15.0"
             assert manager.config["hotkey"] == "f12"
             assert manager.config["default_language"] == "es"
         finally:
@@ -59,7 +59,7 @@ class TestConfigManagerInitialization:
             manager = ConfigManager(config_file=config_file)
 
             # Should override with default version but keep other settings
-            assert manager.config["app_version"] == "0.13.0"
+            assert manager.config["app_version"] == "0.15.0"
             assert manager.config["hotkey"] == "F10"
             assert manager.config["default_language"] == "en"
         finally:
@@ -323,7 +323,7 @@ class TestConfigValidation:
 
         # Reload and verify it's back to default
         manager2 = ConfigManager(config_file=manager.config_file)
-        assert manager2.config["app_version"] == "0.13.0"
+        assert manager2.config["app_version"] == "0.15.0"
 
     def test_audio_priority_apps_default(self, manager):
         """Test that audio_priority_apps has default values."""
