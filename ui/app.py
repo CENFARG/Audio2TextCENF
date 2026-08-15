@@ -1335,18 +1335,24 @@ class App(ctk.CTk):
             self.update_status(f"Error exportando vocabulario: {e}", "red")
 
     def _show_vocab_corrections(self):
-        """Mostrar ventana para ver/editar correcciones de vocabulario."""
+        """Mostrar ventana para ver/editar/eliminar correcciones de vocabulario."""
         try:
             if not hasattr(self.transcriber, 'custom_vocab'):
                 self.update_status("CustomVocabulary no disponible", "red")
                 return
 
-            corrections = self.transcriber.custom_vocab.get_corrections()
-
             # Crear ventana de correcciones
             vocab_window = ctk.CTkToplevel(self)
             vocab_window.title("Correcciones de Vocabulario")
-            vocab_window.geometry("600x500")
+            vocab_window.geometry("620x520")
+
+            # FIX bug 4: la ventana debe quedar SIEMPRE por delante de la app.
+            # transient() la vincula a la ventana padre y lift() la trae al frente.
+            vocab_window.transient(self)
+            vocab_window.lift()
+            vocab_window.attributes('-topmost', True)
+            vocab_window.after(100, lambda: vocab_window.attributes('-topmost', False))
+            vocab_window.grab_set()  # Modal: bloquea la ventana principal mientras está abierta
 
             # Frame principal
             main_frame = ctk.CTkScrollableFrame(vocab_window)
@@ -1358,27 +1364,42 @@ class App(ctk.CTk):
             # Instrucciones
             ctk.CTkLabel(main_frame, text="Palabras que el modelo entiende mal y su corrección:", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(pady=5)
 
-            if not corrections:
-                ctk.CTkLabel(main_frame, text="No hay correcciones configuradas").pack(pady=20)
-            else:
-                # Mostrar lista de correcciones
-                for incorrect, correct in corrections.items():
-                    row_frame = ctk.CTkFrame(main_frame)
-                    row_frame.pack(fill="x", pady=2, padx=5)
+            # Contenedor de la lista (se recarga entero al agregar/editar/eliminar)
+            list_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+            list_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
-                    # Incorrecta
-                    ctk.CTkLabel(row_frame, text=incorrect, font=DesignSystem.TYPOGRAPHY["body_bold"]).pack(side="left", padx=10)
+            def reload_list():
+                """Recargar la lista de correcciones (refresco inmediato)."""
+                for widget in list_frame.winfo_children():
+                    widget.destroy()
 
-                    # Flecha
-                    ctk.CTkLabel(row_frame, text="→", font=DesignSystem.TYPOGRAPHY["heading_large"]).pack(side="left", padx=10)
+                corrections = self.transcriber.custom_vocab.get_corrections()
+                if not corrections:
+                    ctk.CTkLabel(list_frame, text="No hay correcciones configuradas").pack(pady=20)
+                else:
+                    for incorrect, correct in corrections.items():
+                        row_frame = ctk.CTkFrame(list_frame)
+                        row_frame.pack(fill="x", pady=2, padx=5)
 
-                    # Correcta
-                    ctk.CTkLabel(row_frame, text=correct, font=DesignSystem.TYPOGRAPHY["body_bold"], text_color="#10B981").pack(side="left", padx=10)
+                        # Incorrecta
+                        ctk.CTkLabel(row_frame, text=incorrect, font=DesignSystem.TYPOGRAPHY["body_bold"]).pack(side="left", padx=10)
 
-                    # Botón eliminar
-                    delete_btn = ctk.CTkButton(row_frame, text="🗑️", width=30, fg_color="#EF4444", hover_color="#DC2626",
-                                            command=lambda inc=incorrect: self._delete_vocab_correction(inc, vocab_window, main_frame))
-                    delete_btn.pack(side="right", padx=5)
+                        # Flecha
+                        ctk.CTkLabel(row_frame, text="→", font=DesignSystem.TYPOGRAPHY["heading_large"]).pack(side="left", padx=10)
+
+                        # Correcta
+                        ctk.CTkLabel(row_frame, text=correct, font=DesignSystem.TYPOGRAPHY["body_bold"], text_color="#10B981").pack(side="left", padx=10)
+
+                        # FIX bug 5: botón EDITAR (nuevo) + ELIMINAR, ambos con refresh inmediato
+                        edit_btn = ctk.CTkButton(row_frame, text="✏️ Editar", width=70, fg_color="#2563EB", hover_color="#1D4ED8",
+                                                 command=lambda inc=incorrect, cor=correct: self._edit_vocab_correction(inc, cor, reload_list))
+                        edit_btn.pack(side="right", padx=2)
+
+                        delete_btn = ctk.CTkButton(row_frame, text="🗑️", width=30, fg_color="#EF4444", hover_color="#DC2626",
+                                                command=lambda inc=incorrect: self._delete_vocab_correction(inc, reload_list))
+                        delete_btn.pack(side="right", padx=5)
+
+            reload_list()
 
             # Botón cerrar
             ctk.CTkButton(main_frame, text="Cerrar", command=vocab_window.destroy, width=100).pack(pady=10)
@@ -1389,40 +1410,77 @@ class App(ctk.CTk):
             self.logger.error(f"Error mostrando correcciones: {e}")
             self.update_status("Error al mostrar correcciones", "red")
 
-    def _delete_vocab_correction(self, incorrect: str, window, main_frame):
-        """Eliminar corrección de vocabulario."""
+    def _delete_vocab_correction(self, incorrect: str, on_deleted=None):
+        """Eliminar corrección de vocabulario con refresh INMEDIATO de la lista."""
         try:
             if hasattr(self.transcriber, 'custom_vocab'):
                 success = self.transcriber.custom_vocab.remove_correction(incorrect)
                 if success:
                     self.update_status(f"Corrección eliminada: {incorrect}", "green")
-                    # Recrear contenido de la ventana
-                    for widget in main_frame.winfo_children():
-                        if isinstance(widget, ctk.CTkScrollableFrame):
-                            # PRIMERO: Limpiar todos los widgets existentes
-                            for child in widget.winfo_children():
-                                child.destroy()
-
-                            # LUEGO: Recargar correcciones desde cero
-                            corrections = self.transcriber.custom_vocab.get_corrections()
-                            if corrections:
-                                for inc, cor in corrections.items():
-                                    row_frame = ctk.CTkFrame(widget)
-                                    row_frame.pack(fill="x", pady=2, padx=5)
-
-                                    ctk.CTkLabel(row_frame, text=inc, font=DesignSystem.TYPOGRAPHY["body_bold"]).pack(side="left", padx=10)
-                                    ctk.CTkLabel(row_frame, text="→", font=DesignSystem.TYPOGRAPHY["heading_large"]).pack(side="left", padx=10)
-                                    ctk.CTkLabel(row_frame, text=cor, font=DesignSystem.TYPOGRAPHY["body_bold"], text_color="#10B981").pack(side="left", padx=10)
-
-                                    delete_btn = ctk.CTkButton(row_frame, text="🗑️", width=30, fg_color="#EF4444", hover_color="#DC2626",
-                                                        command=lambda i=inc: self._delete_vocab_correction(i, window, widget))
-                                    delete_btn.pack(side="right", padx=5)
-                            break
+                    self.logger.info(f"Corrección eliminada: {incorrect}")
+                    # FIX bug 5: refrescar la lista visible AL INSTANTE (no esperar a reabrir)
+                    if on_deleted:
+                        on_deleted()
+                    self._refresh_vocab_list()
                 else:
                     self.update_status("Error al eliminar corrección", "red")
         except Exception as e:
             self.logger.error(f"Error eliminando corrección: {e}")
             self.update_status("Error al eliminar corrección", "red")
+
+    def _edit_vocab_correction(self, incorrect: str, current_correct: str, on_edited=None):
+        """Editar una corrección existente (cambiar la palabra correcta)."""
+        try:
+            if not hasattr(self.transcriber, 'custom_vocab'):
+                self.update_status("CustomVocabulary no disponible", "red")
+                return
+
+            # Ventana de edición (también al frente)
+            edit_window = ctk.CTkToplevel(self)
+            edit_window.title("Editar Corrección")
+            edit_window.geometry("420x180")
+            edit_window.transient(self)
+            edit_window.lift()
+            edit_window.attributes('-topmost', True)
+            edit_window.after(100, lambda: edit_window.attributes('-topmost', False))
+            edit_window.grab_set()
+            edit_window.resizable(False, False)
+
+            ctk.CTkLabel(edit_window, text=f"Palabra incorrecta: '{incorrect}'", font=DesignSystem.TYPOGRAPHY["body_bold"]).pack(pady=(15, 5), padx=15, anchor="w")
+
+            ctk.CTkLabel(edit_window, text="Nueva palabra correcta:", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(padx=15, anchor="w")
+            new_correct_var = tk.StringVar(value=current_correct)
+            entry = ctk.CTkEntry(edit_window, textvariable=new_correct_var)
+            entry.pack(padx=15, pady=5, fill="x")
+
+            def save_edit():
+                new_value = new_correct_var.get().strip()
+                if not new_value:
+                    self.update_status("La palabra correcta no puede estar vacía", "orange")
+                    return
+                if new_value == current_correct:
+                    edit_window.destroy()
+                    return
+                # Reemplazar la clave manteniendo la posición (eliminar + agregar con el nuevo valor)
+                self.transcriber.custom_vocab.corrections[incorrect] = new_value
+                self.transcriber.custom_vocab._save_vocab()
+                self.update_status(f"Corrección actualizada: {incorrect} → {new_value}", "green")
+                if on_edited:
+                    on_edited()
+                self._refresh_vocab_list()
+                edit_window.destroy()
+
+            btn_frame = ctk.CTkFrame(edit_window, fg_color="transparent")
+            btn_frame.pack(pady=10)
+            ctk.CTkButton(btn_frame, text="Guardar", width=100, fg_color="#10B981", hover_color="#059669", command=save_edit).pack(side="left", padx=5)
+            ctk.CTkButton(btn_frame, text="Cancelar", width=100, command=edit_window.destroy).pack(side="left", padx=5)
+
+            entry.focus_set()
+            entry.select_range(0, 'end')
+
+        except Exception as e:
+            self.logger.error(f"Error editando corrección: {e}")
+            self.update_status(f"Error editando corrección: {e}", "red")
 
     def _refresh_vocab_list(self):
         """Refrescar lista de correcciones en la pestaña de configuración."""
