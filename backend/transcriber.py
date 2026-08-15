@@ -24,6 +24,7 @@ MIN_AUDIO_DURATION = 0.5
 
 class Transcriber:
     def __init__(self, config_manager, sound_manager, file_manager, update_status_callback, transcription_callback, localization_manager, overlay_callback=None):
+        import queue as _queue
         self.logger = logging.getLogger(self.__class__.__name__)
         self.config_manager = config_manager
         self.sound_manager = sound_manager
@@ -31,7 +32,10 @@ class Transcriber:
         self.update_status = update_status_callback
         self.transcription_callback = transcription_callback
         self.localization_manager = localization_manager
-        self.overlay_callback = overlay_callback  # Callback para actualizar overlay
+        # FIX v0.15.0: overlay_callback (si existe) se canaliza por la cola de eventos
+        # para que el thread de grabación/transcripción NUNCA toque la UI directamente.
+        self.overlay_callback = overlay_callback  # se llama vía _push_overlay_event
+        self.timer_queue = _queue.Queue(maxsize=8)  # cola de eventos (timer/overlay) para polling
 
         self.logger.info(f"Transcriber inicializado con hotkey: {self.config_manager.get('hotkey')}, modo de grabación: {self.config_manager.get('record_mode')}")
 
@@ -387,9 +391,8 @@ class Transcriber:
         self.update_status(self.localization_manager.get_string("status_recording"), "green")
         self.logger.info("Grabación iniciada.")
         
-        # Actualizar overlay
-        if self.overlay_callback:
-            self.overlay_callback("recording", 0, 0)
+        # Actualizar overlay (vía cola, nunca directo desde el thread)
+        self._push_overlay_event("recording", 0, 0)
         
         try:
             # Initialize SoundDevice Stream
@@ -404,22 +407,30 @@ class Transcriber:
             self.logger.error(f"Error al iniciar el stream de audio: {e}")
 
     def _record_loop(self):
-        """Bucle de grabación optimizado.
+        """Bucle de grabación — HOT LOOP de SOLO lectura de audio.
 
-        FIX v0.15.0 (punto 0): en grabaciones largas, actualizar la UI (update_status
-        + overlay) en CADA lectura de 64ms congelaba la captura de audio → buffer
-        overflow → chunks perdidos → audio corrupto → Groq devolvía texto con basura
-        a mitad (el síntoma "funciona, deja de funcionar, vuelve"). Ahora la lectura
-        de audio es prioritaria y el timer se actualiza cada 250ms máximo.
+        FIX v0.15.0 (Kaizen Nodal / sdd-explore): el bug de grabaciones largas era
+        la UI dentro del bucle: update_status/overlay_callback hacen after() cross-
+        thread que se traban con el lock de Tcl cuando el main thread está ocupado,
+        estancando el read() de audio → frames perdidos SILENCIOSAMENTE → audio
+        comprimido/cortado → Groq devuelve texto con palabras cortadas y tildes
+        faltantes en esos puntos ("funciona por momentos y por momentos no").
+
+        Propiedad ESTRUCTURAL: la captura de audio es un hot-loop que NUNCA debe
+        bloquearse. La UI se actualiza por POLLING desde el main thread vía cola.
         """
+        import queue
+        if not hasattr(self, 'timer_queue'):
+            self.timer_queue = queue.Queue(maxsize=4)  # cola acotada, put_nowait no bloquea
+
         start_time = time.time()
         max_time = self.config_manager.get("max_recording_time", 300)
-        last_ui_update = 0.0
-        ui_update_interval = 0.25  # 250ms — suficiente para el timer, no congela la captura
+        last_ui_push = 0.0
+        ui_interval = 0.25  # 250ms — push de timer a la cola, NUNCA bloquea lectura
 
         while not self.stop_event.is_set():
             try:
-                # 1) PRIORIDAD: leer audio (rápido, sin UI en el medio)
+                # 1) ÚNICA prioridad: leer audio, inmediato y sin bloqueos
                 if self.input_stream.active:
                     data, overflowed = self.input_stream.read(1024)
                     if overflowed:
@@ -427,22 +438,90 @@ class Transcriber:
                     with self.audio_lock:
                         self.audio_data.append(data)
 
-                # 2) UI: actualizar timer SOLO cada 250ms (no en cada lectura)
+                # 2) Push de timer a la cola (no bloquea: put_nowait + cola acotada)
                 now = time.time()
                 elapsed_time = now - start_time
                 if elapsed_time > max_time:
-                    self.stop_recording(); break
-                if now - last_ui_update >= ui_update_interval:
-                    last_ui_update = now
+                    # FIX: drenar el buffer antes de cortar (última lectura parcial)
+                    self._drain_remaining_audio()
+                    # Avisar que se cortó por límite (vía cola, sin bloquear)
+                    try:
+                        self.timer_queue.put_nowait(("limit", int(max_time)))
+                    except Exception:
+                        pass
+                    self.stop_recording()
+                    break
+                if now - last_ui_push >= ui_interval:
+                    last_ui_push = now
                     minutes, seconds = divmod(int(elapsed_time), 60)
-                    self.update_status(f'{self.localization_manager.get_string("status_recording")} {minutes:02d}:{seconds:02d}', "green")
-                    if self.overlay_callback:
-                        self.overlay_callback("recording", minutes, seconds)
+                    try:
+                        self.timer_queue.put_nowait(("timer", minutes, seconds))
+                    except Exception:
+                        pass  # cola llena → se saltea un tick, nunca bloquea la captura
 
             except Exception as e:
                 self.logger.error(f"Error en bucle de grabación: {e}")
                 self.stop_recording()
                 break
+
+    def _drain_remaining_audio(self):
+        """FIX: leer lo que quede en el buffer de PortAudio antes de cerrar.
+
+        Cuando se corta por max_recording_time o por stop, el stream puede tener
+        frames pendientes que de otro modo se pierden (la race que descartaba el
+        bloque final). Se lee hasta vaciar o timeout corto (sin bloquear mucho).
+        """
+        try:
+            if not self.input_stream or not self.input_stream.active:
+                return
+            import time as _t
+            deadline = _t.time() + 0.15  # máx 150ms de drenado
+            while _t.time() < deadline and self.input_stream.active:
+                try:
+                    data, _ = self.input_stream.read(1024)
+                    with self.audio_lock:
+                        self.audio_data.append(data)
+                except Exception:
+                    break
+        except Exception as e:
+            self.logger.warning(f"Error drenando audio: {e}")
+
+    def get_timer_event(self):
+        """Consumir un evento de timer de la cola (usado por el polling de la UI).
+
+        Returns:
+            Tupla ("timer", minutes, seconds), ("limit", seconds),
+            ("overlay", state, minutes, seconds) o None si vacía.
+        """
+        import queue
+        q = getattr(self, 'timer_queue', None)
+        if q is None:
+            return None
+        try:
+            return q.get_nowait()
+        except queue.Empty:
+            return None
+
+    def _push_overlay_event(self, state, minutes=0, seconds=0):
+        """FIX: canalizar actualizaciones de overlay por la cola (nunca bloquear).
+
+        El thread de grabación/transcripción NO debe tocar la UI directamente
+        (eso trababa la captura en grabaciones largas). Este método encola el
+        evento; la UI lo consume por polling.
+        """
+        q = getattr(self, 'timer_queue', None)
+        if q is None:
+            # Fallback: si no hay cola, usar el callback directo (compatibilidad)
+            if self.overlay_callback:
+                try:
+                    self.overlay_callback(state, minutes, seconds)
+                except Exception:
+                    pass
+            return
+        try:
+            q.put_nowait(("overlay", state, minutes, seconds))
+        except Exception:
+            pass  # cola llena → se saltea, nunca bloquea
 
     def stop_recording(self):
         if not self.is_recording: return
@@ -453,15 +532,19 @@ class Transcriber:
         self.update_status(self.localization_manager.get_string("status_processing"), "yellow")
         self.logger.info("Grabación detenida. Iniciando procesamiento.")
         
-        # Actualizar overlay
-        if self.overlay_callback:
-            self.overlay_callback("processing", 0, 0)
+        # Actualizar overlay (vía cola)
+        self._push_overlay_event("processing", 0, 0)
 
-        time.sleep(0.1)
+        # FIX: esperar a que el loop termine (evita cerrar el stream a mitad de read)
+        if getattr(self, 'recording_thread', None) and self.recording_thread.is_alive():
+            self.recording_thread.join(timeout=0.5)
 
         if self.input_stream:
-            self.input_stream.stop()
-            self.input_stream.close()
+            try:
+                self.input_stream.stop()
+                self.input_stream.close()
+            except Exception as e:
+                self.logger.warning(f"Error cerrando stream: {e}")
             self.input_stream = None
 
         if not self.audio_data:
@@ -487,7 +570,7 @@ class Transcriber:
             if duration < MIN_AUDIO_DURATION:
                 self.update_status(self.localization_manager.get_string("audio_too_short", min_duration=1.5), "red")
                 self.logger.warning("Audio demasiado corto (< 1.5s).")
-                self.overlay_callback("ready") # Ocultar overlay si es corto
+                self._push_overlay_event("ready")  # Ocultar overlay si es corto
                 return
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_audio_file:
                 temp_path = temp_audio_file.name
@@ -520,14 +603,12 @@ class Transcriber:
                 })
                 self.sound_manager.sound_success()
                 self.update_status(self.localization_manager.get_string("transcription_completed"), "green")
-                # Actualizar overlay
-                if self.overlay_callback:
-                    self.overlay_callback("ready", 0, 0)
+                # Actualizar overlay (vía cola)
+                self._push_overlay_event("ready", 0, 0)
             else:
                 self.update_status(self.localization_manager.get_string("transcription_failed"), "red")
-                # Actualizar overlay
-                if self.overlay_callback:
-                    self.overlay_callback("error", 0, 0)
+                # Actualizar overlay (vía cola)
+                self._push_overlay_event("error", 0, 0)
             
             if os.path.exists(temp_path): os.unlink(temp_path)
             

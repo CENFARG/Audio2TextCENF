@@ -187,7 +187,9 @@ class App(ctk.CTk):
         from ui.recording_overlay import RecordingOverlay
         self.recording_overlay = RecordingOverlay(self)
         
-        # Crear transcriber con callback de overlay
+        # Crear transcriber — FIX v0.15.0: la UI ya NO se actualiza desde el thread
+        # de grabación (eso trababa la captura en grabaciones largas). El timer se
+        # consume por polling desde el main thread con _poll_recording_timer().
         self.transcriber = Transcriber(
             self.config_manager, 
             self.sound_manager, 
@@ -195,8 +197,10 @@ class App(ctk.CTk):
             self.update_status, 
             self.display_transcription, 
             self.localization_manager,
-            overlay_callback=self.update_overlay
+            overlay_callback=None  # el overlay ahora se actualiza vía cola + polling
         )
+        # Iniciar el polling del timer de grabación (main thread, nunca bloquea audio)
+        self.after(250, self._poll_recording_timer)
 
         self.updater = Updater(
             current_version=self.config_manager.get("app_version"),
@@ -256,6 +260,41 @@ class App(ctk.CTk):
                 self.recording_overlay.set_error()
         
         self.after(0, _update)
+
+    def _poll_recording_timer(self):
+        """FIX v0.15.0: polling del timer/overlay de grabación desde el main thread.
+
+        El bucle de captura de audio ya NO actualiza la UI directamente (eso
+        trababa la lectura en grabaciones largas → audio cortado → tildes/palabras
+        perdidas). Los eventos llegan por cola y este método los pinta cada 250ms.
+        """
+        try:
+            transcriber = getattr(self, 'transcriber', None)
+            if transcriber is not None:
+                while True:
+                    event = transcriber.get_timer_event()
+                    if event is None:
+                        break
+                    if event[0] == "timer" and len(event) >= 3:
+                        _, minutes, seconds = event
+                        # Timer en el status label
+                        msg = self.localization_manager.get_string("status_recording")
+                        self.status_label.configure(text=f"{msg} {minutes:02d}:{seconds:02d}", text_color=DesignSystem.COLORS["success"])
+                        # Overlay de grabación
+                        if self.recording_overlay:
+                            self.recording_overlay.set_recording()
+                            self.recording_overlay.update_timer(minutes, seconds)
+                    elif event[0] == "limit" and len(event) >= 2:
+                        _, max_seconds = event
+                        self.update_status(f"Grabación cortada por límite de {max_seconds}s", "orange")
+                    elif event[0] == "overlay" and len(event) >= 3:
+                        _, state, minutes, seconds = (event + (0, 0))[:4]
+                        # Mantener compatibilidad con update_overlay (que usa after(0))
+                        self.update_overlay(state, minutes or 0, seconds or 0)
+        except Exception as e:
+            self.logger.debug(f"Error en poll del timer: {e}")
+        finally:
+            self.after(250, self._poll_recording_timer)
 
 
     def create_main_tab(self):
