@@ -346,33 +346,19 @@ class App(ctk.CTk):
         verify_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("verify_button"), width=70, command=self._check_api_key)
         verify_btn.grid(row=1, column=2, padx=(0,10))
 
-        # ASR Provider Selection (Groq y Gemini visibles — faster-whisper ERRADICADO, NVIDIA oculto)
+        # ASR Provider Selection (solo Groq visible — Gemini ERRADICADO del selector
+        # por benchmark: 5-87s por transcripción vs 1-2s de Groq, inutilizable)
         ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("asr_provider_label")).grid(row=2, column=0, padx=10, pady=5, sticky="w")
         self.asr_provider_var = tk.StringVar(value=self.config_manager.get("asr_provider", "groq"))
         asr_provider_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
         asr_provider_frame.grid(row=2, column=1, columnspan=2, padx=5, pady=5, sticky="w")
         ctk.CTkRadioButton(asr_provider_frame, text=self.localization_manager.get_string("asr_provider_groq"), variable=self.asr_provider_var, value="groq", command=self.save_config).grid(row=0, column=0, padx=5, sticky="w")
-        ctk.CTkRadioButton(asr_provider_frame, text=self.localization_manager.get_string("asr_provider_gemini"), variable=self.asr_provider_var, value="gemini", command=self.save_config).grid(row=0, column=1, padx=10, sticky="w")
-        # FIX: faster-whisper (modelo local) ERRADICADO — solo API cloud (Groq o Gemini)
+        # FIX v0.15.0: Gemini QUITADO del selector (benchmark: 5-87s vs Groq 1-2s)
         # NVIDIA oculto de la UI pero funcional en config.json
 
-        # Gemini API Key (FIX v0.15.0: segundo proveedor con key propia + botón verificar)
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("gemini_api_key_label")).grid(row=3, column=0, padx=10, pady=5, sticky="w")
-        self.gemini_api_key_var = tk.StringVar(value=self.config_manager.get("gemini_api_key"))
-        gemini_entry = ctk.CTkEntry(main_conf_frame, textvariable=self.gemini_api_key_var, show="*", placeholder_text=self.localization_manager.get_string("gemini_api_key_placeholder"))
-        gemini_entry.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
-        gemini_entry.bind("<FocusOut>", lambda e: self.save_config())  # Autosave on focus out
-        gemini_verify_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("verify_button"), width=70, command=self._check_gemini_api_key)
-        gemini_verify_btn.grid(row=3, column=2, padx=(0, 10))
-
-        # FIX v0.15.0: contador de uso diario del tier free de Gemini
-        self.gemini_usage_label = ctk.CTkLabel(
-            main_conf_frame,
-            text="",  # se llena en _refresh_gemini_usage
-            font=("Roboto", 10),
-            text_color="gray"
-        )
-        self.gemini_usage_label.grid(row=4, column=0, columnspan=3, padx=10, pady=(0, 5), sticky="w")
+        # FIX v0.15.0: campo/verificación/contador de Gemini ELIMINADOS de la UI
+        # (benchmark: Gemini tarda 5-87s vs Groq 1-2s — inutilizable como proveedor).
+        # El backend gemini_asr.py se mantiene para una futura integración Live API.
 
         # Hotkey (v0.14.0 - Selector inline compacto)
         ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("hotkey_label")).grid(row=7, column=0, padx=10, pady=5, sticky="w")
@@ -563,8 +549,6 @@ class App(ctk.CTk):
 
         # Cargar lista de correcciones al iniciar
         self._refresh_vocab_list()
-        # FIX v0.15.0: mostrar uso diario de Gemini al iniciar
-        self._refresh_gemini_usage()
 
         self.logger.debug("Pestaña 'Configuración' creada.")
 
@@ -1194,87 +1178,11 @@ class App(ctk.CTk):
         
         self.logger.debug("Pestaña 'Actualizaciones' creada.")
 
-    def _refresh_gemini_usage(self):
-        """Actualizar el contador de uso diario de Gemini en la UI."""
-        try:
-            if not hasattr(self, 'gemini_usage_label'):
-                return
-            if hasattr(self.transcriber, 'gemini_client') and self.transcriber.gemini_client:
-                stats = self.transcriber.gemini_client.get_usage_stats()
-                used = stats["used_today"]
-                limit = stats["daily_limit"]
-                remaining = stats["remaining"]
-                color = "#F59E0B" if stats["near_limit"] else "gray"
-                self.gemini_usage_label.configure(
-                    text=f"Gemini (tier free): {used}/{limit} transcripciones hoy — quedan {remaining}",
-                    text_color=color
-                )
-                # Aviso si quedan menos de 10
-                if remaining <= 10:
-                    self.update_status(f"⚠️ Gemini casi sin cuota diaria: {remaining} restantes", "orange")
-            else:
-                self.gemini_usage_label.configure(
-                    text="Gemini (tier free): sin API key configurada — se usará Groq",
-                    text_color="gray"
-                )
-        except Exception as e:
-            self.logger.warning(f"Error refrescando uso de Gemini: {e}")
-
-    def _check_gemini_api_key(self):
-        """Verificar la API Key de Gemini (botón de verificación explícito)."""
-        self.logger.info("Verificando API Key de Gemini...")
-        gemini_key = self.gemini_api_key_var.get() if hasattr(self, 'gemini_api_key_var') else ""
-        if not gemini_key:
-            self.update_status("Insertá una API Key de Gemini primero", "orange")
-            return
-
-        def _verify():
-            import urllib.request
-            import urllib.error
-            try:
-                url = f"https://generativelanguage.googleapis.com/v1beta/models?key={gemini_key}"
-                req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    if resp.status == 200:
-                        self.after(0, lambda: self.update_status("✅ API Key de Gemini válida", "green"))
-                    else:
-                        self.after(0, lambda: self.update_status(f"❌ Respuesta inesperada: {resp.status}", "red"))
-            except urllib.error.HTTPError as e:
-                self.after(0, lambda: self.update_status(f"❌ API Key de Gemini inválida ({e.code})", "red"))
-            except Exception as e:
-                self.after(0, lambda: self.update_status(f"❌ Error verificando Gemini: {e}", "red"))
-
-        self.update_status("Verificando API Key de Gemini...", "orange")
-        import threading
-        threading.Thread(target=_verify, daemon=True).start()
-
     def _check_api_key(self):
+        # FIX v0.15.0: solo Groq (Gemini quitado del selector por benchmark 5-87s)
         self.logger.info("Verificando claves API...")
 
-        # FIX v0.15.0: verificar el proveedor SELECCIONADO (Groq o Gemini)
-        provider = self.config_manager.get("asr_provider", "groq")
-
-        if provider == "gemini":
-            # Gemini Check
-            gemini_key = self.gemini_api_key_var.get() if hasattr(self, 'gemini_api_key_var') else ""
-            if gemini_key:
-                self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["warning"]); self.update_idletasks()
-                try:
-                    import urllib.request
-                    import urllib.error
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models?key={gemini_key}"
-                    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                    with urllib.request.urlopen(req, timeout=15) as resp:
-                        if resp.status == 200:
-                            self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["success"])
-                except Exception as e:
-                    self.logger.error(f"Error verificando API Key de Gemini: {e}")
-                    self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["error"])
-            else:
-                self.api_key_status_label.configure(text="●", text_color="grey")
-            return
-
-        # Groq Check (default)
+        # Groq Check
         groq_key = self.api_key_var.get()
         if groq_key:
             self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["warning"]); self.update_idletasks()
@@ -1675,7 +1583,6 @@ class App(ctk.CTk):
         settings = {
             "groq_api_key": self.api_key_var.get(),
             "asr_provider": self.asr_provider_var.get(),
-            "gemini_api_key": self.gemini_api_key_var.get() if hasattr(self, 'gemini_api_key_var') else "",
             "nvidia_enabled": self.nvidia_enabled_var.get() if hasattr(self, 'nvidia_enabled_var') else False,
             "nvidia_api_key": self.nvidia_api_key_var.get() if hasattr(self, 'nvidia_api_key_var') else "",
             "nvidia_mode": self.nvidia_mode_var.get() if hasattr(self, 'nvidia_mode_var') else "cloud",
@@ -1713,14 +1620,10 @@ class App(ctk.CTk):
             self.recreate_ui_for_language_change()
         
         # --- API Key Logic Fix ---
-        # FIX v0.15.0 (bug A): recargar cliente SIEMPRE que cambie el provider o las keys.
-        # Antes solo se recargaba si había groq_api_key → cambiar a Gemini no surtía efecto
-        # y se seguía transcribiendo con Groq silenciosamente.
+        # FIX v0.15.0: recargar cliente SIEMPRE al guardar config (el provider
+        # pudo cambiar). Antes solo se recargaba si había groq_api_key.
         if settings["groq_api_key"]:
             os.environ["GROQ_API_KEY"] = settings["groq_api_key"]
-        if settings.get("gemini_api_key"):
-            os.environ["GEMINI_API_KEY"] = settings["gemini_api_key"]
-        # Recargar siempre: el provider pudo cambiar (groq <-> gemini)
         self.transcriber.reload_client()
         # -------------------------
 
@@ -1802,9 +1705,6 @@ class App(ctk.CTk):
 
         self.last_transcription_time = current_time
         self.last_transcription_text = text
-
-        # FIX v0.15.0: refrescar contador de Gemini tras cada transcripción
-        self._refresh_gemini_usage()
 
         self.after(0, self._safe_display_transcription_on_main_thread, text)
 
