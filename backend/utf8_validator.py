@@ -13,14 +13,10 @@ import logging
 import re
 from typing import Optional, Tuple, List
 
-# Caracteres problemáticos comunes
-MALFORMED_CHARS = {
-    "´": "á",
-    "`": "é",
-    "ã": "ã",
-    "õ": "õ",
-    "ñ": "ñ",
-}
+# FIX v0.15.0: MALFORMED_CHARS ELIMINADO.
+# El mapa original ("´": "á", "`": "é") era DESTRUCTIVO: reemplazaba acentos
+# sueltos y podía corromper texto correcto. La normalización correcta es
+# Unicode NFC/NFD (combinar o separar acentos), no reemplazos arbitrarios.
 
 # Caracteres españoles correctos (mapa para corrección)
 SPANISH_CHARS = {
@@ -105,32 +101,33 @@ class UTF8Validator:
         """
         Normalizar caracteres españoles (tildes, ñ, signos).
 
+        FIX v0.15.0: usa Unicode NFC (normalize) — combina acentos sueltos
+        (ej: 'e' + U+0301) en caracteres precompuestos ('é'). NO usa
+        reemplazos destructivos como el mapa original.
+
         Args:
             text: Texto a normalizar
 
         Returns:
             Texto con caracteres normalizados
         """
+        import unicodedata
+
         result = text
 
         # FIX Bug B: corregir mojibake REAL (doble-encoding UTF-8 → latin-1)
-        # Debe ir ANTES de la corrección de caracteres individuales
+        # Debe ir ANTES de la normalización Unicode
         for bad, correct in MOJIBAKE_MAP.items():
             result = result.replace(bad, correct)
 
-        # Corregir combinaciones incorrectas
-        for malformed, correct in MALFORMED_CHARS.items():
-            result = result.replace(malformed, correct)
+        # FIX v0.15.0: normalizar Unicode a NFC — los acentos combinados
+        # (e + U+0301) se convierten en su carácter precompuesto (é).
+        # NFC es idempotente y NO corrompe texto ya correcto.
+        result = unicodedata.normalize('NFC', result)
 
-        # Corregir signos interrogación/exclamación
+        # Corregir signos interrogación/exclamación duplicados
         result = result.replace("¿¿", "¿")
-        # Corregir signos exclamación
         result = result.replace("¡¡", "¡")
-
-        # Corregir comillas simples por dobles o curvas
-        result = result.replace("simple", "simple")
-        # Corregir "curly" por "curly"
-        result = result.replace("angled", "angled")
 
         self.logger.debug(f"Caracteres normalizados: {text[:50]}")
 
@@ -274,12 +271,9 @@ class UTF8Validator:
         is_valid, problems = self.validate_encoding(text)
 
         if is_valid:
-            # Validar caracteres problemáticos adicionales
-            for malformed in MALFORMED_CHARS.keys():
-                if malformed in text:
-                    problems.append(f"caracter_malformado: {malformed}")
-
-            if is_valid and len(problems) == 0:
+            # FIX v0.15.0: ya no se chequean MALFORMED_CHARS (mapa destructivo eliminado).
+            # La validación de mojibake real ya quedó cubierta en validate_encoding.
+            if len(problems) == 0:
                 self.logger.debug("Transcripción válida")
             else:
                 self.logger.warning(f"Problemas de validación: {problems}")

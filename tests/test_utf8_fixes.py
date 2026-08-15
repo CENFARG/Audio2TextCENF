@@ -85,3 +85,23 @@ class TestUTF8ValidatorFixes:
         """validate_transcription debe marcar caracteres malformados."""
         is_valid, problems = self.validator.validate_transcription("palabra Ã¡ con tilde rota")
         assert not is_valid
+
+    def test_no_destruye_texto_correcto_con_acentos(self):
+        """FIX v0.15.0: normalize NO debe tocar texto ya correcto (Brújula, qué, más)."""
+        original = "Brújula, ¿qué hacer? Más importante: áéíóúñ"
+        result = self.validator.normalize_transcription(original, normalize=True)
+        assert result == original, f"Texto correcto fue alterado: {result!r}"
+
+    def test_no_destruye_tilde_simple_literal(self):
+        """FIX v0.15.0: una tilde suelta (´) NO debe convertirse en 'á'."""
+        # El mapa original MALFORMED_CHARS hacía '´' -> 'á' y '`' -> 'é' (destructivo)
+        result = self.validator.normalize_spanish_chars("texto con acento ´ suelto")
+        assert "á suelto" not in result, "La tilde suelta se convirtió en 'á'"
+
+    def test_normalize_combina_acentos_nfd_a_nfc(self):
+        """FIX v0.15.0: acentos combinados (e + U+0301) se combinan a 'é'."""
+        # 'e' + acento agudo combinado (U+0301) = NFD de 'é'
+        combined = "e\u0301xito"
+        result = self.validator.normalize_spanish_chars(combined)
+        assert result == "éxito", f"NFD no combinado: {result!r}"
+        assert len(result) == 5  # é-x-i-t-o (5 chars, no 6)
