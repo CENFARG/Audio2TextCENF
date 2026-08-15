@@ -346,19 +346,15 @@ class App(ctk.CTk):
         verify_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("verify_button"), width=70, command=self._check_api_key)
         verify_btn.grid(row=1, column=2, padx=(0,10))
 
-        # ASR Provider Selection (solo Groq visible — Gemini ERRADICADO del selector
-        # por benchmark: 5-87s por transcripción vs 1-2s de Groq, inutilizable)
+        # ASR Provider Selection (solo Groq — Gemini ELIMINADO por completo de la
+        # herramienta: benchmark 5-87s por transcripción vs 1-2s de Groq, inutilizable)
         ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("asr_provider_label")).grid(row=2, column=0, padx=10, pady=5, sticky="w")
         self.asr_provider_var = tk.StringVar(value=self.config_manager.get("asr_provider", "groq"))
         asr_provider_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
         asr_provider_frame.grid(row=2, column=1, columnspan=2, padx=5, pady=5, sticky="w")
         ctk.CTkRadioButton(asr_provider_frame, text=self.localization_manager.get_string("asr_provider_groq"), variable=self.asr_provider_var, value="groq", command=self.save_config).grid(row=0, column=0, padx=5, sticky="w")
-        # FIX v0.15.0: Gemini QUITADO del selector (benchmark: 5-87s vs Groq 1-2s)
+        # FIX v0.15.0: Gemini ELIMINADO (backend + frontend) — solo Groq, el que funciona
         # NVIDIA oculto de la UI pero funcional en config.json
-
-        # FIX v0.15.0: campo/verificación/contador de Gemini ELIMINADOS de la UI
-        # (benchmark: Gemini tarda 5-87s vs Groq 1-2s — inutilizable como proveedor).
-        # El backend gemini_asr.py se mantiene para una futura integración Live API.
 
         # Hotkey (v0.14.0 - Selector inline compacto)
         ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("hotkey_label")).grid(row=7, column=0, padx=10, pady=5, sticky="w")
