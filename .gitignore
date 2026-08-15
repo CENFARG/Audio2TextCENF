@@ -62,3 +62,5 @@ TranscripcionesYT/
 .gestion/
 .memories/
 .agent/
+gemini_usage.json
+gemini_bench.json
