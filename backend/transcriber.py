@@ -19,8 +19,10 @@ from .blocks.keyword_extractor_block import KeywordExtractorBlock
 from .nvidia_asr import NvidiaASR
 from .transcription_metadata import TranscriptionMetadata
 from .transcription_metadata_generator import TranscriptionMetadataGenerator
+from .audio_chunker import transcribe_chunks
 
 MIN_AUDIO_DURATION = 0.5
+CHUNK_THRESHOLD_S = 28.0  # Audio >= 28s se troza para evitar pérdida en costuras de Groq
 
 class Transcriber:
     def __init__(self, config_manager, sound_manager, file_manager, update_status_callback, transcription_callback, localization_manager, overlay_callback=None):
@@ -618,17 +620,61 @@ class Transcriber:
         finally:
             if temp_path and os.path.exists(temp_path): os.unlink(temp_path)
 
+    def _call_groq_api(self, wav_path, prompt=None):
+        """Llamar a la API de Groq con un único archivo WAV.
+
+        Args:
+            wav_path: Ruta al archivo WAV.
+            prompt: Texto de contexto para mantener consistencia entre ventanas.
+        """
+        with open(wav_path, "rb") as f:
+            kwargs = dict(
+                file=(os.path.basename(wav_path), f.read()),
+                model="whisper-large-v3",
+                response_format="text",
+                language=self.config_manager.get("default_language", "es"),
+            )
+            if prompt:
+                kwargs["prompt"] = prompt
+            return self.cliente.audio.transcriptions.create(**kwargs)
+
+    def _groq_chunk_callback(self, chunk, sr, prompt=None):
+        """Callback para transcribe_chunks: escribe chunk a WAV temporal y llama Groq."""
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp_path = tmp.name
+            sf.write(tmp_path, chunk, sr)
+            return self._call_groq_api(tmp_path, prompt=prompt) or ""
+        except Exception as e:
+            self.logger.warning(f"Error transcribiendo chunk: {e}")
+            return ""
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
     def transcribe_with_groq(self, audio_path):
         if not self.cliente:
             self.update_status(self.localization_manager.get_string("groq_client_not_initialized"), "red")
             return None
         try:
-            self.logger.debug(f"Enviando audio {audio_path} a la API de Groq.")
-            with open(audio_path, "rb") as audio_file:
-                response = self.cliente.audio.transcriptions.create(
-                    file=(os.path.basename(audio_path), audio_file.read()), model="whisper-large-v3",
-                    response_format="text", language=self.config_manager.get("default_language", "es")
+            data, sr = sf.read(audio_path)
+            duration = len(data) / sr
+
+            if duration >= CHUNK_THRESHOLD_S:
+                self.logger.info(
+                    f"Audio largo ({duration:.1f}s): trozando en ventanas <30s "
+                    f"para evitar pérdida en costuras de Groq."
                 )
+                chunk_sr = sr
+                def chunk_cb(chunk, prompt=None):
+                    return self._groq_chunk_callback(chunk, chunk_sr, prompt)
+                response = transcribe_chunks(
+                    data, sr, api_call=chunk_cb, target_s=25.0, max_s=29.0,
+                )
+            else:
+                self.logger.debug(f"Enviando audio {audio_path} a la API de Groq.")
+                response = self._call_groq_api(audio_path)
 
             # Aplicar validación UTF-8 si está habilitada
             if self.utf8_validation_enabled and response:
@@ -650,7 +696,6 @@ class Transcriber:
                         transcription=response,
                         filename=filename
                     )
-                    # Guardar metadatos automáticos
                     self.metadata_manager.set_auto_metadata(filename, auto_metadata)
                     self.logger.info(f"Metadatos automáticos generados para {filename}")
                 except Exception as e:
