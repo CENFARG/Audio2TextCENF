@@ -22,7 +22,7 @@ from datetime import datetime
 from backend.config_manager import ConfigManager
 from backend.file_manager import FileManager
 from backend.sound_manager import SoundManager
-from backend.transcriber import Transcriber
+from backend.transcriber import Transcriber, OperationTracker, build_operation_envelope
 from backend.updater import Updater
 from backend.transcription_metadata import TranscriptionMetadata
 
@@ -179,6 +179,7 @@ class App(ctk.CTk):
         # Para evitar llamadas duplicadas a display_transcription
         self.last_transcription_time = 0
         self.last_transcription_text = ""
+        self._display_operations = {}
 
         # --- Tutorial ---
         from ui.tutorial import TutorialManager
@@ -1742,7 +1743,18 @@ class App(ctk.CTk):
                 pass
         self._status_after_id = self.after(0, self._update_status_on_main_thread, message, color)
 
-    def _safe_display_transcription_on_main_thread(self, text):
+    def _safe_display_transcription_on_main_thread(self, envelope):
+        if isinstance(envelope, dict):
+            operation_id = envelope["operation_id"]
+            text = envelope.get("text", "")
+            attempt = envelope.get("attempt", 1)
+        else:
+            operation_id = None
+            text = envelope
+            attempt = 1
+        tracker = self._display_operations.setdefault(operation_id, OperationTracker(operation_id))
+        if not tracker.claim("display_insert", text, attempt=attempt):
+            return
         self.logger.info(f"Mostrando transcripcion (truncada): {text[:100]}...")
         if self.config_manager.get("show_transcription_panel") and self.transcription_textbox:
             self.transcription_textbox.delete("1.0", "end")
@@ -1754,27 +1766,30 @@ class App(ctk.CTk):
                 if block_display:
                     self.transcription_textbox.insert("end", block_display)
 
+        tracker.claim("clipboard_write", text, attempt=attempt)
         pyperclip.copy(text)
         if self.config_manager.get("auto_paste_text"):
             self.logger.info("Auto-pegando transcripcion.")
             import time
             time.sleep(0.1)
+            tracker.claim("paste", text, attempt=attempt)
             pyautogui.hotkey('ctrl', 'v')
+        tracker.finish("displayed", text, attempt=attempt)
 
-    def display_transcription(self, text):
-        """Mostrar transcripción con protección contra duplicados"""
-        import time
-        current_time = time.time()
-
-        # Evitar duplicados: mismo texto dentro de 1 segundo
-        if text == self.last_transcription_text and (current_time - self.last_transcription_time) < 1.0:
-            self.logger.warning("Detectada transcripción duplicada, ignorando...")
-            return
-
-        self.last_transcription_time = current_time
-        self.last_transcription_text = text
-
-        self.after(0, self._safe_display_transcription_on_main_thread, text)
+    def display_transcription(self, envelope):
+        """Enqueue one correlated display; duplicates are state-rejected, not timed out."""
+        if isinstance(envelope, dict):
+            operation_id = envelope["operation_id"]
+            text = envelope.get("text", "")
+        else:
+            operation_id = str(__import__("uuid").uuid4())
+            text = envelope
+            envelope = build_operation_envelope(operation_id, text)
+        tracker = self._display_operations.setdefault(operation_id, OperationTracker(operation_id))
+        if not tracker.claim("callback", text, attempt=envelope.get("attempt", 1)):
+            return False
+        self.after(0, self._safe_display_transcription_on_main_thread, envelope)
+        return True
 
 
     def update_file_info(self):

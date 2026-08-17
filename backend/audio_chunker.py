@@ -153,7 +153,8 @@ def transcribe_chunks(audio: np.ndarray, sr: int,
                       api_call: Callable[[np.ndarray, Optional[str]], str],
                       target_s: float = DEFAULT_TARGET_S,
                       max_s: float = DEFAULT_MAX_S,
-                      prompt_chars: int = 300) -> str:
+                      prompt_chars: int = 300, operation_id: Optional[str] = None,
+                      event_callback: Optional[Callable[[dict], None]] = None) -> str:
     """Transcribir audio largo troceado, uniendo los textos de cada chunk.
 
     Encadena un `prompt` con el final del texto anterior en cada llamada:
@@ -174,7 +175,7 @@ def transcribe_chunks(audio: np.ndarray, sr: int,
     """
     chunks = split_audio_on_silence(audio, sr, target_s=target_s, max_s=max_s)
     texts = []
-    for chunk in chunks:
+    for chunk_index, chunk in enumerate(chunks):
         prompt = None
         if texts:
             joined = " ".join(texts)
@@ -183,5 +184,15 @@ def transcribe_chunks(audio: np.ndarray, sr: int,
         if part:
             part = part.strip()
         if part:
-            texts.append(part)
+            if event_callback:
+                event_callback({"event_type": "chunk_aggregate", "text": part,
+                                "chunk_index": chunk_index, "attempt": 1})
+            words = part.split()
+            if texts:
+                previous = texts[-1].split()
+                overlap = max((n for n in range(1, min(len(previous), len(words)) + 1)
+                               if previous[-n:] == words[:n]), default=0)
+                words = words[overlap:]
+            if words:
+                texts.append(" ".join(words))
     return " ".join(texts)

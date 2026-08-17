@@ -9,6 +9,9 @@ import psutil
 import threading
 from groq import Groq
 import logging
+import hashlib
+import uuid
+from collections import deque
 from dataclasses import dataclass
 from .localization_manager import LocalizationManager
 from .utf8_validator import UTF8Validator
@@ -35,11 +38,60 @@ class TranscriptionFailure:
     recoverable: bool = True
 
 
+def _normalized_text(text):
+    return " ".join(str(text or "").split())
+
+
+def text_sha256(text):
+    return hashlib.sha256(_normalized_text(text).encode("utf-8")).hexdigest()
+
+
+class OperationTracker:
+    """Bounded, correlation-aware state machine for one user operation."""
+
+    def __init__(self, operation_id=None, max_events=256):
+        self.operation_id = operation_id or str(uuid.uuid4())
+        self.state = "pending"
+        self.events = deque(maxlen=max_events)
+        self._claims = set()
+
+    def event(self, event_type, text="", chunk_index=None, attempt=None):
+        event = {"operation_id": self.operation_id, "event_type": event_type,
+                 "text_sha256": text_sha256(text), "timestamp": time.time()}
+        if chunk_index is not None:
+            event["chunk_index"] = chunk_index
+        if attempt is not None:
+            event["attempt"] = attempt
+        self.events.append(event)
+        return event
+
+    def claim(self, stage, text="", chunk_index=None, attempt=None):
+        if stage in self._claims or self.state in {"displayed", "failed"}:
+            self.event("rejected_duplicate", text, chunk_index, attempt)
+            return False
+        self._claims.add(stage)
+        self.event(stage, text, chunk_index, attempt)
+        return True
+
+    def finish(self, state, text="", attempt=None):
+        if state not in {"displayed", "failed"} or self.state != "pending":
+            self.event("rejected_duplicate", text, attempt=attempt)
+            return False
+        self.state = state
+        self.event(state, text, attempt=attempt)
+        return True
+
+
+def build_operation_envelope(operation_id, text, attempt=1):
+    return {"operation_id": operation_id, "text": text, "attempt": attempt}
+
+
 class Transcriber:
     def __init__(self, config_manager, sound_manager, file_manager, update_status_callback, transcription_callback, localization_manager, overlay_callback=None):
         import queue as _queue
         self.logger = logging.getLogger(self.__class__.__name__)
         self.last_transcription_failure = None
+        self.operations = {}
         self.config_manager = config_manager
         self.sound_manager = sound_manager
         self.file_manager = file_manager
@@ -568,6 +620,8 @@ class Transcriber:
         threading.Thread(target=self.process_recording, daemon=True).start()
 
     def process_recording(self):
+        operation = OperationTracker()
+        self.operations[operation.operation_id] = operation
         self.logger.info("Iniciando procesamiento de grabación.")
         temp_path = None
         try:
@@ -607,10 +661,12 @@ class Transcriber:
             }
             service_name = service_names.get(service, service)
             self.logger.info(f"Iniciando transcripción con {service_name}.")
-            transcription = self.transcribe(temp_path)
+            transcription = self.transcribe(temp_path, operation_id=operation.operation_id)
             
             if transcription:
-                self.transcription_callback(transcription)
+                operation.event("response", transcription)
+                operation.event("callback", transcription)
+                self.transcription_callback(build_operation_envelope(operation.operation_id, transcription))
                 self.file_manager.save_transcription_entry({
                     "text": transcription, "duration": duration,
                     "language": self.config_manager.get("default_language"), "audio_file": audio_file_path or ""
@@ -620,6 +676,7 @@ class Transcriber:
                 # Actualizar overlay (vía cola)
                 self._push_overlay_event("ready", 0, 0)
             else:
+                operation.finish("failed")
                 self.update_status(self.localization_manager.get_string("transcription_failed"), "red")
                 # Actualizar overlay (vía cola)
                 self._push_overlay_event("error", 0, 0)
@@ -650,7 +707,8 @@ class Transcriber:
         return None
 
     def _call_groq_api(
-        self, wav_path, prompt=None, source_language="es", output_language="es"
+        self, wav_path, prompt=None, source_language="es", output_language="es",
+        operation_id=None, chunk_index=None, attempt=1
     ):
         """Llamar a la API de Groq con un único archivo WAV.
 
@@ -666,6 +724,9 @@ class Transcriber:
             )
             return None
 
+        operation = self.operations.get(operation_id) if operation_id else None
+        if operation:
+            operation.event("api", "", chunk_index, attempt)
         with open(wav_path, "rb") as f:
             kwargs = dict(
                 file=(os.path.basename(wav_path), f.read()),
@@ -679,10 +740,14 @@ class Transcriber:
                 api_method = self.cliente.audio.translations.create
             if prompt:
                 kwargs["prompt"] = prompt
-            return api_method(**kwargs)
+            response = api_method(**kwargs)
+            if operation:
+                operation.event("response", response, chunk_index, attempt)
+            return response
 
     def _groq_chunk_callback(
-        self, chunk, sr, prompt=None, source_language="es", output_language="es"
+        self, chunk, sr, prompt=None, source_language="es", output_language="es",
+        operation_id=None, chunk_index=None, attempt=1
     ):
         """Callback para transcribe_chunks: escribe chunk a WAV temporal y llama Groq."""
         tmp_path = None
@@ -696,6 +761,9 @@ class Transcriber:
                     prompt=prompt,
                     source_language=source_language,
                     output_language=output_language,
+                    operation_id=operation_id,
+                    chunk_index=chunk_index,
+                    attempt=attempt,
                 )
                 or ""
             )
@@ -711,7 +779,7 @@ class Transcriber:
             if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
-    def transcribe_with_groq(self, audio_path, source_language="es", output_language=None):
+    def transcribe_with_groq(self, audio_path, source_language="es", output_language=None, operation_id=None):
         if not self.cliente:
             self._set_transcription_failure(
                 "client_unavailable", "Groq client is not initialized"
@@ -737,12 +805,21 @@ class Transcriber:
                     f"para evitar pérdida en costuras de Groq."
                 )
                 chunk_sr = sr
+                chunk_counter = [0]
                 def chunk_cb(chunk, prompt=None):
+                    chunk_index = chunk_counter[0]
+                    chunk_counter[0] += 1
                     return self._groq_chunk_callback(
-                        chunk, chunk_sr, prompt, source_language, output_language
+                        chunk, chunk_sr, prompt, source_language, output_language,
+                        operation_id=operation_id,
+                        chunk_index=chunk_index,
                     )
+                def chunk_event(event):
+                    if operation_id and operation_id in self.operations:
+                        self.operations[operation_id].event(**event)
                 response = transcribe_chunks(
                     data, sr, api_call=chunk_cb, target_s=25.0, max_s=29.0,
+                    operation_id=operation_id, event_callback=chunk_event,
                 )
             else:
                 self.logger.debug(f"Enviando audio {audio_path} a la API de Groq.")
@@ -750,6 +827,7 @@ class Transcriber:
                     audio_path,
                     source_language=source_language,
                     output_language=output_language,
+                    operation_id=operation_id,
                 )
 
             # Aplicar validación UTF-8 si está habilitada
@@ -837,7 +915,7 @@ class Transcriber:
             self.logger.error(f"Error de NVIDIA Riva: {e}")
             return None
 
-    def transcribe(self, audio_path):
+    def transcribe(self, audio_path, operation_id=None):
         """
         Transcribir audio usando el servicio configurado (Groq o NVIDIA).
 
@@ -848,7 +926,7 @@ class Transcriber:
         if service == "nvidia":
             return self.transcribe_with_nvidia(audio_path)
         else:
-            return self.transcribe_with_groq(audio_path)
+            return self.transcribe_with_groq(audio_path, operation_id=operation_id)
 
     def _process_with_blocks(self, text: str) -> str:
         """
