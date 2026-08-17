@@ -9,6 +9,7 @@ import psutil
 import threading
 from groq import Groq
 import logging
+from dataclasses import dataclass
 from .localization_manager import LocalizationManager
 from .utf8_validator import UTF8Validator
 from .custom_vocabulary import CustomVocabulary
@@ -24,10 +25,21 @@ from .audio_chunker import transcribe_chunks
 MIN_AUDIO_DURATION = 0.5
 CHUNK_THRESHOLD_S = 28.0  # Audio >= 28s se troza para evitar pérdida en costuras de Groq
 
+
+@dataclass(frozen=True)
+class TranscriptionFailure:
+    """Recoverable, UI-safe description of the last failed transcription."""
+
+    code: str
+    message: str
+    recoverable: bool = True
+
+
 class Transcriber:
     def __init__(self, config_manager, sound_manager, file_manager, update_status_callback, transcription_callback, localization_manager, overlay_callback=None):
         import queue as _queue
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.last_transcription_failure = None
         self.config_manager = config_manager
         self.sound_manager = sound_manager
         self.file_manager = file_manager
@@ -620,43 +632,101 @@ class Transcriber:
         finally:
             if temp_path and os.path.exists(temp_path): os.unlink(temp_path)
 
-    def _call_groq_api(self, wav_path, prompt=None):
+    def _set_transcription_failure(self, code, message):
+        self.last_transcription_failure = TranscriptionFailure(
+            code=code, message=str(message)
+        )
+        self.logger.warning("Transcription failed (%s): %s", code, message)
+
+    @staticmethod
+    def _select_groq_endpoint(source_language, output_language):
+        """Return the supported Groq operation for a source/target pair."""
+        source = (source_language or "").lower()
+        output = (output_language or "").lower()
+        if source == output and source in {"es", "en"}:
+            return "transcription"
+        if source == "es" and output == "en":
+            return "translation"
+        return None
+
+    def _call_groq_api(
+        self, wav_path, prompt=None, source_language="es", output_language="es"
+    ):
         """Llamar a la API de Groq con un único archivo WAV.
 
         Args:
             wav_path: Ruta al archivo WAV.
             prompt: Texto de contexto para mantener consistencia entre ventanas.
         """
+        endpoint = self._select_groq_endpoint(source_language, output_language)
+        if endpoint is None:
+            self._set_transcription_failure(
+                "unsupported_language_pair",
+                f"Unsupported source/output pair: {source_language}->{output_language}",
+            )
+            return None
+
         with open(wav_path, "rb") as f:
             kwargs = dict(
                 file=(os.path.basename(wav_path), f.read()),
                 model="whisper-large-v3",
                 response_format="text",
-                language=self.config_manager.get("default_language", "es"),
             )
+            if endpoint == "transcription":
+                kwargs["language"] = source_language
+                api_method = self.cliente.audio.transcriptions.create
+            else:
+                api_method = self.cliente.audio.translations.create
             if prompt:
                 kwargs["prompt"] = prompt
-            return self.cliente.audio.transcriptions.create(**kwargs)
+            return api_method(**kwargs)
 
-    def _groq_chunk_callback(self, chunk, sr, prompt=None):
+    def _groq_chunk_callback(
+        self, chunk, sr, prompt=None, source_language="es", output_language="es"
+    ):
         """Callback para transcribe_chunks: escribe chunk a WAV temporal y llama Groq."""
         tmp_path = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 tmp_path = tmp.name
             sf.write(tmp_path, chunk, sr)
-            return self._call_groq_api(tmp_path, prompt=prompt) or ""
+            return (
+                self._call_groq_api(
+                    tmp_path,
+                    prompt=prompt,
+                    source_language=source_language,
+                    output_language=output_language,
+                )
+                or ""
+            )
         except Exception as e:
-            self.logger.warning(f"Error transcribiendo chunk: {e}")
+            code = (
+                "translation_failed"
+                if source_language == "es" and output_language == "en"
+                else "transcription_failed"
+            )
+            self._set_transcription_failure(code, e)
             return ""
         finally:
             if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
-    def transcribe_with_groq(self, audio_path):
+    def transcribe_with_groq(self, audio_path, source_language="es", output_language=None):
         if not self.cliente:
+            self._set_transcription_failure(
+                "client_unavailable", "Groq client is not initialized"
+            )
             self.update_status(self.localization_manager.get_string("groq_client_not_initialized"), "red")
             return None
+        if output_language is None:
+            output_language = self.config_manager.get("transcription_output_language", "es")
+        if self._select_groq_endpoint(source_language, output_language) is None:
+            self._set_transcription_failure(
+                "unsupported_language_pair",
+                f"Unsupported source/output pair: {source_language}->{output_language}",
+            )
+            return None
+        self.last_transcription_failure = None
         try:
             data, sr = sf.read(audio_path)
             duration = len(data) / sr
@@ -668,13 +738,19 @@ class Transcriber:
                 )
                 chunk_sr = sr
                 def chunk_cb(chunk, prompt=None):
-                    return self._groq_chunk_callback(chunk, chunk_sr, prompt)
+                    return self._groq_chunk_callback(
+                        chunk, chunk_sr, prompt, source_language, output_language
+                    )
                 response = transcribe_chunks(
                     data, sr, api_call=chunk_cb, target_s=25.0, max_s=29.0,
                 )
             else:
                 self.logger.debug(f"Enviando audio {audio_path} a la API de Groq.")
-                response = self._call_groq_api(audio_path)
+                response = self._call_groq_api(
+                    audio_path,
+                    source_language=source_language,
+                    output_language=output_language,
+                )
 
             # Aplicar validación UTF-8 si está habilitada
             if self.utf8_validation_enabled and response:
@@ -703,6 +779,12 @@ class Transcriber:
 
             return response
         except Exception as e:
+            code = (
+                "translation_failed"
+                if source_language == "es" and output_language == "en"
+                else "transcription_failed"
+            )
+            self._set_transcription_failure(code, e)
             self.update_status(f'{self.localization_manager.get_string("groq_api_error")} {e}', "red")
             self.logger.error(f"Error de API Groq: {e}")
             return None

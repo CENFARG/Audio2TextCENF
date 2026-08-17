@@ -174,6 +174,77 @@ class TestTranscriptionServices:
 
         assert result is None
 
+    def test_matching_languages_use_transcription_endpoint(self, transcriber, temp_audio_file):
+        transcriber.config_manager.get = Mock(
+            side_effect=lambda key, default=None: {
+                "transcription_output_language": "es",
+            }.get(key, default)
+        )
+        transcriber.cliente.audio.transcriptions.create = Mock(return_value="Texto en español")
+        transcriber.cliente.audio.translations.create = Mock()
+
+        result = transcriber.transcribe_with_groq(
+            temp_audio_file, source_language="es", output_language="es"
+        )
+
+        assert result == "Texto en español"
+        transcriber.cliente.audio.transcriptions.create.assert_called_once()
+        transcriber.cliente.audio.translations.create.assert_not_called()
+        assert transcriber.cliente.audio.transcriptions.create.call_args.kwargs["language"] == "es"
+        assert transcriber.cliente.audio.transcriptions.create.call_args.kwargs["response_format"] == "text"
+
+    def test_spanish_to_english_uses_translation_endpoint(self, transcriber, temp_audio_file):
+        transcriber.config_manager.get = Mock(
+            side_effect=lambda key, default=None: {
+                "transcription_output_language": "en",
+            }.get(key, default)
+        )
+        transcriber.cliente.audio.translations.create = Mock(return_value="Text in English")
+        transcriber.cliente.audio.transcriptions.create = Mock()
+
+        result = transcriber.transcribe_with_groq(
+            temp_audio_file, source_language="es", output_language="en"
+        )
+
+        assert result == "Text in English"
+        transcriber.cliente.audio.translations.create.assert_called_once()
+        transcriber.cliente.audio.transcriptions.create.assert_not_called()
+        assert "language" not in transcriber.cliente.audio.translations.create.call_args.kwargs
+        assert transcriber.cliente.audio.translations.create.call_args.kwargs["response_format"] == "text"
+
+    def test_unsupported_language_pair_is_explicit_and_safe(self, transcriber, temp_audio_file):
+        transcriber.cliente.audio.transcriptions.create = Mock()
+        transcriber.cliente.audio.translations.create = Mock()
+
+        result = transcriber.transcribe_with_groq(
+            temp_audio_file, source_language="en", output_language="es"
+        )
+
+        assert result is None
+        assert transcriber.last_transcription_failure.code == "unsupported_language_pair"
+        transcriber.cliente.audio.transcriptions.create.assert_not_called()
+        transcriber.cliente.audio.translations.create.assert_not_called()
+
+    def test_translation_failure_does_not_reach_output_callbacks(self, transcriber, temp_audio_file):
+        transcriber.config_manager.get = Mock(
+            side_effect=lambda key, default=None: {
+                "transcription_output_language": "en",
+            }.get(key, default)
+        )
+        transcriber.cliente.audio.translations.create = Mock(
+            side_effect=RuntimeError("translation unavailable")
+        )
+
+        result = transcriber.transcribe_with_groq(
+            temp_audio_file, source_language="es", output_language="en"
+        )
+
+        assert result is None
+        assert transcriber.last_transcription_failure.code == "translation_failed"
+        transcriber.transcription_callback.assert_not_called()
+        transcriber.file_manager.save_transcription_entry.assert_not_called()
+        transcriber.sound_manager.sound_success.assert_not_called()
+
     def test_get_transcription_service(self, transcriber):
         """Test getting current transcription service."""
         # Test Groq service
