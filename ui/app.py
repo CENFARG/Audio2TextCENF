@@ -16,6 +16,7 @@ import keyboard
 from groq import Groq
 import logging
 import json
+import queue
 from datetime import datetime
 
 # Backend imports
@@ -180,6 +181,9 @@ class App(ctk.CTk):
         self.last_transcription_time = 0
         self.last_transcription_text = ""
         self._display_operations = {}
+
+        # Cola para update_status thread-safe
+        self._status_queue = queue.Queue()
 
         # Crear overlay de grabación - REACTIVADO
         from ui.recording_overlay import RecordingOverlay
@@ -1849,16 +1853,23 @@ class App(ctk.CTk):
         text_color = DesignSystem.COLORS.get(color_map.get(color), DesignSystem.COLORS["text_primary"])
         self.status_label.configure(text=message, text_color=text_color)
 
-    def update_status(self, message, color="white"):
-        # FIX v0.15.0 (punto 0): evitar acumular callbacks pendientes del thread de
-        # grabación (en grabaciones largas, miles de after(0) pendientes colapsaban
-        # la UI y congelaban la captura de audio). Se conserva solo el último.
-        if hasattr(self, '_status_after_id'):
+    def _update_status_label(self, message, color):
+        """Update status label on main thread (called from poll)."""
+        self._update_status_on_main_thread(message, color)
+
+    def _poll_status(self):
+        """Poll status queue and dispatch to main thread."""
+        while not self._status_queue.empty():
             try:
-                self.after_cancel(self._status_after_id)
+                msg, color = self._status_queue.get_nowait()
+                self.after(0, lambda m=msg, c=color: self._update_status_label(m, c))
             except Exception:
-                pass
-        self._status_after_id = self.after(0, self._update_status_on_main_thread, message, color)
+                break
+        self.after(100, self._poll_status)
+
+    def update_status(self, message, color="white"):
+        """Thread-safe status update via queue."""
+        self._status_queue.put((message, color))
 
     def _safe_display_transcription_on_main_thread(self, envelope):
         if isinstance(envelope, dict):
