@@ -1074,33 +1074,11 @@ class App(ctk.CTk):
         show_hotkey_selector(self, self.localization_manager, on_hotkey_selected, current_hotkey)
 
     def _reregister_hotkey(self, new_hotkey: str):
-        """
-        Re-registrar hotkey con el nuevo valor.
-
-        Args:
-            new_hotkey: Nuevo hotkey string
-        """
+        """Re-register hotkey when user changes it in settings."""
         try:
-            import keyboard
-
-            # Remover hotkey anterior
-            old_hotkey = self.config_manager.get('hotkey', default='f12')
-            try:
-                keyboard.remove_hotkey(old_hotkey)
-                self.logger.debug(f"Hotkey removido: {old_hotkey}")
-            except:
-                pass  # No existía o ya fue removido
-
-            # Remover todos los hooks anteriores
-            keyboard.unhook_all()
-
-            # Re-iniciar el sistema de hotkeys
-            self._setup_hotkey_system()
-
-            self.logger.info(f"Hotkey re-registrado: {new_hotkey}")
-
+            self.transcriber.update_hotkey(new_hotkey)
         except Exception as e:
-            self.logger.error(f"Error re-registrando hotkey: {e}")
+            self.logger.error(f"Error re-registering hotkey: {e}")
 
     def _update_hotkey_from_inline(self):
         """Actualizar hotkey desde el selector inline en config"""
@@ -1239,7 +1217,7 @@ class App(ctk.CTk):
                               self.localization_manager.get_string("confirm_delete_msg")):
             try:
                 os.remove(full_path)
-                self.refresh_history_list()
+                self.refresh_history_list(full_reload=True)
                 self.update_file_info()
             except Exception as e:
                 messagebox.showerror("Error", str(e))
