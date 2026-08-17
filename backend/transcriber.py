@@ -602,7 +602,9 @@ class Transcriber:
         self._push_overlay_event("processing", 0, 0)
 
         # FIX: esperar a que el loop termine (evita cerrar el stream a mitad de read)
-        if getattr(self, 'recording_thread', None) and self.recording_thread.is_alive():
+        recording_thread = getattr(self, 'recording_thread', None)
+        if (recording_thread and recording_thread.is_alive()
+                and recording_thread is not threading.current_thread()):
             self.recording_thread.join(timeout=0.5)
 
         if self.input_stream:

@@ -32,6 +32,28 @@ from backend.localization_manager import LocalizationManager
 from backend.transcription_metadata import TranscriptionMetadata
 
 
+class FakeInputStream:
+    """Minimal sounddevice InputStream fake with the real read contract."""
+
+    def __init__(self):
+        self.active = False
+        self.numpy_data = np.zeros((0, 1), dtype=np.float32)
+        self.overflowed = False
+
+    def start(self):
+        self.active = True
+
+    def read(self, frames):
+        self.numpy_data = np.zeros((frames, 1), dtype=np.float32)
+        return self.numpy_data, self.overflowed
+
+    def stop(self):
+        self.active = False
+
+    def close(self):
+        self.active = False
+
+
 @pytest.mark.integration
 class TestConfigToTranscriberIntegration:
     """Tests for ConfigManager → Transcriber integration."""
@@ -136,7 +158,7 @@ class TestTranscriberWorkflow:
 
     def test_transcriber_recording_workflow(self, transcriber):
         """Test complete recording workflow: start → stop → process."""
-        with patch("backend.transcriber.sd.InputStream"):
+        with patch("backend.transcriber.sd.InputStream", return_value=FakeInputStream()):
             # Start recording
             transcriber.start_recording()
             assert transcriber.is_recording == True

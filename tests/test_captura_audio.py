@@ -157,6 +157,44 @@ class TestCapturaNoPierdeFrames:
             f"Control perdió frames: {total_frames} vs {expected:.0f}"
         )
 
+    def test_stop_desde_thread_de_grabacion_no_hace_self_join(self):
+        """El thread de captura puede detener y cerrar su stream sin unirse a sí mismo."""
+        t = make_transcriber()
+        t.localization_manager.get_string = Mock(return_value="Procesando")
+        t.is_recording = True
+        stream = Mock()
+        t.input_stream = stream
+        errors = []
+
+        def stop_from_recording_thread():
+            t.recording_thread = threading.current_thread()
+            try:
+                t.stop_recording()
+            except Exception as error:
+                errors.append(error)
+
+        thread = threading.Thread(target=stop_from_recording_thread)
+        thread.start()
+        thread.join(timeout=2.0)
+
+        assert errors == []
+        assert t.is_recording is False
+        stream.stop.assert_called_once_with()
+        stream.close.assert_called_once_with()
+
+    def test_stop_desde_thread_externo_conserva_join(self):
+        """Un thread externo sigue esperando el cierre del loop de captura."""
+        t = make_transcriber()
+        t.localization_manager.get_string = Mock(return_value="Procesando")
+        t.is_recording = True
+        t.input_stream = Mock()
+        t.recording_thread = Mock()
+        t.recording_thread.is_alive.return_value = True
+
+        t.stop_recording()
+
+        t.recording_thread.join.assert_called_once_with(timeout=0.5)
+
 
 @pytest.mark.unit
 class TestMaxRecordingTime:
