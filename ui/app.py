@@ -129,6 +129,7 @@ class App(ctk.CTk):
 
         self.config_manager = config_manager if config_manager else ConfigManager(config_file="config.json")
         self.localization_manager = self.config_manager.localization_manager # Usa la instancia de localization_manager de config_manager
+        self._localized_widgets = {}
         # Título dinámico con versión desde config (no depende de lang files)
         _version = self.config_manager.get("app_version", "0.0.0")
         self.title(f"Audio2Text CENF v{_version}")
@@ -485,10 +486,30 @@ class App(ctk.CTk):
         ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("autostart_windows_switch"), variable=self.autostart_windows_var, command=self.save_config).grid(row=12, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
         # Language selection
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("language_label")).grid(row=13, column=0, padx=10, pady=5, sticky="w")
-        self.language_var = tk.StringVar(value=self.config_manager.get("default_language"))
-        # Command triggers when selection changes
-        ctk.CTkComboBox(main_conf_frame, values=["es", "en"], variable=self.language_var, state="readonly", command=lambda e: self.save_config()).grid(row=13, column=1, padx=5, pady=5, sticky="ew", columnspan=2)
+        ui_language_label = ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("language_label"))
+        ui_language_label.grid(row=13, column=0, padx=10, pady=5, sticky="w")
+        self._register_localized_widget(ui_language_label, "language_label")
+        self.ui_language_var = tk.StringVar(value=self.config_manager.get("ui_language", "es"))
+        self.language_var = self.ui_language_var  # legacy attribute compatibility
+        self.ui_language_combo = ctk.CTkComboBox(
+            main_conf_frame, values=["es", "en"], variable=self.ui_language_var,
+            state="readonly", command=self._on_ui_language_changed
+        )
+        self.ui_language_combo.grid(row=13, column=1, padx=5, pady=5, sticky="ew", columnspan=2)
+
+        output_language_label = ctk.CTkLabel(
+            main_conf_frame, text=self.localization_manager.get_string("transcription_output_language_label")
+        )
+        output_language_label.grid(row=14, column=0, padx=10, pady=5, sticky="w")
+        self._register_localized_widget(output_language_label, "transcription_output_language_label")
+        self.transcription_output_language_var = tk.StringVar(
+            value=self.config_manager.get("transcription_output_language", "es")
+        )
+        self.transcription_output_language_combo = ctk.CTkComboBox(
+            main_conf_frame, values=["es", "en"], variable=self.transcription_output_language_var,
+            state="readonly", command=self._on_output_language_changed
+        )
+        self.transcription_output_language_combo.grid(row=14, column=1, padx=5, pady=5, sticky="ew", columnspan=2)
 
         # --- File Management Frame ---
         files_frame = ctk.CTkFrame(scroll_frame)
@@ -1608,7 +1629,6 @@ class App(ctk.CTk):
         if not hasattr(self, 'api_key_var') or not hasattr(self, 'asr_provider_var'):
             return
         self.logger.info("Guardando configuración...")
-        old_lang = self.config_manager.get("default_language")
         old_show_panel = self.config_manager.get("show_transcription_panel")
 
         # Obtener configuración de bloques actual
@@ -1630,7 +1650,6 @@ class App(ctk.CTk):
             "max_audio_files": int(self.config_manager.get("max_audio_files")),
             "max_log_entries": int(self.config_manager.get("max_log_entries")),
             "audio_priority_apps": self.config_manager.get("audio_priority_apps"),
-            "default_language": self.language_var.get(),
             "autostart_windows": self.autostart_windows_var.get(),
             "blocks": {
                 **blocks_config,  # Mantener configuración existente
@@ -1648,11 +1667,6 @@ class App(ctk.CTk):
         if not success:
             self.logger.error(f"Error al configurar inicio automático: {settings['autostart_windows']}")
         # ----------------------------
-        
-        # Check for language change
-        if self.language_var.get() != old_lang:
-            self.config_manager.set_language(self.language_var.get())
-            self.recreate_ui_for_language_change()
         
         # --- API Key Logic Fix ---
         # FIX v0.15.0: recargar cliente SIEMPRE al guardar config (el provider
@@ -1691,6 +1705,25 @@ class App(ctk.CTk):
 
         self._check_api_key()
         self.logger.info("Configuración guardada.")
+
+    def _register_localized_widget(self, widget, key, **kwargs):
+        """Track a widget so language changes can update it without rebuilding UI."""
+        self._localized_widgets[key] = (widget, kwargs)
+        return widget
+
+    def _refresh_localized_widgets(self):
+        for key, (widget, kwargs) in self._localized_widgets.items():
+            widget.configure(text=self.localization_manager.get_string(key, **kwargs))
+
+    def _on_ui_language_changed(self, language):
+        """Persist and apply only the UI language, keeping output language intact."""
+        self.config_manager.set("ui_language", language)
+        self.localization_manager.set_language(language)
+        self._refresh_localized_widgets()
+
+    def _on_output_language_changed(self, language):
+        """Persist only the requested transcription output language."""
+        self.config_manager.set("transcription_output_language", language)
 
     def _update_status_on_main_thread(self, message, color):
         self.logger.debug(f"Actualizando estado de UI: {message} ({color})")
