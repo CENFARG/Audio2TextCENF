@@ -1,0 +1,522 @@
+{
+ "task": "transcribe",
+ "language": "Spanish",
+ "duration": 60.000002048,
+ "text": " y ahí lo que pasa es que yo no arranqué con ese tiempo y no sé cómo funcionará en ese sentido después por ejemplo lo que es litorial con ese ajuste que no sé si la distrovenía que quiso aplicar se afectaría o no pero bueno, lo vamos a checar y está muy bien vamos a seguir probándolo acá hay que meter palabras contiguas estructurándose Comentándote Lo que veníamos a hacer En esta espectacularidad Monstruosa Divinísimamente No sé si esa palabra existe Hay que inventarla Soy un maestro Un campeón Campeón de la vida ¿Qué más? Vamos a poner esto Ah, esto sí Hasta un montón ¿qué está haciendo?",
+ "segments": [
+  {
+   "id": 0,
+   "seek": 0,
+   "start": 0,
+   "end": 2.84,
+   "text": " y ahí lo que pasa es que yo no arranqué con ese tiempo",
+   "tokens": [
+    50365,
+    288,
+    12571,
+    450,
+    631,
+    20260,
+    785,
+    631,
+    5290,
+    572,
+    50235,
+    16412,
+    416,
+    10167,
+    11772,
+    50507
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.4030723,
+   "compression_ratio": 1.6055046,
+   "no_speech_prob": 0.08050537
+  },
+  {
+   "id": 1,
+   "seek": 0,
+   "start": 2.84,
+   "end": 7.7799997,
+   "text": " y no sé cómo funcionará en ese sentido",
+   "tokens": [
+    50507,
+    288,
+    572,
+    7910,
+    12826,
+    14186,
+    21534,
+    465,
+    10167,
+    19850,
+    50754
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.4030723,
+   "compression_ratio": 1.6055046,
+   "no_speech_prob": 0.08050537
+  },
+  {
+   "id": 2,
+   "seek": 0,
+   "start": 7.7799997,
+   "end": 11.46,
+   "text": " después por ejemplo lo que es litorial",
+   "tokens": [
+    50754,
+    15283,
+    1515,
+    13358,
+    450,
+    631,
+    785,
+    287,
+    3029,
+    831,
+    50938
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.4030723,
+   "compression_ratio": 1.6055046,
+   "no_speech_prob": 0.08050537
+  },
+  {
+   "id": 3,
+   "seek": 0,
+   "start": 11.46,
+   "end": 15.679999,
+   "text": " con ese ajuste que no sé si la distrovenía que quiso aplicar",
+   "tokens": [
+    50938,
+    416,
+    10167,
+    41023,
+    68,
+    631,
+    572,
+    7910,
+    1511,
+    635,
+    1483,
+    340,
+    553,
+    2686,
+    631,
+    421,
+    19227,
+    18221,
+    289,
+    51149
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.4030723,
+   "compression_ratio": 1.6055046,
+   "no_speech_prob": 0.08050537
+  },
+  {
+   "id": 4,
+   "seek": 0,
+   "start": 15.679999,
+   "end": 18,
+   "text": " se afectaría o no",
+   "tokens": [
+    51149,
+    369,
+    30626,
+    21178,
+    277,
+    572,
+    51265
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.4030723,
+   "compression_ratio": 1.6055046,
+   "no_speech_prob": 0.08050537
+  },
+  {
+   "id": 5,
+   "seek": 0,
+   "start": 18.76,
+   "end": 22.859999,
+   "text": " pero bueno, lo vamos a checar y está muy bien",
+   "tokens": [
+    51303,
+    4768,
+    11974,
+    11,
+    450,
+    5295,
+    257,
+    947,
+    6166,
+    288,
+    3192,
+    5323,
+    3610,
+    51508
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.4030723,
+   "compression_ratio": 1.6055046,
+   "no_speech_prob": 0.08050537
+  },
+  {
+   "id": 6,
+   "seek": 0,
+   "start": 22.859999,
+   "end": 24.46,
+   "text": " vamos a seguir probándolo",
+   "tokens": [
+    51508,
+    5295,
+    257,
+    18584,
+    1239,
+    18606,
+    7902,
+    51588
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.4030723,
+   "compression_ratio": 1.6055046,
+   "no_speech_prob": 0.08050537
+  },
+  {
+   "id": 7,
+   "seek": 0,
+   "start": 24.46,
+   "end": 27.72,
+   "text": " acá hay que meter palabras contiguas",
+   "tokens": [
+    51588,
+    23496,
+    4842,
+    631,
+    9255,
+    35240,
+    660,
+    16397,
+    296,
+    51751
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.4030723,
+   "compression_ratio": 1.6055046,
+   "no_speech_prob": 0.08050537
+  },
+  {
+   "id": 8,
+   "seek": 0,
+   "start": 27.72,
+   "end": 29.34,
+   "text": " estructurándose",
+   "tokens": [
+    51751,
+    43935,
+    374,
+    18606,
+    541,
+    51832
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.4030723,
+   "compression_ratio": 1.6055046,
+   "no_speech_prob": 0.08050537
+  },
+  {
+   "id": 9,
+   "seek": 2934,
+   "start": 29.34,
+   "end": 31.52,
+   "text": " Comentándote",
+   "tokens": [
+    50365,
+    2432,
+    317,
+    18606,
+    1370,
+    50474
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.21743917,
+   "compression_ratio": 1.3036649,
+   "no_speech_prob": 0.050933838
+  },
+  {
+   "id": 10,
+   "seek": 2934,
+   "start": 31.52,
+   "end": 33.98,
+   "text": " Lo que veníamos a hacer",
+   "tokens": [
+    50474,
+    6130,
+    631,
+    6138,
+    16275,
+    257,
+    6720,
+    50597
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.21743917,
+   "compression_ratio": 1.3036649,
+   "no_speech_prob": 0.050933838
+  },
+  {
+   "id": 11,
+   "seek": 2934,
+   "start": 33.98,
+   "end": 36.76,
+   "text": " En esta espectacularidad",
+   "tokens": [
+    50597,
+    2193,
+    5283,
+    38244,
+    14700,
+    4580,
+    50736
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.21743917,
+   "compression_ratio": 1.3036649,
+   "no_speech_prob": 0.050933838
+  },
+  {
+   "id": 12,
+   "seek": 2934,
+   "start": 36.76,
+   "end": 37.92,
+   "text": " Monstruosa",
+   "tokens": [
+    50736,
+    39768,
+    894,
+    6447,
+    50794
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.21743917,
+   "compression_ratio": 1.3036649,
+   "no_speech_prob": 0.050933838
+  },
+  {
+   "id": 13,
+   "seek": 2934,
+   "start": 37.92,
+   "end": 39.8,
+   "text": " Divinísimamente",
+   "tokens": [
+    50794,
+    9886,
+    259,
+    5113,
+    332,
+    3439,
+    50888
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.21743917,
+   "compression_ratio": 1.3036649,
+   "no_speech_prob": 0.050933838
+  },
+  {
+   "id": 14,
+   "seek": 2934,
+   "start": 39.8,
+   "end": 42.06,
+   "text": " No sé si esa palabra existe",
+   "tokens": [
+    50888,
+    883,
+    7910,
+    1511,
+    11342,
+    31702,
+    16304,
+    51001
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.21743917,
+   "compression_ratio": 1.3036649,
+   "no_speech_prob": 0.050933838
+  },
+  {
+   "id": 15,
+   "seek": 2934,
+   "start": 42.06,
+   "end": 43.4,
+   "text": " Hay que inventarla",
+   "tokens": [
+    51001,
+    8721,
+    631,
+    7962,
+    34148,
+    51068
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.21743917,
+   "compression_ratio": 1.3036649,
+   "no_speech_prob": 0.050933838
+  },
+  {
+   "id": 16,
+   "seek": 2934,
+   "start": 43.4,
+   "end": 45.38,
+   "text": " Soy un maestro",
+   "tokens": [
+    51068,
+    24758,
+    517,
+    463,
+    32389,
+    51167
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.21743917,
+   "compression_ratio": 1.3036649,
+   "no_speech_prob": 0.050933838
+  },
+  {
+   "id": 17,
+   "seek": 2934,
+   "start": 45.38,
+   "end": 47.12,
+   "text": " Un campeón",
+   "tokens": [
+    51167,
+    1156,
+    48566,
+    1801,
+    51254
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.21743917,
+   "compression_ratio": 1.3036649,
+   "no_speech_prob": 0.050933838
+  },
+  {
+   "id": 18,
+   "seek": 2934,
+   "start": 47.12,
+   "end": 48.6,
+   "text": " Campeón de la vida",
+   "tokens": [
+    51254,
+    6886,
+    494,
+    1801,
+    368,
+    635,
+    7644,
+    51328
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.21743917,
+   "compression_ratio": 1.3036649,
+   "no_speech_prob": 0.050933838
+  },
+  {
+   "id": 19,
+   "seek": 2934,
+   "start": 48.6,
+   "end": 52.84,
+   "text": " ¿Qué más?",
+   "tokens": [
+    51328,
+    3841,
+    15137,
+    3573,
+    30,
+    51540
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.21743917,
+   "compression_ratio": 1.3036649,
+   "no_speech_prob": 0.050933838
+  },
+  {
+   "id": 20,
+   "seek": 2934,
+   "start": 52.84,
+   "end": 54.22,
+   "text": " Vamos a poner esto",
+   "tokens": [
+    51540,
+    10894,
+    257,
+    19149,
+    7433,
+    51609
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.21743917,
+   "compression_ratio": 1.3036649,
+   "no_speech_prob": 0.050933838
+  },
+  {
+   "id": 21,
+   "seek": 2934,
+   "start": 54.22,
+   "end": 57.02,
+   "text": " Ah, esto sí",
+   "tokens": [
+    51609,
+    2438,
+    11,
+    7433,
+    8600,
+    51749
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.21743917,
+   "compression_ratio": 1.3036649,
+   "no_speech_prob": 0.050933838
+  },
+  {
+   "id": 22,
+   "seek": 2934,
+   "start": 57.02,
+   "end": 58.14,
+   "text": " Hasta un montón",
+   "tokens": [
+    51749,
+    45027,
+    517,
+    45259,
+    51805
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.21743917,
+   "compression_ratio": 1.3036649,
+   "no_speech_prob": 0.050933838
+  },
+  {
+   "id": 23,
+   "seek": 5814,
+   "start": 58.14,
+   "end": 59.36,
+   "text": " ¿qué está haciendo?",
+   "tokens": [
+    50365,
+    3841,
+    16412,
+    3192,
+    20509,
+    30,
+    50426
+   ],
+   "temperature": 0,
+   "avg_logprob": -0.44712967,
+   "compression_ratio": 0.7419355,
+   "no_speech_prob": 0.00088357925
+  }
+ ],
+ "x_groq": {
+  "id": "req_01m040azm8ecaa7c61f9ce3esg"
+ }
+}
