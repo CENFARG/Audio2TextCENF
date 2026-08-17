@@ -1,3 +1,6 @@
+pub mod sidecar;
+pub mod commands;
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::init();
