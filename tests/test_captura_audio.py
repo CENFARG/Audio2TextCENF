@@ -57,6 +57,7 @@ def make_transcriber(**overrides):
     t.recording_lock = threading.Lock()
     t.audio_lock = threading.Lock()
     t.stop_event = threading.Event()
+    t._stopping = threading.Event()
     t.ejecutando = True
     t.audio_data = []
     t.freq = 16000

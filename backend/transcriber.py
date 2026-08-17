@@ -24,6 +24,7 @@ from .nvidia_asr import NvidiaASR
 from .transcription_metadata import TranscriptionMetadata
 from .transcription_metadata_generator import TranscriptionMetadataGenerator
 from .audio_chunker import transcribe_chunks
+from .hotkey_manager import HotkeyManager
 
 MIN_AUDIO_DURATION = 0.5
 CHUNK_THRESHOLD_S = 28.0  # Audio >= 28s se troza para evitar pérdida en costuras de Groq
@@ -110,6 +111,7 @@ class Transcriber:
         # FIX Bug F: lock dedicado para audio_data (compartido entre _record_loop y process_recording)
         self.audio_lock = threading.Lock()
         self.stop_event = threading.Event()
+        self._stopping = threading.Event()
         self.last_key_event_time = 0
         self.debounce_time = 0.2
 
@@ -117,8 +119,11 @@ class Transcriber:
         self.audio_data = [] # List to store numpy arrays
         self.freq = 16000
         self.hotkey = self.config_manager.get("hotkey", "f12")
+        self.hotkey_manager = HotkeyManager()
         self.record_mode = self.config_manager.get("record_mode", "toggle")
         self.audio_priority_apps = self.config_manager.get("audio_priority_apps", [])
+        self._cached_priority_apps = set()
+        self._cache_time = 0
 
         self.input_stream = None # sounddevice InputStream
         self.cliente = self._init_groq_client()
@@ -442,9 +447,23 @@ class Transcriber:
         except Exception as e:
             self.logger.debug(f"Error en _handle_modifier_hotkey: {e}")
 
+    def _refresh_priority_cache(self):
+        """Refresh cached process list for priority apps (5s TTL)."""
+        now = time.time()
+        if now - self._cache_time < 5:
+            return
+        self._cached_priority_apps = {
+            p.info['name'].lower()
+            for p in psutil.process_iter(['pid', 'name'])
+            if p.info.get('name')
+        }
+        self._cache_time = now
+
     def start_recording(self):
         if self.is_recording: return
-        if any(p.info['name'].lower() in self.audio_priority_apps for p in psutil.process_iter(['pid', 'name'])):
+        if self._stopping.is_set(): return
+        self._refresh_priority_cache()
+        if any(app in self._cached_priority_apps for app in self.audio_priority_apps):
             self.update_status(self.localization_manager.get_string("priority_app_in_use"), "orange")
             return
 
@@ -591,6 +610,7 @@ class Transcriber:
 
     def stop_recording(self):
         if not self.is_recording: return
+        self._stopping.set()
         
         self.stop_event.set()
         self.is_recording = False
@@ -617,9 +637,11 @@ class Transcriber:
 
         if not self.audio_data:
             self.update_status(self.localization_manager.get_string("no_audio_captured"), "red")
+            self._stopping.clear()
             return
         
         threading.Thread(target=self.process_recording, daemon=True).start()
+        self._stopping.clear()
 
     def process_recording(self):
         operation = OperationTracker()
