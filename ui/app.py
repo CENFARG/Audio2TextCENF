@@ -303,8 +303,10 @@ class App(ctk.CTk):
         status_frame.grid_columnconfigure(0, weight=1)
         self.status_label = ctk.CTkLabel(status_frame, text=self.localization_manager.get_string("status_ready"), font=DesignSystem.TYPOGRAPHY["heading_large"])
         self.status_label.grid(row=0, column=0, sticky="ew")
+        self._register_localized_widget(self.status_label, "status_ready")
         self.hotkey_display_label = ctk.CTkLabel(status_frame, text=self.localization_manager.get_string("hotkey_display", hotkey=self.config_manager.get('hotkey').upper()), font=DesignSystem.TYPOGRAPHY["body_small"])
         self.hotkey_display_label.grid(row=1, column=0, pady=(3, 5), sticky="ew")  # Reducido pady
+        self._register_localized_widget(self.hotkey_display_label, "hotkey_display", hotkey=self.config_manager.get('hotkey').upper())
 
         # Logo del cliente (si existe)
         logo_path = "logo.png"
@@ -330,8 +332,10 @@ class App(ctk.CTk):
         info_frame.grid_columnconfigure((0, 1), weight=1)
         self.audio_size_label = ctk.CTkLabel(info_frame, text=self.localization_manager.get_string("audio_info", size="...", count="..."))
         self.audio_size_label.grid(row=0, column=0, sticky="w")
+        self._register_localized_widget(self.audio_size_label, "audio_info", size="...", count="...")
         self.log_size_label = ctk.CTkLabel(info_frame, text=self.localization_manager.get_string("transcriptions_info", size="..."))
         self.log_size_label.grid(row=0, column=1, sticky="e")
+        self._register_localized_widget(self.log_size_label, "transcriptions_info", size="...")
 
         # Shared content geometry: both controls and the textbox use the same
         # two-column contract, so their outer horizontal boundaries stay aligned.
@@ -347,12 +351,14 @@ class App(ctk.CTk):
             command=self.clear_audio_with_feedback,
         )
         self.clear_audio_button.grid(row=0, column=0, padx=5, pady=(0, 5), sticky="ew")
+        self._register_localized_widget(self.clear_audio_button, "clear_audio_button")
         self.clear_transcriptions_button = ctk.CTkButton(
             content_frame,
             text=self.localization_manager.get_string("clear_transcriptions_button"),
             command=self.clear_logs_with_feedback,
         )
         self.clear_transcriptions_button.grid(row=0, column=1, padx=5, pady=(0, 5), sticky="ew")
+        self._register_localized_widget(self.clear_transcriptions_button, "clear_transcriptions_button")
 
         # --- Panel de Transcripción ---
         if self.config_manager.get("show_transcription_panel"):
@@ -382,7 +388,9 @@ class App(ctk.CTk):
         main_conf_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
         main_conf_frame.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("settings_title_main"), font=DesignSystem.TYPOGRAPHY["heading_medium"]).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        settings_main_label = ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("settings_title_main"), font=DesignSystem.TYPOGRAPHY["heading_medium"])
+        settings_main_label.grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        self._register_localized_widget(settings_main_label, "settings_title_main")
 
         self.api_key_status_label = ctk.CTkLabel(main_conf_frame, text="●", font=("Segoe UI", 20), text_color="grey")
         self.api_key_status_label.grid(row=1, column=0, padx=(10,0), sticky="w")
@@ -392,19 +400,26 @@ class App(ctk.CTk):
         api_entry.bind("<FocusOut>", lambda e: self.save_config()) # Autosave on focus out
         verify_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("verify_button"), width=70, command=self._check_api_key)
         verify_btn.grid(row=1, column=2, padx=(0,10))
+        self._register_localized_widget(verify_btn, "verify_button")
 
         # ASR Provider Selection (solo Groq — Gemini ELIMINADO por completo de la
         # herramienta: benchmark 5-87s por transcripción vs 1-2s de Groq, inutilizable)
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("asr_provider_label")).grid(row=2, column=0, padx=10, pady=5, sticky="w")
+        asr_label = ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("asr_provider_label"))
+        asr_label.grid(row=2, column=0, padx=10, pady=5, sticky="w")
+        self._register_localized_widget(asr_label, "asr_provider_label")
         self.asr_provider_var = tk.StringVar(value=self.config_manager.get("asr_provider", "groq"))
         asr_provider_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
         asr_provider_frame.grid(row=2, column=1, columnspan=2, padx=5, pady=5, sticky="w")
-        ctk.CTkRadioButton(asr_provider_frame, text=self.localization_manager.get_string("asr_provider_groq"), variable=self.asr_provider_var, value="groq", command=self.save_config).grid(row=0, column=0, padx=5, sticky="w")
+        asr_groq_radio = ctk.CTkRadioButton(asr_provider_frame, text=self.localization_manager.get_string("asr_provider_groq"), variable=self.asr_provider_var, value="groq", command=self.save_config)
+        asr_groq_radio.grid(row=0, column=0, padx=5, sticky="w")
+        self._register_localized_widget(asr_groq_radio, "asr_provider_groq")
         # FIX v0.15.0: Gemini ELIMINADO (backend + frontend) — solo Groq, el que funciona
         # NVIDIA oculto de la UI pero funcional en config.json
 
         # Hotkey (v0.14.0 - Selector inline compacto)
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("hotkey_label")).grid(row=7, column=0, padx=10, pady=5, sticky="w")
+        hotkey_label = ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("hotkey_label"))
+        hotkey_label.grid(row=7, column=0, padx=10, pady=5, sticky="w")
+        self._register_localized_widget(hotkey_label, "hotkey_label")
 
         # Parsear hotkey actual
         current_hotkey = self.config_manager.get('hotkey', default='f12')
@@ -455,19 +470,27 @@ class App(ctk.CTk):
         # record_hotkey_btn.grid(row=3, column=2, padx=(0,10), pady=5)
 
         # Recording Mode
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("record_mode_label")).grid(row=8, column=0, padx=10, pady=5, sticky="w")
+        record_mode_label = ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("record_mode_label"))
+        record_mode_label.grid(row=8, column=0, padx=10, pady=5, sticky="w")
+        self._register_localized_widget(record_mode_label, "record_mode_label")
         self.record_mode_var = tk.StringVar(value=self.config_manager.get("record_mode"))
         record_mode_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
         record_mode_frame.grid(row=8, column=1, columnspan=2, padx=5, pady=5, sticky="w")
-        ctk.CTkRadioButton(record_mode_frame, text=self.localization_manager.get_string("record_mode_hold"), variable=self.record_mode_var, value="hold", command=self.save_config).grid(row=0, column=0, padx=5, sticky="w")
-        ctk.CTkRadioButton(record_mode_frame, text=self.localization_manager.get_string("record_mode_toggle"), variable=self.record_mode_var, value="toggle", command=self.save_config).grid(row=0, column=1, padx=10, sticky="w")
+        hold_radio = ctk.CTkRadioButton(record_mode_frame, text=self.localization_manager.get_string("record_mode_hold"), variable=self.record_mode_var, value="hold", command=self.save_config)
+        hold_radio.grid(row=0, column=0, padx=5, sticky="w")
+        self._register_localized_widget(hold_radio, "record_mode_hold")
+        toggle_radio = ctk.CTkRadioButton(record_mode_frame, text=self.localization_manager.get_string("record_mode_toggle"), variable=self.record_mode_var, value="toggle", command=self.save_config)
+        toggle_radio.grid(row=0, column=1, padx=10, sticky="w")
+        self._register_localized_widget(toggle_radio, "record_mode_toggle")
 
         # Max Recording Duration
         # FIX layout: el label va ARRIBA del combo (col 1, columna derecha) para no
         # superponerse con el switch de auto-paste que antes ocupaba la misma fila 9
         duration_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
         duration_frame.grid(row=9, column=1, columnspan=2, padx=5, pady=5, sticky="w")
-        ctk.CTkLabel(duration_frame, text=self.localization_manager.get_string("max_duration_label"), font=DesignSystem.TYPOGRAPHY["body_small"]).pack(anchor="w")
+        duration_label = ctk.CTkLabel(duration_frame, text=self.localization_manager.get_string("max_duration_label"), font=DesignSystem.TYPOGRAPHY["body_small"])
+        duration_label.pack(anchor="w")
+        self._register_localized_widget(duration_label, "max_duration_label")
         current_duration = self.config_manager.get("max_recording_time", 300)
         duration_options = {"5 min": 300, "10 min": 600, "15 min": 900, "20 min": 1200}
         reverse_map = {v: k for k, v in duration_options.items()}
@@ -478,9 +501,13 @@ class App(ctk.CTk):
 
         # Auto-paste & Show panel (filas propias, sin superposición)
         self.auto_paste_var = tk.BooleanVar(value=self.config_manager.get("auto_paste_text"))
-        ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("auto_paste_switch"), variable=self.auto_paste_var, command=self.save_config).grid(row=10, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        auto_paste_switch = ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("auto_paste_switch"), variable=self.auto_paste_var, command=self.save_config)
+        auto_paste_switch.grid(row=10, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        self._register_localized_widget(auto_paste_switch, "auto_paste_switch")
         self.show_panel_var = tk.BooleanVar(value=self.config_manager.get("show_transcription_panel"))
-        ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("show_panel_switch"), variable=self.show_panel_var, command=self.save_config).grid(row=11, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        show_panel_switch = ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("show_panel_switch"), variable=self.show_panel_var, command=self.save_config)
+        show_panel_switch.grid(row=11, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        self._register_localized_widget(show_panel_switch, "show_panel_switch")
 
         # Windows autostart (sincronizado con estado real de Startup folder)
         from backend.startup_manager import StartupManager
@@ -490,7 +517,9 @@ class App(ctk.CTk):
         self.config_manager.set("autostart_windows", actual_autostart_state)
 
         self.autostart_windows_var = tk.BooleanVar(value=actual_autostart_state)
-        ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("autostart_windows_switch"), variable=self.autostart_windows_var, command=self.save_config).grid(row=12, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        autostart_switch = ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("autostart_windows_switch"), variable=self.autostart_windows_var, command=self.save_config)
+        autostart_switch.grid(row=12, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        self._register_localized_widget(autostart_switch, "autostart_windows_switch")
 
         # Language selection
         ui_language_label = ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("language_label"))
@@ -523,28 +552,41 @@ class App(ctk.CTk):
         files_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
         files_frame.grid_columnconfigure(1, weight=1)
         
-        ctk.CTkLabel(files_frame, text=self.localization_manager.get_string("settings_title_files"), font=DesignSystem.TYPOGRAPHY["heading_medium"]).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
-        ctk.CTkLabel(files_frame, text=self.localization_manager.get_string("audio_path_label")).grid(row=1, column=0, padx=10, sticky="w")
+        files_title_label = ctk.CTkLabel(files_frame, text=self.localization_manager.get_string("settings_title_files"), font=DesignSystem.TYPOGRAPHY["heading_medium"])
+        files_title_label.grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        self._register_localized_widget(files_title_label, "settings_title_files")
+        audio_path_label = ctk.CTkLabel(files_frame, text=self.localization_manager.get_string("audio_path_label"))
+        audio_path_label.grid(row=1, column=0, padx=10, sticky="w")
+        self._register_localized_widget(audio_path_label, "audio_path_label")
         self.audio_path_var = tk.StringVar(value=self.config_manager.get("audio_path"))
         audio_path_entry = ctk.CTkEntry(files_frame, textvariable=self.audio_path_var)
         audio_path_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
         audio_path_entry.bind("<FocusOut>", lambda e: self.save_config())
-        ctk.CTkButton(files_frame, text=self.localization_manager.get_string("browse_button"), width=70, command=lambda: self._browse_path(self.audio_path_var)).grid(row=1, column=2, padx=(0,10))
+        audio_browse_btn = ctk.CTkButton(files_frame, text=self.localization_manager.get_string("browse_button"), width=70, command=lambda: self._browse_path(self.audio_path_var))
+        audio_browse_btn.grid(row=1, column=2, padx=(0,10))
+        self._register_localized_widget(audio_browse_btn, "browse_button")
 
-        ctk.CTkLabel(files_frame, text=self.localization_manager.get_string("transcriptions_path_label")).grid(row=2, column=0, padx=10, sticky="w")
+        transcriptions_path_label = ctk.CTkLabel(files_frame, text=self.localization_manager.get_string("transcriptions_path_label"))
+        transcriptions_path_label.grid(row=2, column=0, padx=10, sticky="w")
+        self._register_localized_widget(transcriptions_path_label, "transcriptions_path_label")
         self.transcriptions_path_var = tk.StringVar(value=self.config_manager.get("transcriptions_path"))
         logs_path_entry = ctk.CTkEntry(files_frame, textvariable=self.transcriptions_path_var)
         logs_path_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
         logs_path_entry.bind("<FocusOut>", lambda e: self.save_config())
-        ctk.CTkButton(files_frame, text=self.localization_manager.get_string("browse_button"), width=70, command=lambda: self._browse_path(self.transcriptions_path_var)).grid(row=2, column=2, padx=(0,10))
+        logs_browse_btn = ctk.CTkButton(files_frame, text=self.localization_manager.get_string("browse_button"), width=70, command=lambda: self._browse_path(self.transcriptions_path_var))
+        logs_browse_btn.grid(row=2, column=2, padx=(0,10))
         
         switch_frame = ctk.CTkFrame(files_frame, fg_color="transparent")
         switch_frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=10, pady=5)
         switch_frame.grid_columnconfigure((0,1), weight=1)
         self.save_audio_var = tk.BooleanVar(value=self.config_manager.get("save_audio"))
-        ctk.CTkSwitch(switch_frame, text=self.localization_manager.get_string("save_audio_switch"), variable=self.save_audio_var, command=self.save_config).grid(row=0, column=0, sticky="w")
+        save_audio_switch = ctk.CTkSwitch(switch_frame, text=self.localization_manager.get_string("save_audio_switch"), variable=self.save_audio_var, command=self.save_config)
+        save_audio_switch.grid(row=0, column=0, sticky="w")
+        self._register_localized_widget(save_audio_switch, "save_audio_switch")
         self.save_logs_var = tk.BooleanVar(value=self.config_manager.get("save_logs"))
-        ctk.CTkSwitch(switch_frame, text=self.localization_manager.get_string("save_logs_switch"), variable=self.save_logs_var, command=self.save_config).grid(row=0, column=1, sticky="w")
+        save_logs_switch = ctk.CTkSwitch(switch_frame, text=self.localization_manager.get_string("save_logs_switch"), variable=self.save_logs_var, command=self.save_config)
+        save_logs_switch.grid(row=0, column=1, sticky="w")
+        self._register_localized_widget(save_logs_switch, "save_logs_switch")
 
         # --- Client Logo Settings REMOVED (Build parameter) ---
         # ctk.CTkLabel(files_frame, text=self.localization_manager.get_string("client_logo_label")...
@@ -624,9 +666,13 @@ class App(ctk.CTk):
         # Header
         header_frame = ctk.CTkFrame(tab, fg_color="transparent")
         header_frame.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
-        ctk.CTkLabel(header_frame, text=self.localization_manager.get_string("history_title"), font=DesignSystem.TYPOGRAPHY["heading_medium"]).pack(side="left")
-        ctk.CTkButton(header_frame, text=self.localization_manager.get_string("refresh_button"), width=80,
-                      command=lambda: self.refresh_history_list(full_reload=True)).pack(side="right")
+        history_title_label = ctk.CTkLabel(header_frame, text=self.localization_manager.get_string("history_title"), font=DesignSystem.TYPOGRAPHY["heading_medium"])
+        history_title_label.pack(side="left")
+        self._register_localized_widget(history_title_label, "history_title")
+        refresh_btn = ctk.CTkButton(header_frame, text=self.localization_manager.get_string("refresh_button"), width=80,
+                      command=lambda: self.refresh_history_list(full_reload=True))
+        refresh_btn.pack(side="right")
+        self._register_localized_widget(refresh_btn, "refresh_button")
 
         # List Area
         self.history_scroll_frame = ctk.CTkScrollableFrame(tab, fg_color="transparent")
@@ -1223,10 +1269,12 @@ class App(ctk.CTk):
             anchor="w"
         )
         info_label.pack(pady=10, padx=10, fill="x", expand=True)
+        self._register_localized_widget(info_label, "info_text_simplified", version=self.config_manager.get("app_version"))
 
         groq_link = ctk.CTkLabel(scroll_frame, text=self.localization_manager.get_string("groq_api_key_link"), text_color=DesignSystem.COLORS["primary"], cursor="hand2", font=DesignSystem.TYPOGRAPHY["link"])
         groq_link.pack(pady=5, padx=10, anchor="w")
         groq_link.bind("<Button-1>", lambda e: webbrowser.open_new("https://console.groq.com/keys"))
+        self._register_localized_widget(groq_link, "groq_api_key_link")
     
     def create_update_tab(self):
         """Crear pestaña de actualizaciones"""
