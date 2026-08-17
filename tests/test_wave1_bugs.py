@@ -195,6 +195,44 @@ class TestRefreshHistoryList:
             mock_label.pack.assert_called()
 
 
+class TestFletClearRefresh:
+    """Task 2.4: Flet clear methods should call refresh_history."""
+
+    def test_clear_audio_calls_refresh_history(self):
+        """clear_audio_with_feedback should call refresh_history."""
+        sys.modules["flet"] = MagicMock()
+        try:
+            from ui_flet.main import Audio2TextApp
+            with patch.object(Audio2TextApp, "__init__", lambda self, *a, **kw: None):
+                app = Audio2TextApp.__new__(Audio2TextApp)
+                app.file_manager = Mock()
+                app.file_manager.clear_audio_files.return_value = True
+                app.update_status = Mock()
+                app.update_file_info = Mock()
+                app.refresh_history = Mock()
+                app.clear_audio_with_feedback(None)
+                app.refresh_history.assert_called_once()
+        finally:
+            sys.modules.pop("flet", None)
+
+    def test_clear_logs_calls_refresh_history(self):
+        """clear_logs_with_feedback should call refresh_history."""
+        sys.modules["flet"] = MagicMock()
+        try:
+            from ui_flet.main import Audio2TextApp
+            with patch.object(Audio2TextApp, "__init__", lambda self, *a, **kw: None):
+                app = Audio2TextApp.__new__(Audio2TextApp)
+                app.file_manager = Mock()
+                app.file_manager.clear_transcriptions.return_value = True
+                app.update_status = Mock()
+                app.update_file_info = Mock()
+                app.refresh_history = Mock()
+                app.clear_logs_with_feedback(None)
+                app.refresh_history.assert_called_once()
+        finally:
+            sys.modules.pop("flet", None)
+
+
 class TestTranscriptionCacheReset:
     """Task 2.2: Reset transcription cache on missing file."""
 

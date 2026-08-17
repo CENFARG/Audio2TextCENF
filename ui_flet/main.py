@@ -897,6 +897,7 @@ class Audio2TextApp:
             else:
                 self.update_status("Error al eliminar audio", "red")
             self.update_file_info()
+            self.refresh_history(e)
 
         _clear()
 
@@ -908,6 +909,7 @@ class Audio2TextApp:
             else:
                 self.update_status("Error al eliminar transcripciones", "red")
             self.update_file_info()
+            self.refresh_history(e)
 
         _clear()
 
