@@ -1291,7 +1291,7 @@ class App(ctk.CTk):
         tab.grid_columnconfigure(0, weight=1)
         
         # Crear UpdateTab
-        update_tab = UpdateTab(tab, self.updater)
+        update_tab = UpdateTab(tab, self.updater, self.localization_manager)
         update_tab.grid(row=0, column=0, sticky="nsew")
         
         self.logger.debug("Pestaña 'Actualizaciones' creada.")
