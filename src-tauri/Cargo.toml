@@ -1,0 +1,23 @@
+[package]
+name = "audio2text-tauri"
+version = "2.0.0"
+description = "Audio2Text — Transcripción de audio en tiempo real"
+authors = ["CENF"]
+edition = "2024"
+
+[lib]
+name = "audio2text_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-global-shortcut = "2"
+tauri-plugin-clipboard-manager = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+env_logger = "0.11"

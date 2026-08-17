@@ -1,0 +1,22 @@
+:root {
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #16213e;
+  --border: #0f3460;
+  --accent: #00d4ff;
+  --accent-green: #00ff88;
+  --text-primary: #e0e0e0;
+  --text-secondary: #888;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+}
