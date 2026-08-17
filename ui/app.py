@@ -181,10 +181,6 @@ class App(ctk.CTk):
         self.last_transcription_text = ""
         self._display_operations = {}
 
-        # --- Tutorial ---
-        from ui.tutorial import TutorialManager
-        self.tutorial_manager = TutorialManager(self)
-
         # Crear overlay de grabación - REACTIVADO
         from ui.recording_overlay import RecordingOverlay
         self.recording_overlay = RecordingOverlay(self)
@@ -215,10 +211,6 @@ class App(ctk.CTk):
         self.update_file_info()
         self.after(1000, self._check_api_key)
         
-        # Iniciar tutorial si corresponde (después de que la UI cargue)
-        if self.tutorial_manager.should_start():
-            self.after(1500, self.tutorial_manager.start)
-
     def create_widgets(self):
         self.logger.debug("Creando widgets de la interfaz de usuario.")
         self.grid_rowconfigure(0, weight=1)
