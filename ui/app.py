@@ -299,7 +299,7 @@ class App(ctk.CTk):
                             self.recording_overlay.update_timer(minutes, seconds)
                     elif event[0] == "limit" and len(event) >= 2:
                         _, max_seconds = event
-                        self.update_status(f"Grabación cortada por límite de {max_seconds}s", "orange")
+                        self.update_status(self.localization_manager.get_string("recording_limit", max_seconds=max_seconds), "orange")
                     elif event[0] == "overlay" and len(event) >= 3:
                         _, state, minutes, seconds = (event + (0, 0))[:4]
                         # Mantener compatibilidad con update_overlay (que usa after(0))
@@ -634,10 +634,10 @@ class App(ctk.CTk):
         vocab_frame.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
         vocab_frame.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(vocab_frame, text="Correcciones de Vocabulario (v0.11.0)", font=DesignSystem.TYPOGRAPHY["heading_medium"]).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(vocab_frame, text=self.localization_manager.get_string("vocab_title"), font=DesignSystem.TYPOGRAPHY["heading_medium"]).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
         # Descripción
-        desc_label = ctk.CTkLabel(vocab_frame, text="Palabras que el modelo entiende mal (ej: CENF → zenf, cemp, cemf)", font=DesignSystem.TYPOGRAPHY["body_small"])
+        desc_label = ctk.CTkLabel(vocab_frame, text=self.localization_manager.get_string("vocab_description"), font=DesignSystem.TYPOGRAPHY["body_small"])
         desc_label.grid(row=1, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
         # Entry para agregar corrección
@@ -645,16 +645,16 @@ class App(ctk.CTk):
         input_frame.grid(row=2, column=0, columnspan=3, padx=10, pady=5, sticky="ew")
 
         self.vocab_incorrect_var = tk.StringVar()
-        incorrect_entry = ctk.CTkEntry(input_frame, textvariable=self.vocab_incorrect_var, placeholder_text="Palabra incorrecta (ej: zenf)")
+        incorrect_entry = ctk.CTkEntry(input_frame, textvariable=self.vocab_incorrect_var, placeholder_text=self.localization_manager.get_string("vocab_incorrect_placeholder"))
         incorrect_entry.pack(side="left", padx=5, expand=True, fill="x")
 
         ctk.CTkLabel(input_frame, text="→").pack(side="left", padx=5)
 
         self.vocab_correct_var = tk.StringVar()
-        correct_entry = ctk.CTkEntry(input_frame, textvariable=self.vocab_correct_var, placeholder_text="Palabra correcta (ej: CENF)")
+        correct_entry = ctk.CTkEntry(input_frame, textvariable=self.vocab_correct_var, placeholder_text=self.localization_manager.get_string("vocab_correct_placeholder"))
         correct_entry.pack(side="left", padx=5, expand=True, fill="x")
 
-        add_vocab_btn = ctk.CTkButton(input_frame, text="Agregar", width=80, command=self._add_vocab_correction)
+        add_vocab_btn = ctk.CTkButton(input_frame, text=self.localization_manager.get_string("vocab_add_button"), width=80, command=self._add_vocab_correction)
         add_vocab_btn.pack(side="left", padx=5)
 
         # Lista de correcciones existentes
@@ -664,11 +664,11 @@ class App(ctk.CTk):
         # Botones: ver/editar, importar archivo, exportar (FIX v0.15.0)
         vocab_buttons_frame = ctk.CTkFrame(vocab_frame, fg_color="transparent")
         vocab_buttons_frame.grid(row=4, column=0, columnspan=3, padx=10, pady=10, sticky="w")
-        manage_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text="Ver/Editar Correcciones", width=150, command=self._show_vocab_corrections)
+        manage_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text=self.localization_manager.get_string("vocab_manage_button"), width=150, command=self._show_vocab_corrections)
         manage_vocab_btn.pack(side="left", padx=(0, 5))
-        import_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text="📂 Importar archivo (TXT/MD/JSON)", width=200, command=self._import_vocab_file)
+        import_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text=self.localization_manager.get_string("vocab_import_button"), width=200, command=self._import_vocab_file)
         import_vocab_btn.pack(side="left", padx=5)
-        export_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text="💾 Exportar", width=100, command=self._export_vocab_file)
+        export_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text=self.localization_manager.get_string("vocab_export_button"), width=100, command=self._export_vocab_file)
         export_vocab_btn.pack(side="left", padx=5)
 
         # Cargar lista de correcciones al iniciar
@@ -802,7 +802,7 @@ class App(ctk.CTk):
             if full_reload:  # Solo limpiar si es recarga completa
                 for widget in self.history_scroll_frame.winfo_children():
                     widget.destroy()
-                ctk.CTkLabel(self.history_scroll_frame, text="Directorio no encontrado").pack(pady=20)
+                ctk.CTkLabel(self.history_scroll_frame, text=self.localization_manager.get_string("history_dir_not_found")).pack(pady=20)
             return
 
         # Obtener lista de archivos actuales
@@ -814,7 +814,7 @@ class App(ctk.CTk):
                 for widget in self.history_scroll_frame.winfo_children():
                     widget.destroy()
                 self.loaded_history_files.clear()
-                ctk.CTkLabel(self.history_scroll_frame, text="No hay archivos de audio").pack(pady=20)
+                ctk.CTkLabel(self.history_scroll_frame, text=self.localization_manager.get_string("history_no_files")).pack(pady=20)
             return
 
         # Si es recarga completa, limpiar todo
@@ -1147,7 +1147,7 @@ class App(ctk.CTk):
                 import winsound
                 # SND_FILENAME | SND_ASYNC = reproducción asíncrona
                 winsound.PlaySound(file_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
-                self.after(100, lambda: self.update_status(f"▶️ Reproduciendo: {os.path.basename(file_path)}", "green"))
+                self.after(100, lambda: self.update_status(self.localization_manager.get_string("playback_playing", filename=os.path.basename(file_path)), "green"))
 
                 # Esperar a que termine la reproducción (estimar duración del archivo)
                 # WAV típico: ~1 segundo por 100KB (aproximado)
@@ -1163,7 +1163,7 @@ class App(ctk.CTk):
                 self.after(0, lambda: self._reset_play_button(file_path))
 
             except Exception as e:
-                self.after(100, lambda: self.update_status(f"❌ Error reproduciendo audio: {e}", "red"))
+                self.after(100, lambda: self.update_status(self.localization_manager.get_string("playback_error", error=str(e)), "red"))
                 self.logger.error(f"Error reproduciendo audio: {e}")
                 self.after(0, lambda: self._reset_play_button(file_path))
 
@@ -1194,7 +1194,7 @@ class App(ctk.CTk):
                 pass
 
             self.currently_playing = None
-            self.update_status("⏹️ Reproducción detenida", "white")
+            self.update_status(self.localization_manager.get_string("playback_stopped"), "white")
 
     def _reset_play_button(self, file_path):
         """Resetear botón de play después de terminar reproducción"""
@@ -1210,7 +1210,7 @@ class App(ctk.CTk):
                 pass
 
             self.currently_playing = None
-            self.update_status("✔️ Reproducción terminada", "white")
+            self.update_status(self.localization_manager.get_string("playback_finished"), "white")
 
         # Limpiar thread del diccionario
         if file_path in self.playing_threads:
@@ -1320,7 +1320,7 @@ class App(ctk.CTk):
 
             # Crear ventana de estadísticas
             stats_window = ctk.CTkToplevel(self)
-            stats_window.title("Estadísticas de Bloques")
+            stats_window.title(self.localization_manager.get_string("vocab_stats_title"))
             stats_window.geometry("500x400")
 
             # Frame principal
@@ -1328,10 +1328,10 @@ class App(ctk.CTk):
             main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
             # Título
-            ctk.CTkLabel(main_frame, text="Estadísticas de Bloques", font=DesignSystem.TYPOGRAPHY["heading_medium"]).pack(pady=10)
+            ctk.CTkLabel(main_frame, text=self.localization_manager.get_string("vocab_stats_title"), font=DesignSystem.TYPOGRAPHY["heading_medium"]).pack(pady=10)
 
             if not stats:
-                ctk.CTkLabel(main_frame, text="No hay bloques configurados").pack(pady=20)
+                ctk.CTkLabel(main_frame, text=self.localization_manager.get_string("vocab_stats_empty")).pack(pady=20)
                 return
 
             # Mostrar estadísticas de cada bloque
@@ -1369,7 +1369,7 @@ class App(ctk.CTk):
             # Botón cerrar
             ctk.CTkButton(
                 main_frame,
-                text="Cerrar",
+                text=self.localization_manager.get_string("vocab_stats_close"),
                 command=stats_window.destroy,
                 width=100
             ).pack(pady=10)
@@ -1378,7 +1378,7 @@ class App(ctk.CTk):
 
         except Exception as e:
             self.logger.error(f"Error mostrando estadísticas de bloques: {e}")
-            self.update_status("Error al mostrar estadísticas", "red")
+            self.update_status(self.localization_manager.get_string("vocab_stats_error"), "red")
 
     def _add_vocab_correction(self):
         """Agregar corrección de vocabulario personalizado."""
@@ -1386,36 +1386,36 @@ class App(ctk.CTk):
         correct = self.vocab_correct_var.get().strip()
 
         if not incorrect or not correct:
-            self.update_status("Debe ingresar ambas palabras", "orange")
+            self.update_status(self.localization_manager.get_string("vocab_status_empty"), "orange")
             return
 
         # Usar el CustomVocabulary del transcriber
         if hasattr(self.transcriber, 'custom_vocab'):
             success = self.transcriber.custom_vocab.add_correction(incorrect, correct)
             if success:
-                self.update_status(f"Corrección agregada: {incorrect} → {correct}", "green")
+                self.update_status(self.localization_manager.get_string("vocab_status_added", incorrect=incorrect, correct=correct), "green")
                 # Limpiar campos
                 self.vocab_incorrect_var.set("")
                 self.vocab_correct_var.set("")
                 # Actualizar lista de correcciones
                 self._refresh_vocab_list()
             else:
-                self.update_status("Error al agregar corrección", "red")
+                self.update_status(self.localization_manager.get_string("vocab_status_error_add"), "red")
         else:
-            self.update_status("CustomVocabulary no disponible", "red")
+            self.update_status(self.localization_manager.get_string("vocab_status_not_available"), "red")
 
     def _import_vocab_file(self):
         """Importar correcciones de vocabulario desde un archivo (TXT/MD/JSON)."""
         try:
             if not hasattr(self.transcriber, 'custom_vocab'):
-                self.update_status("CustomVocabulary no disponible", "red")
+                self.update_status(self.localization_manager.get_string("vocab_status_not_available"), "red")
                 return
 
             from tkinter import filedialog
             file_path = filedialog.askopenfilename(
-                title="Importar vocabulario",
+                title=self.localization_manager.get_string("vocab_import_title"),
                 filetypes=[
-                    ("Archivos de vocabulario", "*.txt;*.md;*.json"),
+                    (self.localization_manager.get_string("vocab_import_filter_text"), "*.txt;*.md;*.json"),
                     ("Texto", "*.txt;*.md"),
                     ("JSON", "*.json"),
                     ("Todos", "*.*")
@@ -1426,24 +1426,24 @@ class App(ctk.CTk):
 
             count = self.transcriber.custom_vocab.import_from_file(file_path)
             if count > 0:
-                self.update_status(f"✅ {count} correcciones importadas de {os.path.basename(file_path)}", "green")
+                self.update_status(self.localization_manager.get_string("vocab_import_status_ok", count=count, file=os.path.basename(file_path)), "green")
                 self._refresh_vocab_list()
             else:
-                self.update_status("No se importó ninguna corrección (revisá el formato: 'incorrecta → correcta' por línea)", "orange")
+                self.update_status(self.localization_manager.get_string("vocab_import_status_empty"), "orange")
         except Exception as e:
             self.logger.error(f"Error importando vocabulario: {e}")
-            self.update_status(f"Error importando vocabulario: {e}", "red")
+            self.update_status(self.localization_manager.get_string("vocab_import_status_error", error=str(e)), "red")
 
     def _export_vocab_file(self):
         """Exportar el vocabulario actual a un archivo de texto."""
         try:
             if not hasattr(self.transcriber, 'custom_vocab'):
-                self.update_status("CustomVocabulary no disponible", "red")
+                self.update_status(self.localization_manager.get_string("vocab_status_not_available"), "red")
                 return
 
             from tkinter import filedialog
             file_path = filedialog.asksaveasfilename(
-                title="Exportar vocabulario",
+                title=self.localization_manager.get_string("vocab_export_title"),
                 defaultextension=".txt",
                 filetypes=[("Texto", "*.txt"), ("Markdown", "*.md"), ("Todos", "*.*")]
             )
@@ -1451,23 +1451,23 @@ class App(ctk.CTk):
                 return
 
             if self.transcriber.custom_vocab.export_to_file(file_path):
-                self.update_status(f"✅ Vocabulario exportado a {os.path.basename(file_path)}", "green")
+                self.update_status(f"✅ {self.localization_manager.get_string('vocab_export_title')} → {os.path.basename(file_path)}", "green")
             else:
-                self.update_status("Error exportando vocabulario", "red")
+                self.update_status(self.localization_manager.get_string("vocab_status_error_add"), "red")
         except Exception as e:
             self.logger.error(f"Error exportando vocabulario: {e}")
-            self.update_status(f"Error exportando vocabulario: {e}", "red")
+            self.update_status(self.localization_manager.get_string("vocab_import_status_error", error=str(e)), "red")
 
     def _show_vocab_corrections(self):
         """Mostrar ventana para ver/editar/eliminar correcciones de vocabulario."""
         try:
             if not hasattr(self.transcriber, 'custom_vocab'):
-                self.update_status("CustomVocabulary no disponible", "red")
+                self.update_status(self.localization_manager.get_string("vocab_status_not_available"), "red")
                 return
 
             # Crear ventana de correcciones
             vocab_window = ctk.CTkToplevel(self)
-            vocab_window.title("Correcciones de Vocabulario")
+            vocab_window.title(self.localization_manager.get_string("vocab_window_title"))
             vocab_window.geometry("620x520")
 
             # FIX bug 4: la ventana debe quedar SIEMPRE por delante de la app.
@@ -1483,10 +1483,10 @@ class App(ctk.CTk):
             main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
             # Título
-            ctk.CTkLabel(main_frame, text="Correcciones de Vocabulario Personalizado", font=DesignSystem.TYPOGRAPHY["heading_medium"]).pack(pady=10)
+            ctk.CTkLabel(main_frame, text=self.localization_manager.get_string("vocab_window_heading"), font=DesignSystem.TYPOGRAPHY["heading_medium"]).pack(pady=10)
 
             # Instrucciones
-            ctk.CTkLabel(main_frame, text="Palabras que el modelo entiende mal y su corrección:", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(pady=5)
+            ctk.CTkLabel(main_frame, text=self.localization_manager.get_string("vocab_window_description"), font=DesignSystem.TYPOGRAPHY["body_small"]).pack(pady=5)
 
             # Contenedor de la lista (se recarga entero al agregar/editar/eliminar)
             list_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
@@ -1499,7 +1499,7 @@ class App(ctk.CTk):
 
                 corrections = self.transcriber.custom_vocab.get_corrections()
                 if not corrections:
-                    ctk.CTkLabel(list_frame, text="No hay correcciones configuradas").pack(pady=20)
+                    ctk.CTkLabel(list_frame, text=self.localization_manager.get_string("vocab_empty")).pack(pady=20)
                 else:
                     for incorrect, correct in corrections.items():
                         row_frame = ctk.CTkFrame(list_frame)
@@ -1515,7 +1515,7 @@ class App(ctk.CTk):
                         ctk.CTkLabel(row_frame, text=correct, font=DesignSystem.TYPOGRAPHY["body_bold"], text_color="#10B981").pack(side="left", padx=10)
 
                         # FIX bug 5: botón EDITAR (nuevo) + ELIMINAR, ambos con refresh inmediato
-                        edit_btn = ctk.CTkButton(row_frame, text="✏️ Editar", width=70, fg_color="#2563EB", hover_color="#1D4ED8",
+                        edit_btn = ctk.CTkButton(row_frame, text=f"✏️ {self.localization_manager.get_string('vocab_edit_button')}", width=70, fg_color="#2563EB", hover_color="#1D4ED8",
                                                  command=lambda inc=incorrect, cor=correct: self._edit_vocab_correction(inc, cor, reload_list))
                         edit_btn.pack(side="right", padx=2)
 
@@ -1526,13 +1526,13 @@ class App(ctk.CTk):
             reload_list()
 
             # Botón cerrar
-            ctk.CTkButton(main_frame, text="Cerrar", command=vocab_window.destroy, width=100).pack(pady=10)
+            ctk.CTkButton(main_frame, text=self.localization_manager.get_string("vocab_close_button"), command=vocab_window.destroy, width=100).pack(pady=10)
 
             self.logger.info("Ventana de correcciones mostrada")
 
         except Exception as e:
             self.logger.error(f"Error mostrando correcciones: {e}")
-            self.update_status("Error al mostrar correcciones", "red")
+            self.update_status(self.localization_manager.get_string("vocab_status_error_show"), "red")
 
     def _delete_vocab_correction(self, incorrect: str, on_deleted=None):
         """Eliminar corrección de vocabulario con refresh INMEDIATO de la lista."""
@@ -1540,28 +1540,28 @@ class App(ctk.CTk):
             if hasattr(self.transcriber, 'custom_vocab'):
                 success = self.transcriber.custom_vocab.remove_correction(incorrect)
                 if success:
-                    self.update_status(f"Corrección eliminada: {incorrect}", "green")
+                    self.update_status(self.localization_manager.get_string("vocab_status_deleted", incorrect=incorrect), "green")
                     self.logger.info(f"Corrección eliminada: {incorrect}")
                     # FIX bug 5: refrescar la lista visible AL INSTANTE (no esperar a reabrir)
                     if on_deleted:
                         on_deleted()
                     self._refresh_vocab_list()
                 else:
-                    self.update_status("Error al eliminar corrección", "red")
+                    self.update_status(self.localization_manager.get_string("vocab_status_error_delete"), "red")
         except Exception as e:
             self.logger.error(f"Error eliminando corrección: {e}")
-            self.update_status("Error al eliminar corrección", "red")
+            self.update_status(self.localization_manager.get_string("vocab_status_error_delete"), "red")
 
     def _edit_vocab_correction(self, incorrect: str, current_correct: str, on_edited=None):
         """Editar una corrección existente (cambiar la palabra correcta)."""
         try:
             if not hasattr(self.transcriber, 'custom_vocab'):
-                self.update_status("CustomVocabulary no disponible", "red")
+                self.update_status(self.localization_manager.get_string("vocab_status_not_available"), "red")
                 return
 
             # Ventana de edición (también al frente)
             edit_window = ctk.CTkToplevel(self)
-            edit_window.title("Editar Corrección")
+            edit_window.title(self.localization_manager.get_string("vocab_edit_title"))
             edit_window.geometry("420x180")
             edit_window.transient(self)
             edit_window.lift()
@@ -1570,9 +1570,9 @@ class App(ctk.CTk):
             edit_window.grab_set()
             edit_window.resizable(False, False)
 
-            ctk.CTkLabel(edit_window, text=f"Palabra incorrecta: '{incorrect}'", font=DesignSystem.TYPOGRAPHY["body_bold"]).pack(pady=(15, 5), padx=15, anchor="w")
+            ctk.CTkLabel(edit_window, text=self.localization_manager.get_string("vocab_edit_incorrect_label", incorrect=incorrect), font=DesignSystem.TYPOGRAPHY["body_bold"]).pack(pady=(15, 5), padx=15, anchor="w")
 
-            ctk.CTkLabel(edit_window, text="Nueva palabra correcta:", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(padx=15, anchor="w")
+            ctk.CTkLabel(edit_window, text=self.localization_manager.get_string("vocab_edit_label"), font=DesignSystem.TYPOGRAPHY["body_small"]).pack(padx=15, anchor="w")
             new_correct_var = tk.StringVar(value=current_correct)
             entry = ctk.CTkEntry(edit_window, textvariable=new_correct_var)
             entry.pack(padx=15, pady=5, fill="x")
@@ -1580,7 +1580,7 @@ class App(ctk.CTk):
             def save_edit():
                 new_value = new_correct_var.get().strip()
                 if not new_value:
-                    self.update_status("La palabra correcta no puede estar vacía", "orange")
+                    self.update_status(self.localization_manager.get_string("vocab_status_empty_word"), "orange")
                     return
                 if new_value == current_correct:
                     edit_window.destroy()
@@ -1588,7 +1588,7 @@ class App(ctk.CTk):
                 # Reemplazar la clave manteniendo la posición (eliminar + agregar con el nuevo valor)
                 self.transcriber.custom_vocab.corrections[incorrect] = new_value
                 self.transcriber.custom_vocab._save_vocab()
-                self.update_status(f"Corrección actualizada: {incorrect} → {new_value}", "green")
+                self.update_status(self.localization_manager.get_string("vocab_status_updated", incorrect=incorrect, new_value=new_value), "green")
                 if on_edited:
                     on_edited()
                 self._refresh_vocab_list()
@@ -1596,15 +1596,15 @@ class App(ctk.CTk):
 
             btn_frame = ctk.CTkFrame(edit_window, fg_color="transparent")
             btn_frame.pack(pady=10)
-            ctk.CTkButton(btn_frame, text="Guardar", width=100, fg_color="#10B981", hover_color="#059669", command=save_edit).pack(side="left", padx=5)
-            ctk.CTkButton(btn_frame, text="Cancelar", width=100, command=edit_window.destroy).pack(side="left", padx=5)
+            ctk.CTkButton(btn_frame, text=self.localization_manager.get_string("vocab_save_button"), width=100, fg_color="#10B981", hover_color="#059669", command=save_edit).pack(side="left", padx=5)
+            ctk.CTkButton(btn_frame, text=self.localization_manager.get_string("vocab_cancel_button"), width=100, command=edit_window.destroy).pack(side="left", padx=5)
 
             entry.focus_set()
             entry.select_range(0, 'end')
 
         except Exception as e:
             self.logger.error(f"Error editando corrección: {e}")
-            self.update_status(f"Error editando corrección: {e}", "red")
+            self.update_status(self.localization_manager.get_string("vocab_status_error_edit", error=str(e)), "red")
 
     def _refresh_vocab_list(self):
         """Refrescar lista de correcciones en la pestaña de configuración."""
@@ -1617,7 +1617,7 @@ class App(ctk.CTk):
                 corrections = self.transcriber.custom_vocab.get_corrections()
 
                 if not corrections:
-                    ctk.CTkLabel(self.vocab_list_frame, text="No hay correcciones configuradas", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(pady=5)
+                    ctk.CTkLabel(self.vocab_list_frame, text=self.localization_manager.get_string("vocab_empty"), font=DesignSystem.TYPOGRAPHY["body_small"]).pack(pady=5)
                 else:
                     # FIX: mostrar TODAS las correcciones, no solo las primeras 5
                     for incorrect, correct in corrections.items():
