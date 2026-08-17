@@ -762,8 +762,11 @@ class Transcriber:
                 api_method = self.cliente.audio.transcriptions.create
             else:
                 api_method = self.cliente.audio.translations.create
+            if not prompt and self.custom_vocab:
+                prompt = self.custom_vocab.get_whisper_prompt()
             if prompt:
                 kwargs["prompt"] = prompt
+            kwargs["temperature"] = 0
             response = api_method(**kwargs)
             if operation:
                 operation.event("response", response, chunk_index, attempt)
