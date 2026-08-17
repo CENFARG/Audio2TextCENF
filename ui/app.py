@@ -230,6 +230,20 @@ class App(ctk.CTk):
         self.create_history_tab()
         self.create_update_tab()
 
+        # Map localization keys → creation methods for tab name refresh
+        self._tab_config = {
+            "tab_main":     self.create_main_tab,
+            "tab_settings": self.create_config_tab,
+            "tab_info":     self.create_info_tab,
+            "tab_history":  self.create_history_tab,
+            "tab_updates":  self.create_update_tab,
+        }
+        # Track current localized names so we can delete/re-add correctly
+        self._tab_names = {
+            key: self.localization_manager.get_string(key)
+            for key in self._tab_config
+        }
+
         self.bottom_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.bottom_frame.grid(row=1, column=0, padx=10, pady=5, sticky="ew")  # Cambio de row=2 a row=1
         cenf_link = ctk.CTkLabel(self.bottom_frame, text=self.localization_manager.get_string("cenf_website"), font=DesignSystem.TYPOGRAPHY["link"], text_color=DesignSystem.COLORS["primary"], cursor="hand2")
@@ -1772,11 +1786,53 @@ class App(ctk.CTk):
         for key, (widget, kwargs) in self._localized_widgets.items():
             widget.configure(text=self.localization_manager.get_string(key, **kwargs))
 
+    def _refresh_tab_names(self):
+        """Rebuild CTkTabview tab labels with the current language.
+
+        Saves the active tab index, removes all tabs, re-adds them with
+        localized names, re-creates tab content via ``create_*_tab()``
+        methods, and restores the previously active tab.
+        """
+        try:
+            main_frame = self.main_frame
+            tab_names = self._tab_names
+        except (AttributeError, RecursionError):
+            return
+
+        active_name = main_frame.get()
+
+        # Resolve active tab to a localization key using saved names
+        active_key = None
+        for key, name in tab_names.items():
+            if active_name == name:
+                active_key = key
+                break
+
+        # Remove all existing tabs by their CURRENT localized names
+        for name in list(tab_names.values()):
+            try:
+                main_frame.delete(name)
+            except Exception:
+                pass
+
+        # Re-add tabs with new localized names and rebuild content
+        for key, creator in self._tab_config.items():
+            new_name = self.localization_manager.get_string(key)
+            main_frame.add(new_name)
+            tab_names[key] = new_name
+            creator()
+
+        # Restore active tab
+        if active_key is not None:
+            restored_name = tab_names[active_key]
+            main_frame.set(restored_name)
+
     def _on_ui_language_changed(self, language):
         """Persist and apply only the UI language, keeping output language intact."""
         self.config_manager.set("ui_language", language)
         self.localization_manager.set_language(language)
         self._refresh_localized_widgets()
+        self._refresh_tab_names()
 
     def _on_output_language_changed(self, language):
         """Persist only the requested transcription output language."""
