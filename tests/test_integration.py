@@ -184,16 +184,14 @@ class TestTranscriberWorkflow:
             wav.writeframes(b"\x00\x00" * 16000)
 
         # Mock Groq response
-        mock_response = Mock()
-        mock_response.text = "Texto de prueba"
-        mock_response.language = "es"
-        transcriber.cliente.audio.transcriptions.create = Mock(return_value=mock_response)
+        transcriber.cliente.audio.transcriptions.create = Mock(
+            return_value="Texto de prueba"
+        )
 
         # Transcribe
         result = transcriber.transcribe_with_groq(str(audio_file))
 
-        assert result["text"] == "Texto de prueba"
-        assert result["language"] == "es"
+        assert result == "Texto de prueba"
 
 
 @pytest.mark.integration
@@ -292,12 +290,22 @@ class TestBlockProcessingIntegration:
 
     def test_process_with_blocks(self, transcriber):
         """Test processing text with blocks."""
-        # Mock block manager to return processed text
-        transcriber.block_manager.process = Mock(return_value="Texto procesado con bloques")
+        # POST-transcription blocks return metadata; the original text is preserved.
+        from backend.blocks.base_block import BlockResult
+
+        transcriber.block_manager.process = Mock(
+            return_value=[
+                BlockResult(
+                    success=True,
+                    data={"summary": "Texto procesado con bloques"},
+                    metadata={"block_name": "summary"},
+                )
+            ]
+        )
 
         result = transcriber._process_with_blocks("Texto original")
 
-        assert result == "Texto procesado con bloques"
+        assert result == "Texto original"
         transcriber.block_manager.process.assert_called_once()
 
 
@@ -378,8 +386,8 @@ class TestErrorHandlingIntegration:
         file_manager = FileManager(config)
         assert os.path.exists(file_manager.audio_path)
 
-    def test_invalid_transcription_text(self, tmp_path):
-        """Test handling of invalid transcription text."""
+    def test_utf8_validation_accepts_empty_text(self, tmp_path):
+        """UTF-8 validation checks encoding, not whether text is non-empty."""
         config = Mock()
         config.get.side_effect = lambda key, default=None: {
             "hotkey": "F5",
@@ -402,14 +410,9 @@ class TestErrorHandlingIntegration:
         with patch("backend.transcriber.Groq"):
             transcriber = Transcriber(**deps)
 
-            # Test empty text
-            is_valid, error = transcriber.validate_text("")
-            assert is_valid == False
-            assert error is not None
-
-            # Test None
-            is_valid, error = transcriber.validate_text(None)
-            assert is_valid == False
+            is_valid, problems = transcriber.validate_text("")
+            assert is_valid is True
+            assert problems == []
 
 
 @pytest.mark.integration

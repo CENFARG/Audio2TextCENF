@@ -130,11 +130,14 @@ class TestAudioFileOperations:
 
         assert filepath is not None
         assert os.path.exists(filepath)
-        assert not os.path.exists(temp_file)  # Temp file should remain (copy, not move)
+        assert os.path.exists(temp_file)  # shutil.copy preserves the source file
 
     def test_save_audio_converts_list_to_array(self, file_manager):
         """Test that list audio data is converted to numpy array."""
-        audio_list = [np.array([1, 2, 3]), np.array([4, 5, 6])]
+        audio_list = [
+            np.array([1, 2, 3], dtype=np.float32),
+            np.array([4, 5, 6], dtype=np.float32),
+        ]
 
         filepath = file_manager.save_audio_file(audio_list)
 
@@ -184,7 +187,8 @@ class TestTranscriptionLogging:
 
         assert len(lines) == 1
         entry = json.loads(lines[0])
-        assert entry["text"] == "Texto de prueba"
+        assert entry["transcription"] == "Texto de prueba"
+        assert entry["text_length"] == len("Texto de prueba")
         assert entry["duration"] == 2.5
 
     def test_save_transcription_disabled(self, file_manager):
@@ -262,7 +266,11 @@ class TestFileCleanup:
             sf.write(filepath, audio_data, 16000)
 
         # Make first file old (2 days ago)
-        files = sorted(file_manager.audio_path)
+        files = sorted(
+            os.path.join(file_manager.audio_path, name)
+            for name in os.listdir(file_manager.audio_path)
+            if name.endswith(".wav")
+        )
         if files:
             old_time = time.time() - (2 * 24 * 60 * 60)
             os.utime(files[0], (old_time, old_time))
