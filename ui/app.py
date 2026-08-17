@@ -203,6 +203,7 @@ class App(ctk.CTk):
         )
         # Iniciar el polling del timer de grabación (main thread, nunca bloquea audio)
         self.after(250, self._poll_recording_timer)
+        self.after(100, self._poll_status)
 
         self.updater = Updater(
             current_version=self.config_manager.get("app_version"),
@@ -809,8 +810,11 @@ class App(ctk.CTk):
         files_list = self.file_manager.get_audio_files_list(limit=max_display_files)
 
         if not files_list:
-            if full_reload and not self.loaded_history_files:
-                ctk.CTkLabel(self.history_scroll_frame, text=self.localization_manager.get_string("no_audio_files")).pack(pady=20)
+            if full_reload:
+                for widget in self.history_scroll_frame.winfo_children():
+                    widget.destroy()
+                self.loaded_history_files.clear()
+                ctk.CTkLabel(self.history_scroll_frame, text="No hay archivos de audio").pack(pady=20)
             return
 
         # Si es recarga completa, limpiar todo
