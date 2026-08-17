@@ -295,7 +295,7 @@ class App(ctk.CTk):
         self.logger.debug("Creando pestaña 'Principal'.")
         tab = self.main_frame.tab(self.localization_manager.get_string("tab_main"))
         tab.grid_columnconfigure(0, weight=1)
-        tab.grid_rowconfigure(3, weight=1)  # Row 3 será el panel de transcripción (antes row 4)
+        tab.grid_rowconfigure(2, weight=1)  # Shared content area: controls + transcription
         
         # Status frame - REDUCIDO padding de 20 a 10
         status_frame = ctk.CTkFrame(tab, fg_color="transparent")
@@ -333,21 +333,35 @@ class App(ctk.CTk):
         self.log_size_label = ctk.CTkLabel(info_frame, text=self.localization_manager.get_string("transcriptions_info", size="..."))
         self.log_size_label.grid(row=0, column=1, sticky="e")
 
-        # Button frame - REDUCIDO padding
-        button_frame = ctk.CTkFrame(tab, fg_color="transparent")
-        button_frame.grid(row=2, column=0, padx=15, pady=(0, 5), sticky="ew")  # Reducido padding
-        button_frame.grid_columnconfigure((0, 1, 2), weight=1)
-        ctk.CTkButton(button_frame, text=self.localization_manager.get_string("clear_audio_button"), command=self.clear_audio_with_feedback).grid(row=0, column=0, padx=5, sticky="ew")
-        ctk.CTkButton(button_frame, text=self.localization_manager.get_string("clear_transcriptions_button"), command=self.clear_logs_with_feedback).grid(row=0, column=1, padx=5, sticky="ew")
-        
+        # Shared content geometry: both controls and the textbox use the same
+        # two-column contract, so their outer horizontal boundaries stay aligned.
+        content_frame = ctk.CTkFrame(tab, fg_color="transparent")
+        content_frame.grid(row=2, column=0, padx=15, pady=(0, 10), sticky="nsew")
+        content_frame.grid_columnconfigure((0, 1), weight=1, uniform="content")
+        content_frame.grid_rowconfigure(1, weight=1)
+        self.content_frame = content_frame
 
-        
-        # --- Panel de Transcripción (AMPLIADO - ahora en row 3) ---
+        self.clear_audio_button = ctk.CTkButton(
+            content_frame,
+            text=self.localization_manager.get_string("clear_audio_button"),
+            command=self.clear_audio_with_feedback,
+        )
+        self.clear_audio_button.grid(row=0, column=0, padx=5, pady=(0, 5), sticky="ew")
+        self.clear_transcriptions_button = ctk.CTkButton(
+            content_frame,
+            text=self.localization_manager.get_string("clear_transcriptions_button"),
+            command=self.clear_logs_with_feedback,
+        )
+        self.clear_transcriptions_button.grid(row=0, column=1, padx=5, pady=(0, 5), sticky="ew")
+
+        # --- Panel de Transcripción ---
         if self.config_manager.get("show_transcription_panel"):
-            self.transcription_frame = ctk.CTkFrame(tab, fg_color="transparent")
-            self.transcription_frame.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="nsew")
+            self.transcription_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+            self.transcription_frame.grid(row=1, column=0, columnspan=2, padx=5, sticky="nsew")
+            self.transcription_frame.grid_columnconfigure((0, 1), weight=1, uniform="content")
+            self.transcription_frame.grid_rowconfigure(0, weight=1)
             self.transcription_textbox = ctk.CTkTextbox(self.transcription_frame, wrap="word", font=DesignSystem.TYPOGRAPHY["body_medium"])
-            self.transcription_textbox.pack(expand=True, fill="both")
+            self.transcription_textbox.grid(row=0, column=0, columnspan=2, sticky="nsew")
         else:
             self.transcription_frame = None
             self.transcription_textbox = None
@@ -1686,12 +1700,14 @@ class App(ctk.CTk):
         if self.config_manager.get("show_transcription_panel"):
             if self.transcription_frame is None:
                 # Recrear panel si no existe
-                self.transcription_frame = ctk.CTkFrame(self.main_frame.tab(self.localization_manager.get_string("tab_main")), fg_color="transparent")
-                self.transcription_frame.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="nsew")
+                self.transcription_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+                self.transcription_frame.grid(row=1, column=0, columnspan=2, padx=5, sticky="nsew")
+                self.transcription_frame.grid_columnconfigure((0, 1), weight=1, uniform="content")
+                self.transcription_frame.grid_rowconfigure(0, weight=1)
                 self.transcription_textbox = ctk.CTkTextbox(self.transcription_frame, wrap="word", font=DesignSystem.TYPOGRAPHY["body_medium"])
-                self.transcription_textbox.pack(expand=True, fill="both")
+                self.transcription_textbox.grid(row=0, column=0, columnspan=2, sticky="nsew")
             else:
-                self.transcription_frame.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="nsew")
+                self.transcription_frame.grid(row=1, column=0, columnspan=2, padx=5, sticky="nsew")
         else:
              if self.transcription_frame:
                 self.transcription_frame.grid_remove()
