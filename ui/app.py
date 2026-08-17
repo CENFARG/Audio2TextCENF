@@ -743,6 +743,8 @@ class App(ctk.CTk):
         """
         transcriptions_path = os.path.join("transcriptions", "transcriptions_log.jsonl")
         if not os.path.exists(transcriptions_path):
+            self.transcriptions_cache = {}
+            self._transcriptions_cache_mtime = 0
             return
 
         try:

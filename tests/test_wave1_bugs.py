@@ -1,12 +1,13 @@
-"""Tests for Wave 1 bugfixes: HotkeyManager init, _stopping flag, priority cache."""
+"""Tests for Wave 1 bugfixes: HotkeyManager init, _stopping flag, priority cache, queue routing, history refresh, cache reset."""
 
 import pytest
 import sys
 import os
 import threading
 import time
+import queue
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock, MagicMock, patch, PropertyMock
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -120,3 +121,96 @@ class TestTranscriberPriorityCache:
             transcriber._refresh_priority_cache()
             mock_iter.assert_not_called()
         assert "cached_app.exe" in transcriber._cached_priority_apps
+
+
+class TestUpdateStatusQueue:
+    """Task 1.4: update_status routes through queue to avoid thread safety issues."""
+
+    def test_status_queue_exists(self):
+        """App should have _status_queue attribute."""
+        from ui.app import App
+        with patch("ui.app.ConfigManager") as mock_cm, \
+             patch("ui.app.SoundManager"), \
+             patch("ui.app.FileManager"), \
+             patch("ui.app.Transcriber"), \
+             patch("ui.app.RecordingOverlay"), \
+             patch("ui.app.TranscriptionMetadata"), \
+             patch.object(App, "__init__", lambda self, *a, **kw: None):
+            app = App.__new__(App)
+            app._status_queue = __import__("queue").Queue()
+            assert hasattr(app, "_status_queue")
+
+    def test_update_status_enqueues_message(self):
+        """update_status should put (msg, color) in queue."""
+        import queue
+        from ui.app import App
+        with patch("ui.app.ConfigManager") as mock_cm, \
+             patch("ui.app.SoundManager"), \
+             patch("ui.app.FileManager"), \
+             patch("ui.app.Transcriber"), \
+             patch("ui.app.RecordingOverlay"), \
+             patch("ui.app.TranscriptionMetadata"), \
+             patch.object(App, "__init__", lambda self, *a, **kw: None):
+            app = App.__new__(App)
+            app._status_queue = queue.Queue()
+            app.after = Mock()
+            app.update_status = App.update_status.__get__(app, App)
+            app.update_status("test msg", "green")
+            assert not app._status_queue.empty()
+            msg, color = app._status_queue.get()
+            assert msg == "test msg"
+            assert color == "green"
+
+
+class TestRefreshHistoryList:
+    """Task 2.1: Fix early return in refresh_history_list."""
+
+    def test_empty_files_with_full_reload_clears_and_shows_placeholder(self):
+        """When files_list is empty and full_reload=True, scroll frame should have only placeholder."""
+        from ui.app import App
+        mock_scroll_frame = Mock()
+        mock_scroll_frame.winfo_children.return_value = [Mock(), Mock()]
+
+        with patch.object(App, "__init__", lambda self, *a, **kw: None):
+            app = App.__new__(App)
+            app.config_manager = Mock()
+            app.config_manager.get.return_value = "/fake/audio"
+            app.file_manager = Mock()
+            app.file_manager.get_audio_files_list.return_value = []
+            app.transcriptions_cache = {}
+            app.loaded_history_files = set()
+            app.history_scroll_frame = mock_scroll_frame
+            app.localization_manager = Mock()
+            app.localization_manager.get_string.return_value = "No hay archivos"
+            app.logger = Mock()
+
+            # Patch ctk.CTkLabel
+            mock_label = Mock()
+            with patch("ui.app.ctk") as mock_ctk:
+                mock_ctk.CTkLabel.return_value = mock_label
+                app.refresh_history_list(full_reload=True)
+
+            # Should have destroyed old children and packed a new label
+            mock_scroll_frame.winfo_children.assert_called()
+            mock_label.pack.assert_called()
+
+
+class TestTranscriptionCacheReset:
+    """Task 2.2: Reset transcription cache on missing file."""
+
+    def test_cache_cleared_when_file_missing(self):
+        """When JSONL file doesn't exist, cache should be reset."""
+        from ui.app import App
+
+        with patch.object(App, "__init__", lambda self, *a, **kw: None):
+            app = App.__new__(App)
+            app.config_manager = Mock()
+            app.transcriptions_cache = {"old_file.wav": "old text"}
+            app._transcriptions_cache_mtime = 999
+            app.logger = Mock()
+
+            with patch("os.path.exists", return_value=False):
+                app._load_transcriptions_cache()
+
+            assert app.transcriptions_cache == {}
+            assert app._transcriptions_cache_mtime == 0
