@@ -1,5 +1,6 @@
 use crate::sidecar::{SidecarCommand, SidecarResponse, SidecarState};
 use serde::Serialize;
+use std::sync::Arc;
 use tauri::State;
 
 /// Generic Tauri command response.
@@ -29,7 +30,7 @@ impl From<Result<SidecarResponse, String>> for CommandResult {
 
 /// Start audio recording via the sidecar.
 #[tauri::command]
-pub async fn start_recording(state: State<'_, SidecarState>) -> Result<CommandResult, String> {
+pub async fn start_recording(state: State<'_, Arc<SidecarState>>) -> Result<CommandResult, String> {
     Ok(CommandResult::from(
         state.send_command(&SidecarCommand::StartRecording),
     ))
@@ -37,7 +38,7 @@ pub async fn start_recording(state: State<'_, SidecarState>) -> Result<CommandRe
 
 /// Stop audio recording via the sidecar.
 #[tauri::command]
-pub async fn stop_recording(state: State<'_, SidecarState>) -> Result<CommandResult, String> {
+pub async fn stop_recording(state: State<'_, Arc<SidecarState>>) -> Result<CommandResult, String> {
     Ok(CommandResult::from(
         state.send_command(&SidecarCommand::StopRecording),
     ))
@@ -45,7 +46,7 @@ pub async fn stop_recording(state: State<'_, SidecarState>) -> Result<CommandRes
 
 /// Get current configuration from the sidecar.
 #[tauri::command]
-pub async fn get_config(state: State<'_, SidecarState>) -> Result<CommandResult, String> {
+pub async fn get_config(state: State<'_, Arc<SidecarState>>) -> Result<CommandResult, String> {
     Ok(CommandResult::from(
         state.send_command(&SidecarCommand::GetConfig),
     ))
@@ -54,7 +55,7 @@ pub async fn get_config(state: State<'_, SidecarState>) -> Result<CommandResult,
 /// Save configuration via the sidecar.
 #[tauri::command]
 pub async fn save_config(
-    state: State<'_, SidecarState>,
+    state: State<'_, Arc<SidecarState>>,
     config: serde_json::Value,
 ) -> Result<CommandResult, String> {
     Ok(CommandResult::from(
@@ -64,7 +65,7 @@ pub async fn save_config(
 
 /// Get transcription history from the sidecar.
 #[tauri::command]
-pub async fn get_history(state: State<'_, SidecarState>) -> Result<CommandResult, String> {
+pub async fn get_history(state: State<'_, Arc<SidecarState>>) -> Result<CommandResult, String> {
     Ok(CommandResult::from(
         state.send_command(&SidecarCommand::GetHistory),
     ))
