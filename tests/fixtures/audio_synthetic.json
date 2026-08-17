@@ -1,0 +1,5 @@
+{
+  "fixture_name": "capture-and-chunking-invariant",
+  "sample_rate": 16000,
+  "samples": [0.0, 0.25, -0.25, 0.0, 0.125, -0.125]
+}
