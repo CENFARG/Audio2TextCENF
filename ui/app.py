@@ -713,9 +713,14 @@ class App(ctk.CTk):
                     current_count = len(files)
                     current_mtime = max([os.path.getmtime(os.path.join(audio_path, f)) for f in files]) if files else 0
 
-                    # Solo refrescar si hubo cambios (agregando solo nuevos archivos)
+                    # Detectar cambios: count o mtime diferente al cache
                     if current_count != self.last_history_file_count or current_mtime != self.last_history_mtime:
-                        self.refresh_history_list(full_reload=False)  # Solo agregar nuevos
+                        # Determinar si hubo borrados (count o mtime disminuyó)
+                        is_decrease = (
+                            current_count < self.last_history_file_count
+                            or (current_count == self.last_history_file_count and current_mtime < self.last_history_mtime and current_count > 0)
+                        )
+                        self.refresh_history_list(full_reload=is_decrease)
                         self.last_history_file_count = current_count
                         self.last_history_mtime = current_mtime
                 except Exception as e:
@@ -1929,6 +1934,7 @@ class App(ctk.CTk):
             self.update_status(self.localization_manager.get_string("error_deleting_audio"), "red")
             self.logger.error("Error al eliminar archivos de audio.")
         self.update_file_info()
+        self.refresh_history_list(full_reload=True)
 
     def clear_logs_with_feedback(self):
         self.logger.info("Intentando limpiar archivos de transcripciones.")
@@ -1939,6 +1945,7 @@ class App(ctk.CTk):
             self.update_status(self.localization_manager.get_string("error_deleting_transcriptions"), "red")
             self.logger.error("Error al eliminar archivos de transcripciones.")
         self.update_file_info()
+        self.refresh_history_list(full_reload=True)
 
     def on_closing(self):
         self.logger.info("Cerrando aplicación por completo.")
