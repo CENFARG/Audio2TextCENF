@@ -208,7 +208,7 @@ class CustomVocabulary:
 
     def export_to_file(self, file_path: str) -> bool:
         """
-        Exportar el vocabulario actual a un archivo de texto (líneas con →).
+        Exportar el vocabulario actual a un archivo de texto (líneas con =).
 
         Args:
             file_path: Ruta de destino
@@ -219,7 +219,7 @@ class CustomVocabulary:
         try:
             path = Path(file_path)
             path.parent.mkdir(parents=True, exist_ok=True)
-            lines = [f"{k} → {v}" for k, v in self.corrections.items()]
+            lines = [f"{k} = {v}" for k, v in self.corrections.items()]
             path.write_text("\n".join(lines), encoding='utf-8')
             logger.info(f"Export: {len(lines)} correcciones exportadas a {file_path}")
             return True
