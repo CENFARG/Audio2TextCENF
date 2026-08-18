@@ -76,25 +76,22 @@ pub fn run() {
                 let _ = hide_overlay(&app_handle_stopped);
             });
 
-            // Spawn the Python sidecar process
+            // Spawn the Python sidecar process — MUST use venv Python for dependencies
+            // Resolve absolute path to venv Python so it works regardless of working dir
+            let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
             let python = if cfg!(target_os = "windows") {
-                "python"
+                cwd.join(".venv").join("Scripts").join("python.exe")
             } else {
-                "python3"
+                cwd.join(".venv").join("bin").join("python3")
             };
+            let python_str = python.to_string_lossy().to_string();
             let sidecar_for_spawn = Arc::clone(&sidecar_for_setup);
 
-            // Resolve working directory: prefer resource_dir (packaged), fallback to cwd
-            let sidecar_dir = app
-                .path()
-                .resource_dir()
-                .ok()
-                .or_else(|| std::env::current_dir().ok());
-
+            log::info!("Sidecar Python: {} (cwd: {})", python_str, cwd.display());
             match sidecar_for_spawn.spawn(
-                python,
+                &python_str,
                 "backend.sidecar_entry",
-                sidecar_dir.as_deref(),
+                Some(&cwd),
             ) {
                 Ok(()) => {
                     log::info!("Sidecar spawned successfully");
