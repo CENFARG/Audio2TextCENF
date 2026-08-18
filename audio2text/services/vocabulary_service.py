@@ -179,3 +179,110 @@ class VocabularyService:
         """
         for wrong, correct in defaults.items():
             self.add_entry(wrong, correct)
+
+    # ------------------------------------------------------------------
+    # Import / Export (user-friendly format)
+    # ------------------------------------------------------------------
+
+    def export_to_text(self, enabled_only: bool = False) -> str:
+        """Export vocabulary entries as user-friendly text.
+
+        Format uses '=' as separator (not '→') for easy manual editing:
+            wrong=correct
+            another=correction
+
+        Args:
+            enabled_only: If True, only export enabled entries.
+
+        Returns:
+            Multi-line text with one entry per line.
+        """
+        lines = []
+        for entry in sorted(self._entries.values(), key=lambda e: e.word):
+            if enabled_only and not entry.enabled:
+                continue
+            lines.append(f"{entry.word}={entry.correction}")
+        return "\n".join(lines)
+
+    def import_from_text(self, text: str, category: str = "custom") -> int:
+        """Import vocabulary entries from user-friendly text.
+
+        Accepts formats:
+            - "wrong=correction" (preferred, user-friendly)
+            - "wrong→correction" (legacy format)
+            - "wrong correct" (space-separated fallback)
+
+        Lines starting with '#' or empty lines are ignored.
+
+        Args:
+            text: Multi-line text with vocabulary entries.
+            category: Optional category label for imported entries.
+
+        Returns:
+            Number of entries imported.
+        """
+        count = 0
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+
+            # Try '=' separator first (preferred)
+            if "=" in line:
+                parts = line.split("=", 1)
+                word = parts[0].strip()
+                correction = parts[1].strip()
+            # Try '→' separator (legacy)
+            elif "→" in line:
+                parts = line.split("→", 1)
+                word = parts[0].strip()
+                correction = parts[1].strip()
+            # Try space separator (fallback)
+            elif " " in line:
+                parts = line.split(None, 1)
+                word = parts[0].strip()
+                correction = parts[1].strip() if len(parts) > 1 else ""
+            else:
+                continue
+
+            if word and correction:
+                self.add_entry(word, correction, category=category)
+                count += 1
+
+        return count
+
+    def export_to_json(self) -> list[dict[str, str]]:
+        """Export vocabulary entries as JSON-serializable list.
+
+        Returns:
+            List of dicts with 'word', 'correction', 'category', 'enabled' keys.
+        """
+        return [
+            {
+                "word": entry.word,
+                "correction": entry.correction,
+                "category": entry.category,
+                "enabled": entry.enabled,
+            }
+            for entry in sorted(self._entries.values(), key=lambda e: e.word)
+        ]
+
+    def import_from_json(self, entries: list[dict[str, str]], category: str = "custom") -> int:
+        """Import vocabulary entries from JSON-serializable list.
+
+        Args:
+            entries: List of dicts with 'word' and 'correction' keys.
+            category: Optional category label for imported entries.
+
+        Returns:
+            Number of entries imported.
+        """
+        count = 0
+        for entry_data in entries:
+            word = entry_data.get("word", "").strip()
+            correction = entry_data.get("correction", "").strip()
+            if word and correction:
+                cat = entry_data.get("category", category)
+                self.add_entry(word, correction, category=cat)
+                count += 1
+        return count
