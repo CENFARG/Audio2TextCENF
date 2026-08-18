@@ -1,70 +1,108 @@
 <script lang="ts">
-  let version = $state("2.0.0");
-  let status = $state("idle");
+  import RecordingPanel from "./components/RecordingPanel.svelte";
+  import History from "./components/History.svelte";
+  import Settings from "./components/Settings.svelte";
+  import LanguageSwitch from "./components/LanguageSwitch.svelte";
+  import StatusBar from "./components/StatusBar.svelte";
+  import { t } from "./lib/i18n";
+
+  let activeTab = $state<"recording" | "history" | "settings">("recording");
 </script>
 
-<main class="container">
-  <h1>Audio2Text v{version}</h1>
-  <p class="subtitle">Tauri 2 + Svelte 5</p>
+<div class="app">
+  <header class="app-header">
+    <h1>Audio2Text</h1>
+    <LanguageSwitch />
+  </header>
 
-  <div class="status-card">
-    <span class="status-dot" class:active={status === "recording"}></span>
-    <span>Status: {status}</span>
-  </div>
+  <nav class="tabs">
+    <button
+      class="tab"
+      class:active={activeTab === "recording"}
+      onclick={() => (activeTab = "recording")}
+    >
+      {t("tab_main")}
+    </button>
+    <button
+      class="tab"
+      class:active={activeTab === "history"}
+      onclick={() => (activeTab = "history")}
+    >
+      {t("tab_history")}
+    </button>
+    <button
+      class="tab"
+      class:active={activeTab === "settings"}
+      onclick={() => (activeTab = "settings")}
+    >
+      {t("tab_settings")}
+    </button>
+  </nav>
 
-  <p class="placeholder">UI coming in Phase 3</p>
-</main>
+  <main class="content">
+    {#if activeTab === "recording"}
+      <RecordingPanel />
+    {:else if activeTab === "history"}
+      <History />
+    {:else}
+      <Settings />
+    {/if}
+  </main>
+
+  <StatusBar />
+</div>
 
 <style>
-  .container {
+  .app {
     display: flex;
     flex-direction: column;
+    height: 100vh;
+    background: var(--bg-primary);
+  }
+
+  .app-header {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    justify-content: center;
-    min-height: 100vh;
-    padding: 2rem;
-    font-family: system-ui, -apple-system, sans-serif;
-    background: #1a1a2e;
-    color: #e0e0e0;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--border);
   }
 
   h1 {
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
-    color: #00d4ff;
+    font-size: 1.1rem;
+    color: var(--accent);
+    font-weight: 700;
   }
 
-  .subtitle {
-    font-size: 1rem;
-    color: #888;
-    margin-bottom: 2rem;
-  }
-
-  .status-card {
+  .tabs {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 1rem 1.5rem;
-    background: #16213e;
-    border-radius: 8px;
-    border: 1px solid #0f3460;
+    border-bottom: 1px solid var(--border);
   }
 
-  .status-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #555;
+  .tab {
+    flex: 1;
+    padding: 0.6rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    border-bottom: 2px solid transparent;
   }
 
-  .status-dot.active {
-    background: #00ff88;
-    box-shadow: 0 0 8px #00ff8866;
+  .tab:hover {
+    color: var(--text-primary);
   }
 
-  .placeholder {
-    margin-top: 2rem;
-    color: #666;
-    font-style: italic;
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .content {
+    flex: 1;
+    overflow-y: auto;
   }
 </style>

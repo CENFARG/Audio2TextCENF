@@ -20,5 +20,1857 @@
       "method": "llm"
     },
     "updated_at": "2026-03-30T23:19:09.107512"
+  },
+  "test_audio.wav": {
+    "auto": {
+      "filename": "test_audio.wav",
+      "generated_at": "2026-08-17T21:22:23.779875",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T21:22:23.784772"
+  },
+  "tmpb_yvnjuq.wav": {
+    "auto": {
+      "filename": "tmpb_yvnjuq.wav",
+      "generated_at": "2026-08-17T05:53:19.561815",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T05:53:19.561815"
+  },
+  "tmp5djo00te.wav": {
+    "auto": {
+      "filename": "tmp5djo00te.wav",
+      "generated_at": "2026-08-17T05:53:19.606093",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T05:53:19.606093"
+  },
+  "tmpi3bmlokq.wav": {
+    "auto": {
+      "filename": "tmpi3bmlokq.wav",
+      "generated_at": "2026-08-17T05:53:19.632853",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T05:53:19.632853"
+  },
+  "tmpgwm7gev0.wav": {
+    "auto": {
+      "filename": "tmpgwm7gev0.wav",
+      "generated_at": "2026-08-17T06:05:30.298391",
+      "transcription_length": 151,
+      "word_count": 27,
+      "title": "I don't know if this...",
+      "category": "personal",
+      "tags": [],
+      "summary": "I don't know if this is working, the language transcription, the language interface change didn't...",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T06:05:30.299403"
+  },
+  "tmp5nz647kf.wav": {
+    "auto": {
+      "filename": "tmp5nz647kf.wav",
+      "generated_at": "2026-08-17T06:06:34.499778",
+      "transcription_length": 93,
+      "word_count": 19,
+      "title": "There i am seeing, well,...",
+      "category": "personal",
+      "tags": [],
+      "summary": "There I am seeing, well, if I change the language in what it says, not in the interface, ok",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T06:06:34.500777"
+  },
+  "tmpa5lbp257.wav": {
+    "auto": {
+      "filename": "tmpa5lbp257.wav",
+      "generated_at": "2026-08-17T06:06:48.700396",
+      "transcription_length": 131,
+      "word_count": 25,
+      "title": "I changed to spanish but...",
+      "category": "personal",
+      "tags": [],
+      "summary": "I changed to Spanish but I don't know what's going on  Oh no, my interface language is fine, my o...",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T06:06:48.701395"
+  },
+  "tmps9lmuh8q.wav": {
+    "auto": {
+      "filename": "tmps9lmuh8q.wav",
+      "generated_at": "2026-08-17T06:07:03.336957",
+      "transcription_length": 68,
+      "word_count": 13,
+      "title": "Ahora sí estoy probando a...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Ahora sí estoy probando a ver cómo sale en idioma español el texto",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T06:07:03.336957"
+  },
+  "tmpkk2ip0cp.wav": {
+    "auto": {
+      "filename": "tmpkk2ip0cp.wav",
+      "generated_at": "2026-08-17T06:07:22.006264",
+      "transcription_length": 86,
+      "word_count": 17,
+      "title": "En el cambio de idioma...",
+      "category": "personal",
+      "tags": [],
+      "summary": "En el cambio de idioma de la interfaz se ve que cambia algunas pocas cosas, no todas",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T06:07:22.011819"
+  },
+  "tmpdr1tmncs.wav": {
+    "auto": {
+      "filename": "tmpdr1tmncs.wav",
+      "generated_at": "2026-08-17T06:08:10.316252",
+      "transcription_length": 268,
+      "word_count": 49,
+      "title": "Esto sí, ahí se corrige,...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Esto sí, ahí se corrige, bueno, muy bien igualmente En el editorial, ¿qué pasó? Ah, no se da raro...",
+      "emoji": "🏠",
+      "sentiment": "positivo",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T06:08:10.325829"
+  },
+  "tmplnnr25a2.wav": {
+    "auto": {
+      "filename": "tmplnnr25a2.wav",
+      "generated_at": "2026-08-17T06:08:45.023763",
+      "transcription_length": 104,
+      "word_count": 15,
+      "title": "Antes de continuar con la...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Antes de continuar con la modernización hay que hacer unas modificaciones porque veo algunos prob...",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T06:08:45.024757"
+  },
+  "tmpcx74s8o9.wav": {
+    "auto": {
+      "filename": "tmpcx74s8o9.wav",
+      "generated_at": "2026-08-17T06:09:36.636425",
+      "transcription_length": 605,
+      "word_count": 100,
+      "title": "Funciona correctamente ahora la transcripción,...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Funciona correctamente ahora la transcripción, cuando cambiamos a idioma inglés funciona correcta...",
+      "emoji": "🏠",
+      "sentiment": "negativo",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T06:09:36.638388"
+  },
+  "tmp5qy9jt9w.wav": {
+    "auto": {
+      "filename": "tmp5qy9jt9w.wav",
+      "generated_at": "2026-08-17T06:10:47.136948",
+      "transcription_length": 566,
+      "word_count": 100,
+      "title": "Y después me pasó que...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Y después me pasó que estaba acá en la ventana principal, limpie los audios, hice esa función de ...",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T06:10:47.139934"
+  },
+  "tmpy1yhlljj.wav": {
+    "auto": {
+      "filename": "tmpy1yhlljj.wav",
+      "generated_at": "2026-08-17T06:26:38.476148",
+      "transcription_length": 867,
+      "word_count": 152,
+      "title": "Ok, pero antes que nada...",
+      "category": "trabajo",
+      "tags": [
+        "proyecto"
+      ],
+      "summary": "Ok, pero antes que nada te pregunto si sabes o has podido rastrear cuando vamos a trabajar entonc...",
+      "emoji": "💼",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T06:26:38.477104"
+  },
+  "tmpb4j5kah2.wav": {
+    "auto": {
+      "filename": "tmpb4j5kah2.wav",
+      "generated_at": "2026-08-17T06:27:16.382405",
+      "transcription_length": 333,
+      "word_count": 61,
+      "title": "Y a esta herramienta la...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Y a esta herramienta la vamos a integrar en realidad quizá con lo que es el Media Suite O la Suit...",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T06:27:16.383399"
+  },
+  "tmpf6abzpwo.wav": {
+    "auto": {
+      "filename": "tmpf6abzpwo.wav",
+      "generated_at": "2026-08-17T06:44:22.415172",
+      "transcription_length": 563,
+      "word_count": 97,
+      "title": "Continuamos con la siguiente etapa...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Continuamos con la siguiente etapa y quiero aclarar por las dudas que, por supuesto que esta actu...",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T06:44:22.415172"
+  },
+  "tmpx_v9wn6y.wav": {
+    "auto": {
+      "filename": "tmpx_v9wn6y.wav",
+      "generated_at": "2026-08-17T07:11:32.223469",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T07:11:32.223469"
+  },
+  "tmpl6dun65e.wav": {
+    "auto": {
+      "filename": "tmpl6dun65e.wav",
+      "generated_at": "2026-08-17T07:11:32.252664",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T07:11:32.252664"
+  },
+  "tmp37_2q5vc.wav": {
+    "auto": {
+      "filename": "tmp37_2q5vc.wav",
+      "generated_at": "2026-08-17T07:11:32.270356",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T07:11:32.270356"
+  },
+  "tmp8jenna4v.wav": {
+    "auto": {
+      "filename": "tmp8jenna4v.wav",
+      "generated_at": "2026-08-17T07:20:57.939246",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T07:20:57.939246"
+  },
+  "tmpswkhiel7.wav": {
+    "auto": {
+      "filename": "tmpswkhiel7.wav",
+      "generated_at": "2026-08-17T07:20:57.968524",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T07:20:57.968524"
+  },
+  "tmp_3ixy1d2.wav": {
+    "auto": {
+      "filename": "tmp_3ixy1d2.wav",
+      "generated_at": "2026-08-17T07:20:57.999646",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T07:20:57.999646"
+  },
+  "tmp0s25q7tu.wav": {
+    "auto": {
+      "filename": "tmp0s25q7tu.wav",
+      "generated_at": "2026-08-17T11:41:05.947542",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T11:41:05.947542"
+  },
+  "tmpmecxeb05.wav": {
+    "auto": {
+      "filename": "tmpmecxeb05.wav",
+      "generated_at": "2026-08-17T11:41:05.985375",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T11:41:05.985375"
+  },
+  "tmpsogug1of.wav": {
+    "auto": {
+      "filename": "tmpsogug1of.wav",
+      "generated_at": "2026-08-17T11:41:06.029104",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T11:41:06.029104"
+  },
+  "tmp8q5a0_9d.wav": {
+    "auto": {
+      "filename": "tmp8q5a0_9d.wav",
+      "generated_at": "2026-08-17T11:41:44.501155",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T11:41:44.501155"
+  },
+  "tmpyft5pz9p.wav": {
+    "auto": {
+      "filename": "tmpyft5pz9p.wav",
+      "generated_at": "2026-08-17T11:41:44.536312",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T11:41:44.536312"
+  },
+  "tmp3qse4mnn.wav": {
+    "auto": {
+      "filename": "tmp3qse4mnn.wav",
+      "generated_at": "2026-08-17T11:41:44.554900",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T11:41:44.554900"
+  },
+  "tmptbqfxihi.wav": {
+    "auto": {
+      "filename": "tmptbqfxihi.wav",
+      "generated_at": "2026-08-17T11:42:42.419798",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T11:42:42.419798"
+  },
+  "tmp8_by5so_.wav": {
+    "auto": {
+      "filename": "tmp8_by5so_.wav",
+      "generated_at": "2026-08-17T11:42:42.458961",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T11:42:42.458961"
+  },
+  "tmpko_9sxom.wav": {
+    "auto": {
+      "filename": "tmpko_9sxom.wav",
+      "generated_at": "2026-08-17T11:42:42.484088",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T11:42:42.484088"
+  },
+  "tmp7wokgn_q.wav": {
+    "auto": {
+      "filename": "tmp7wokgn_q.wav",
+      "generated_at": "2026-08-17T11:43:30.497266",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T11:43:30.497266"
+  },
+  "tmpu5i6pdm_.wav": {
+    "auto": {
+      "filename": "tmpu5i6pdm_.wav",
+      "generated_at": "2026-08-17T11:43:30.534374",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T11:43:30.534374"
+  },
+  "tmp1vett12k.wav": {
+    "auto": {
+      "filename": "tmp1vett12k.wav",
+      "generated_at": "2026-08-17T11:43:30.607190",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T11:43:30.607190"
+  },
+  "tmphwulft1i.wav": {
+    "auto": {
+      "filename": "tmphwulft1i.wav",
+      "generated_at": "2026-08-17T12:34:09.664059",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T12:34:09.664059"
+  },
+  "tmpup0tqwlf.wav": {
+    "auto": {
+      "filename": "tmpup0tqwlf.wav",
+      "generated_at": "2026-08-17T12:34:09.783859",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T12:34:09.783859"
+  },
+  "tmpee7v1u0n.wav": {
+    "auto": {
+      "filename": "tmpee7v1u0n.wav",
+      "generated_at": "2026-08-17T12:34:09.894079",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T12:34:09.894079"
+  },
+  "tmpzp59sf6u.wav": {
+    "auto": {
+      "filename": "tmpzp59sf6u.wav",
+      "generated_at": "2026-08-17T12:58:10.974819",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T12:58:10.974819"
+  },
+  "tmpp91eixba.wav": {
+    "auto": {
+      "filename": "tmpp91eixba.wav",
+      "generated_at": "2026-08-17T12:58:11.046795",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T12:58:11.046795"
+  },
+  "tmp0k8uggfp.wav": {
+    "auto": {
+      "filename": "tmp0k8uggfp.wav",
+      "generated_at": "2026-08-17T12:58:11.067881",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T12:58:11.067881"
+  },
+  "tmp0dmn7v1g.wav": {
+    "auto": {
+      "filename": "tmp0dmn7v1g.wav",
+      "generated_at": "2026-08-17T13:04:12.538432",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T13:04:12.538432"
+  },
+  "tmpbj5soltf.wav": {
+    "auto": {
+      "filename": "tmpbj5soltf.wav",
+      "generated_at": "2026-08-17T13:04:12.628248",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T13:04:12.628248"
+  },
+  "tmp1la1vxjz.wav": {
+    "auto": {
+      "filename": "tmp1la1vxjz.wav",
+      "generated_at": "2026-08-17T13:04:12.678578",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T13:04:12.678578"
+  },
+  "tmpwpur0ai8.wav": {
+    "auto": {
+      "filename": "tmpwpur0ai8.wav",
+      "generated_at": "2026-08-17T13:04:41.754046",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T13:04:41.754046"
+  },
+  "tmpsdshw7l1.wav": {
+    "auto": {
+      "filename": "tmpsdshw7l1.wav",
+      "generated_at": "2026-08-17T13:04:41.820919",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T13:04:41.820919"
+  },
+  "tmp9xaqn9f5.wav": {
+    "auto": {
+      "filename": "tmp9xaqn9f5.wav",
+      "generated_at": "2026-08-17T13:04:41.841058",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T13:04:41.841058"
+  },
+  "tmpizwxl_32.wav": {
+    "auto": {
+      "filename": "tmpizwxl_32.wav",
+      "generated_at": "2026-08-17T13:06:49.528046",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T13:06:49.528046"
+  },
+  "tmpb1y3b_sb.wav": {
+    "auto": {
+      "filename": "tmpb1y3b_sb.wav",
+      "generated_at": "2026-08-17T13:06:49.558621",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T13:06:49.558621"
+  },
+  "tmp14mwxjc9.wav": {
+    "auto": {
+      "filename": "tmp14mwxjc9.wav",
+      "generated_at": "2026-08-17T13:06:49.575446",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T13:06:49.575446"
+  },
+  "tmp_f2z5b1p.wav": {
+    "auto": {
+      "filename": "tmp_f2z5b1p.wav",
+      "generated_at": "2026-08-17T13:20:45.333607",
+      "transcription_length": 1200,
+      "word_count": 217,
+      "title": "Bueno, quiero ver si esto...",
+      "category": "aprendizaje",
+      "tags": [
+        "tutorial"
+      ],
+      "summary": "Bueno, quiero ver si esto funciona, por lo pronto me sacó el tutorial por HomeGuysen, así que gen...",
+      "emoji": "📚",
+      "sentiment": "positivo",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T13:20:45.333607"
+  },
+  "tmpo6f47fek.wav": {
+    "auto": {
+      "filename": "tmpo6f47fek.wav",
+      "generated_at": "2026-08-17T19:40:48.256990",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:40:48.256990"
+  },
+  "tmp98nvps8x.wav": {
+    "auto": {
+      "filename": "tmp98nvps8x.wav",
+      "generated_at": "2026-08-17T19:40:48.296724",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:40:48.296724"
+  },
+  "tmpp7y1mp5d.wav": {
+    "auto": {
+      "filename": "tmpp7y1mp5d.wav",
+      "generated_at": "2026-08-17T19:40:48.318343",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:40:48.318343"
+  },
+  "tmp5yk0fn8k.wav": {
+    "auto": {
+      "filename": "tmp5yk0fn8k.wav",
+      "generated_at": "2026-08-17T19:43:02.582320",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:43:02.582320"
+  },
+  "tmpk4xwohgn.wav": {
+    "auto": {
+      "filename": "tmpk4xwohgn.wav",
+      "generated_at": "2026-08-17T19:43:02.623930",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:43:02.623930"
+  },
+  "tmptk8upi5c.wav": {
+    "auto": {
+      "filename": "tmptk8upi5c.wav",
+      "generated_at": "2026-08-17T19:43:02.639707",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:43:02.639707"
+  },
+  "tmpk7vx378n.wav": {
+    "auto": {
+      "filename": "tmpk7vx378n.wav",
+      "generated_at": "2026-08-17T19:43:40.887795",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:43:40.887795"
+  },
+  "tmp5kf1scs7.wav": {
+    "auto": {
+      "filename": "tmp5kf1scs7.wav",
+      "generated_at": "2026-08-17T19:43:40.925781",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:43:40.925781"
+  },
+  "tmpjv1j4yay.wav": {
+    "auto": {
+      "filename": "tmpjv1j4yay.wav",
+      "generated_at": "2026-08-17T19:43:40.945388",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:43:40.945388"
+  },
+  "tmp31l_5_h0.wav": {
+    "auto": {
+      "filename": "tmp31l_5_h0.wav",
+      "generated_at": "2026-08-17T19:45:35.766376",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:45:35.766376"
+  },
+  "tmpds_3ypy8.wav": {
+    "auto": {
+      "filename": "tmpds_3ypy8.wav",
+      "generated_at": "2026-08-17T19:45:35.881991",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:45:35.881991"
+  },
+  "tmp5rhxausq.wav": {
+    "auto": {
+      "filename": "tmp5rhxausq.wav",
+      "generated_at": "2026-08-17T19:45:35.905963",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:45:35.905963"
+  },
+  "tmpwknpiyge.wav": {
+    "auto": {
+      "filename": "tmpwknpiyge.wav",
+      "generated_at": "2026-08-17T19:46:58.530230",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:46:58.530230"
+  },
+  "tmpsb1ahjcj.wav": {
+    "auto": {
+      "filename": "tmpsb1ahjcj.wav",
+      "generated_at": "2026-08-17T19:46:58.561888",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:46:58.561888"
+  },
+  "tmp4c0216se.wav": {
+    "auto": {
+      "filename": "tmp4c0216se.wav",
+      "generated_at": "2026-08-17T19:46:58.582462",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:46:58.582462"
+  },
+  "tmprypkkqp7.wav": {
+    "auto": {
+      "filename": "tmprypkkqp7.wav",
+      "generated_at": "2026-08-17T19:50:18.908448",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:50:18.908448"
+  },
+  "tmppakf_cgm.wav": {
+    "auto": {
+      "filename": "tmppakf_cgm.wav",
+      "generated_at": "2026-08-17T19:50:18.951144",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:50:18.951144"
+  },
+  "tmpx9cfun6i.wav": {
+    "auto": {
+      "filename": "tmpx9cfun6i.wav",
+      "generated_at": "2026-08-17T19:50:18.978419",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:50:18.978419"
+  },
+  "tmpbj63c7zk.wav": {
+    "auto": {
+      "filename": "tmpbj63c7zk.wav",
+      "generated_at": "2026-08-17T19:53:45.316356",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:53:45.316356"
+  },
+  "tmpakt5lxe9.wav": {
+    "auto": {
+      "filename": "tmpakt5lxe9.wav",
+      "generated_at": "2026-08-17T19:53:45.357195",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:53:45.357195"
+  },
+  "tmpkaukatl_.wav": {
+    "auto": {
+      "filename": "tmpkaukatl_.wav",
+      "generated_at": "2026-08-17T19:53:45.378489",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:53:45.378489"
+  },
+  "tmpu0omfjg_.wav": {
+    "auto": {
+      "filename": "tmpu0omfjg_.wav",
+      "generated_at": "2026-08-17T19:55:44.671634",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:55:44.671634"
+  },
+  "tmpo2zla_n5.wav": {
+    "auto": {
+      "filename": "tmpo2zla_n5.wav",
+      "generated_at": "2026-08-17T19:55:44.715861",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:55:44.715861"
+  },
+  "tmpi42tcaph.wav": {
+    "auto": {
+      "filename": "tmpi42tcaph.wav",
+      "generated_at": "2026-08-17T19:55:44.735327",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T19:55:44.735327"
+  },
+  "tmp3zrib0vg.wav": {
+    "auto": {
+      "filename": "tmp3zrib0vg.wav",
+      "generated_at": "2026-08-17T20:01:09.860868",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:01:09.860868"
+  },
+  "tmpcdvpvrjn.wav": {
+    "auto": {
+      "filename": "tmpcdvpvrjn.wav",
+      "generated_at": "2026-08-17T20:01:09.896961",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:01:09.896961"
+  },
+  "tmp8dltmm_g.wav": {
+    "auto": {
+      "filename": "tmp8dltmm_g.wav",
+      "generated_at": "2026-08-17T20:01:09.918061",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:01:09.918061"
+  },
+  "tmpfaymgdpe.wav": {
+    "auto": {
+      "filename": "tmpfaymgdpe.wav",
+      "generated_at": "2026-08-17T20:01:59.644797",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:01:59.644797"
+  },
+  "tmpcy6rbx21.wav": {
+    "auto": {
+      "filename": "tmpcy6rbx21.wav",
+      "generated_at": "2026-08-17T20:01:59.686023",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:01:59.686023"
+  },
+  "tmpldcwv5vc.wav": {
+    "auto": {
+      "filename": "tmpldcwv5vc.wav",
+      "generated_at": "2026-08-17T20:01:59.720021",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:01:59.720021"
+  },
+  "tmp5jpsxh2o.wav": {
+    "auto": {
+      "filename": "tmp5jpsxh2o.wav",
+      "generated_at": "2026-08-17T20:09:56.193297",
+      "transcription_length": 212,
+      "word_count": 43,
+      "title": "Bueno, quería ver si esto...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Bueno, quería ver si esto funciona bien No sé qué me quedaba por corregir de esto Tendría que ver...",
+      "emoji": "🏠",
+      "sentiment": "positivo",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:09:56.193297"
+  },
+  "tmp3uj5woj8.wav": {
+    "auto": {
+      "filename": "tmp3uj5woj8.wav",
+      "generated_at": "2026-08-17T20:10:49.428480",
+      "transcription_length": 395,
+      "word_count": 69,
+      "title": "Ahí tendría que ver que...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Ahí tendría que ver que claro Ahora si está todo en inglés Eso si lo corrigió Está bien Todo esto...",
+      "emoji": "🏠",
+      "sentiment": "positivo",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:10:49.428480"
+  },
+  "tmpkap31nf2.wav": {
+    "auto": {
+      "filename": "tmpkap31nf2.wav",
+      "generated_at": "2026-08-17T20:11:07.721575",
+      "transcription_length": 92,
+      "word_count": 15,
+      "title": "Antes que nada, todavía hay...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Antes que nada, todavía hay algunas correcciones para hacer, te voy a decir a continuación",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:11:07.721575"
+  },
+  "tmp2b0_bn5s.wav": {
+    "auto": {
+      "filename": "tmp2b0_bn5s.wav",
+      "generated_at": "2026-08-17T20:12:44.572168",
+      "transcription_length": 1142,
+      "word_count": 211,
+      "title": "Veo que por ejemplo cuando...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Veo que por ejemplo cuando cambio de idioma o de lenguaje de la interfaz Por ejemplo a inglés Veo...",
+      "emoji": "🏠",
+      "sentiment": "negativo",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:12:44.572168"
+  },
+  "tmpezxvp3fe.wav": {
+    "auto": {
+      "filename": "tmpezxvp3fe.wav",
+      "generated_at": "2026-08-17T20:14:16.432970",
+      "transcription_length": 577,
+      "word_count": 106,
+      "title": "Y otra cosa que veo...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Y otra cosa que veo que estaría bueno incorporar es que en la transcripción veo que no pone punto...",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:14:16.432970"
+  },
+  "tmp_lfm9hp3.wav": {
+    "auto": {
+      "filename": "tmp_lfm9hp3.wav",
+      "generated_at": "2026-08-17T20:15:44.990442",
+      "transcription_length": 1069,
+      "word_count": 201,
+      "title": "Y puede hacer que se...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Y puede hacer que se confunda el modelo  A veces sí veo que acá está poniendo algunos signos de p...",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:15:45.006191"
+  },
+  "tmp9pffy_l6.wav": {
+    "auto": {
+      "filename": "tmp9pffy_l6.wav",
+      "generated_at": "2026-08-17T20:16:58.135944",
+      "transcription_length": 830,
+      "word_count": 158,
+      "title": "Porque por ejemplo este último...",
+      "category": "aprendizaje",
+      "tags": [
+        "explicación"
+      ],
+      "summary": "porque por ejemplo este último esta última transcripción veo que fue mucho mejor entonces no sé a...",
+      "emoji": "📚",
+      "sentiment": "positivo",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:16:58.135944"
+  },
+  "tmp5hx6cofx.wav": {
+    "auto": {
+      "filename": "tmp5hx6cofx.wav",
+      "generated_at": "2026-08-17T20:23:03.409745",
+      "transcription_length": 3586,
+      "word_count": 680,
+      "title": "Bueno, voy a grabar porque,...",
+      "category": "trabajo",
+      "tags": [
+        "tarea"
+      ],
+      "summary": "Bueno, voy a grabar porque, a ver si me ayuda a pensar, con Monza queremos evaluar qué vamos a ha...",
+      "emoji": "💼",
+      "sentiment": "positivo",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:23:03.411757"
+  },
+  "tmpaz8yrjoq.wav": {
+    "auto": {
+      "filename": "tmpaz8yrjoq.wav",
+      "generated_at": "2026-08-17T20:26:07.965772",
+      "transcription_length": 2073,
+      "word_count": 378,
+      "title": "Otro segundo punto que quiero...",
+      "category": "trabajo",
+      "tags": [
+        "proyecto"
+      ],
+      "summary": "Otro segundo punto que quiero mencionar, justo ahora que estoy en este proceso, anotando el BAP y...",
+      "emoji": "💼",
+      "sentiment": "positivo",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:26:07.965772"
+  },
+  "tmp78i7q655.wav": {
+    "auto": {
+      "filename": "tmp78i7q655.wav",
+      "generated_at": "2026-08-17T20:37:31.342187",
+      "transcription_length": 3184,
+      "word_count": 562,
+      "title": "Después otra cosa que yo...",
+      "category": "idea",
+      "tags": [
+        "idea"
+      ],
+      "summary": "Después otra cosa que yo había comentado o ya he notado incluso es que para esta propuesta INVAP ...",
+      "emoji": "💡",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:37:31.348703"
+  },
+  "tmpfk03ks7a.wav": {
+    "auto": {
+      "filename": "tmpfk03ks7a.wav",
+      "generated_at": "2026-08-17T20:44:56.329677",
+      "transcription_length": 2964,
+      "word_count": 541,
+      "title": "Después el otro punto es...",
+      "category": "trabajo",
+      "tags": [
+        "tarea"
+      ],
+      "summary": "Después el otro punto es Además de lo metodológico Que quizá prompt y herramientas básicas inicia...",
+      "emoji": "💼",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:44:56.329677"
+  },
+  "tmp9upcst94.wav": {
+    "auto": {
+      "filename": "tmp9upcst94.wav",
+      "generated_at": "2026-08-17T20:46:38.518381",
+      "transcription_length": 330,
+      "word_count": 61,
+      "title": "Recordá que nosotros siempre tenemos...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Recordá que nosotros siempre tenemos esto de mejora que hay sen y quiero el máximo nivel de calid...",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:46:38.518381"
+  },
+  "tmpd1_m97x7.wav": {
+    "auto": {
+      "filename": "tmpd1_m97x7.wav",
+      "generated_at": "2026-08-17T20:52:01.895196",
+      "transcription_length": 3493,
+      "word_count": 608,
+      "title": "Voy a hablar de la...",
+      "category": "idea",
+      "tags": [
+        "idea"
+      ],
+      "summary": "voy a hablar de la otra parte porque por ahí al principio quizá igualmente algunas funcionalidade...",
+      "emoji": "💡",
+      "sentiment": "positivo",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T20:52:01.901273"
+  },
+  "tmpfphgf9yd.wav": {
+    "auto": {
+      "filename": "tmpfphgf9yd.wav",
+      "generated_at": "2026-08-17T21:21:08.207865",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T21:21:08.207865"
+  },
+  "tmpulp563hh.wav": {
+    "auto": {
+      "filename": "tmpulp563hh.wav",
+      "generated_at": "2026-08-17T21:21:08.255235",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T21:21:08.255235"
+  },
+  "tmppmnp7mpf.wav": {
+    "auto": {
+      "filename": "tmppmnp7mpf.wav",
+      "generated_at": "2026-08-17T21:21:08.280486",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T21:21:08.280486"
+  },
+  "tmpnig5_13k.wav": {
+    "auto": {
+      "filename": "tmpnig5_13k.wav",
+      "generated_at": "2026-08-17T21:21:40.592391",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T21:21:40.592391"
+  },
+  "tmp7sbqr_lh.wav": {
+    "auto": {
+      "filename": "tmp7sbqr_lh.wav",
+      "generated_at": "2026-08-17T21:21:40.642659",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T21:21:40.642659"
+  },
+  "tmpvmzd2isc.wav": {
+    "auto": {
+      "filename": "tmpvmzd2isc.wav",
+      "generated_at": "2026-08-17T21:21:40.680368",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T21:21:40.680368"
+  },
+  "tmp3rws_jrj.wav": {
+    "auto": {
+      "filename": "tmp3rws_jrj.wav",
+      "generated_at": "2026-08-17T21:22:25.241537",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Texto de prueba",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto de prueba",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T21:22:25.241537"
+  },
+  "tmpsd8fe7ft.wav": {
+    "auto": {
+      "filename": "tmpsd8fe7ft.wav",
+      "generated_at": "2026-08-17T21:22:25.323661",
+      "transcription_length": 16,
+      "word_count": 3,
+      "title": "Texto en español",
+      "category": "personal",
+      "tags": [],
+      "summary": "Texto en español",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T21:22:25.323661"
+  },
+  "tmpnzjgtgaq.wav": {
+    "auto": {
+      "filename": "tmpnzjgtgaq.wav",
+      "generated_at": "2026-08-17T21:22:25.358144",
+      "transcription_length": 15,
+      "word_count": 3,
+      "title": "Text in english",
+      "category": "personal",
+      "tags": [],
+      "summary": "Text in English",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T21:22:25.358144"
   }
 }
