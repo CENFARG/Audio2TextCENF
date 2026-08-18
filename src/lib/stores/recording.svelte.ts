@@ -24,46 +24,44 @@ export function getRecordingState() {
   };
 }
 
-export function startRecording(): void {
-  isRecording = true;
-  status = "recording";
-  elapsedSeconds = 0;
-  currentText = "";
-
-  _timerInterval = setInterval(() => {
-    elapsedSeconds++;
-  }, 1000);
-
-  invokeStart().catch(() => {
+export async function startRecording(): Promise<void> {
+  try {
+    const response = await invokeStart();
+    if (response.status === "ok") {
+      isRecording = true;
+      status = "recording";
+      elapsedSeconds = 0;
+      currentText = "";
+      _timerInterval = setInterval(() => { elapsedSeconds++; }, 1000);
+    } else {
+      status = "error";
+    }
+  } catch {
     status = "error";
-    isRecording = false;
-    stopTimer();
-  });
+  }
 }
 
-export function stopRecording(): void {
+export async function stopRecording(): Promise<void> {
   stopTimer();
   status = "processing";
-
-  invokeStop()
-    .then((response) => {
-      if (response.status === "ok") {
-        status = "idle";
-        if (response.data && typeof response.data === "object") {
-          const data = response.data as Record<string, unknown>;
-          if (typeof data.text === "string") {
-            currentText = data.text;
-          }
+  try {
+    const response = await invokeStop();
+    if (response.status === "ok") {
+      status = "idle";
+      if (response.data && typeof response.data === "object") {
+        const data = response.data as Record<string, unknown>;
+        if (typeof data.text === "string") {
+          currentText = data.text;
         }
-      } else {
-        status = "error";
       }
-      isRecording = false;
-    })
-    .catch(() => {
+    } else {
       status = "error";
-      isRecording = false;
-    });
+    }
+    isRecording = false;
+  } catch {
+    status = "error";
+    isRecording = false;
+  }
 }
 
 export function resetRecording(): void {

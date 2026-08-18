@@ -10,6 +10,33 @@ import logging
 
 logger = logging.getLogger("SidecarEntry")
 
+_transcriber = None
+
+
+def _get_transcriber():
+    global _transcriber
+    if _transcriber is None:
+        from backend.transcriber import Transcriber
+        from backend.config_manager import ConfigManager
+        from backend.sound_manager import SoundManager
+        from backend.file_manager import FileManager
+        from backend.localization_manager import LocalizationManager
+
+        config = ConfigManager()
+        sound = SoundManager()
+        file_mgr = FileManager(config)
+        loc = LocalizationManager()
+
+        _transcriber = Transcriber(
+            config_manager=config,
+            sound_manager=sound,
+            file_manager=file_mgr,
+            update_status_callback=lambda msg, color: None,
+            transcription_callback=lambda data: None,
+            localization_manager=loc,
+        )
+    return _transcriber
+
 
 def parse_line(line):
     """Parse a single JSON line.  Returns dict or None on empty/invalid."""
@@ -31,11 +58,21 @@ def _make_response(status, data=None, error=None):
 
 
 def _handle_start_recording(cmd):
-    return _make_response("ok", {"recording": True})
+    try:
+        t = _get_transcriber()
+        t.start_recording()
+        return _make_response("ok", {"recording": True})
+    except Exception as e:
+        return _make_response("error", error=str(e))
 
 
 def _handle_stop_recording(cmd):
-    return _make_response("ok", {"recording": False})
+    try:
+        t = _get_transcriber()
+        t.stop_recording()
+        return _make_response("ok", {"recording": False})
+    except Exception as e:
+        return _make_response("error", error=str(e))
 
 
 def _handle_get_config(cmd):

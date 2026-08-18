@@ -1,10 +1,8 @@
 use std::sync::Arc;
+use tauri::Emitter;
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
 
 use crate::sidecar::{SidecarCommand, SidecarState};
-
-/// Track recording state locally for hotkey toggle.
-static IS_RECORDING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 /// Parse a hotkey string like "Ctrl+Alt+F9" into Tauri modifiers and code.
 ///
@@ -129,33 +127,43 @@ fn parse_single_char(s: &str) -> Result<Code, String> {
     }
 }
 
-fn toggle_recording(sidecar: &SidecarState) {
-    let cmd = if IS_RECORDING.load(std::sync::atomic::Ordering::Relaxed) {
-        IS_RECORDING.store(false, std::sync::atomic::Ordering::Relaxed);
+fn toggle_recording(app: &tauri::AppHandle, sidecar: &SidecarState) {
+    let cmd = if sidecar.is_recording() {
+        sidecar.set_recording(false);
         SidecarCommand::StopRecording
     } else {
-        IS_RECORDING.store(true, std::sync::atomic::Ordering::Relaxed);
+        sidecar.set_recording(true);
         SidecarCommand::StartRecording
     };
     match sidecar.send_command(&cmd) {
-        Ok(_) => log::info!("Recording toggled via hotkey"),
+        Ok(_) => {
+            log::info!("Recording toggled via hotkey");
+            let event_name = if sidecar.is_recording() {
+                "recording:started"
+            } else {
+                "recording:stopped"
+            };
+            let _ = app.emit(event_name, ());
+        }
         Err(e) => log::error!("Failed to toggle recording: {}", e),
     }
 }
 
 /// Register the default global hotkey (Ctrl+Alt+F9) for toggling recording.
 pub fn register_default_hotkey(
-    app: &tauri::App,
+    app_handle: &tauri::AppHandle,
     sidecar: Arc<SidecarState>,
 ) -> Result<(), String> {
     let (modifiers, code) = parse_shortcut_string("Ctrl+Alt+F9")?;
     let shortcut = Shortcut::new(Some(modifiers), code);
 
     let sidecar_clone = sidecar.clone();
-    app.global_shortcut()
+    let app_clone = app_handle.clone();
+    app_handle
+        .global_shortcut()
         .on_shortcut(shortcut, move |_app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
-                toggle_recording(&sidecar_clone);
+                toggle_recording(&app_clone, &sidecar_clone);
             }
         })
         .map_err(|e| format!("Failed to register shortcut handler: {}", e))?;
@@ -166,7 +174,7 @@ pub fn register_default_hotkey(
 
 /// Register a custom hotkey string via the global shortcut API.
 pub fn register_custom_hotkey(
-    app: &tauri::App,
+    app_handle: &tauri::AppHandle,
     hotkey_str: &str,
     sidecar: Arc<SidecarState>,
 ) -> Result<(), String> {
@@ -174,10 +182,12 @@ pub fn register_custom_hotkey(
     let shortcut = Shortcut::new(Some(modifiers), code);
 
     let sidecar_clone = sidecar.clone();
-    app.global_shortcut()
+    let app_clone = app_handle.clone();
+    app_handle
+        .global_shortcut()
         .on_shortcut(shortcut, move |_app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
-                toggle_recording(&sidecar_clone);
+                toggle_recording(&app_clone, &sidecar_clone);
             }
         })
         .map_err(|e| format!("Failed to register shortcut handler: {}", e))?;

@@ -9,6 +9,7 @@ use overlay::{create_overlay_window, hide_overlay, show_overlay, start_timer, Ov
 use sidecar::{SidecarState, start_health_check};
 use std::sync::Arc;
 use std::time::Duration;
+use tauri::Emitter;
 use tauri::Listener;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -45,8 +46,9 @@ pub fn run() {
             }
 
             // Register global hotkey (Ctrl+Alt+F9)
-            if let Err(e) = hotkeys::register_default_hotkey(app, sidecar_for_hotkey) {
+            if let Err(e) = hotkeys::register_default_hotkey(app.handle(), sidecar_for_hotkey) {
                 log::error!("Failed to register hotkey: {}", e);
+                let _ = app.emit("hotkey:error", serde_json::json!({ "error": e.to_string() }));
             }
 
             // Create system tray
