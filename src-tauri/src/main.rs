@@ -1,3 +1,3 @@
 fn main() {
-    tauri_app::run();
+    audio2text::run();
 }
