@@ -1826,6 +1826,7 @@ class App(ctk.CTk):
         self.localization_manager.set_language(language)
         self._refresh_localized_widgets()
         self._refresh_tab_names()
+        self.refresh_history_list(full_reload=True)
 
     def _on_output_language_changed(self, language):
         """Persist only the requested transcription output language."""
