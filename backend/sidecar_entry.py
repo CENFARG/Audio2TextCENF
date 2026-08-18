@@ -70,12 +70,32 @@ def _handle_get_history(cmd):
     return _make_response("ok", [])
 
 
+def _handle_register_hotkey(cmd):
+    """Register a hotkey through the Python keyboard library (fallback)."""
+    hotkey_str = cmd.get("hotkey", "")
+    if not hotkey_str:
+        return _make_response("error", error="Missing 'hotkey' field")
+
+    try:
+        from backend.hotkey_manager import HotkeyManager
+        manager = HotkeyManager()
+        success = manager.register_via_ipc(hotkey_str)
+        if success:
+            return _make_response("ok", {"registered": True})
+        else:
+            return _make_response("error", error=f"Failed to register hotkey: {hotkey_str}")
+    except Exception as e:
+        logger.exception("register_hotkey handler error")
+        return _make_response("error", error=str(e))
+
+
 _COMMAND_HANDLERS = {
     "start_recording": _handle_start_recording,
     "stop_recording": _handle_stop_recording,
     "get_config": _handle_get_config,
     "save_config": _handle_save_config,
     "get_history": _handle_get_history,
+    "register_hotkey": _handle_register_hotkey,
 }
 
 
