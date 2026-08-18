@@ -26,8 +26,7 @@
   },
   "plugins": {
     "shell": {
-      "sidecar": true,
-      "scope": []
+      "sidecar": true
     }
   }
 }
