@@ -17,7 +17,9 @@ class FileManager:
         # Si es desarrollo, usar el directorio del script
         if getattr(sys, 'frozen', False):
             # Ejecutándose como .exe compilado
-            self.base_dir = os.path.dirname(sys.executable)
+            # IMPORTANTE v0.14.0: Usar cwd en lugar de exe dir para tener rutas consistentes
+            # Esto permite que dist/audio y audio sean el mismo directorio
+            self.base_dir = os.getcwd()
         else:
             # Ejecutándose como script Python
             self.base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -25,8 +27,8 @@ class FileManager:
             self.base_dir = os.path.dirname(self.base_dir)
 
         # Convertir paths relativos a absolutos
-        audio_path_rel = self.config.get("audio_path")
-        transcriptions_path_rel = self.config.get("transcriptions_path")
+        audio_path_rel = self.config.get("audio_path") or "./audio"
+        transcriptions_path_rel = self.config.get("transcriptions_path") or "./transcriptions"
 
         if os.path.isabs(audio_path_rel):
             self.audio_path = audio_path_rel

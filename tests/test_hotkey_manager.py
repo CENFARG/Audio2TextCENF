@@ -131,6 +131,7 @@ class TestHotkeyValidation:
     def test_invalid_modifier(self, manager):
         """Test validation with invalid modifier."""
         assert manager.is_hotkey_valid("win+f5") == False
+        assert manager.is_hotkey_valid("meta+f5") == False
 
     def test_empty_hotkey(self, manager):
         """Test validation of empty hotkey."""
@@ -258,8 +259,8 @@ class TestHotkeyEdgeCases:
         """Test parsing hotkey with spaces."""
         hotkey = manager.parse_hotkey_string("ctrl + shift + f5")
 
-        # Spaces should be handled
-        assert "ctrl" in hotkey.modifiers or "shift" in hotkey.modifiers
+        assert hotkey.modifiers == ["ctrl", "shift"]
+        assert hotkey.key == "f5"
 
     def test_multiple_modifiers_same_type(self, manager):
         """Test hotkey with duplicate modifiers."""

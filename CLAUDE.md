@@ -1,8 +1,8 @@
 # Audio2Text - Memoria del Proyecto para Claude
 
-> **Última actualización:** 2026-03-25
-> **Versión:** 0.12.0
-> **Estado:** Producción estable - faster-whisper local + Bloques POST + Vocabulario visible
+> **Última actualización:** 2026-04-10
+> **Versión:** 0.14.0
+> **Estado:** Producción estable - LLM Blocks + Dynamic Title + Duration Selector + faster-whisper + Groq API renovada
 
 ---
 

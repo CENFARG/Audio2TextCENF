@@ -157,13 +157,13 @@ class TestKeywordExtractorBlock:
     def test_min_length_filter(self):
         """Test de filtro de longitud mínima."""
         block = KeywordExtractorBlock(config={"min_length": 5})
-        text = "AI y ML son importantes. Python es útil."
+        text = "AI y ML son datos útiles. Python es útil."
         result = block.process(text, ProcessingStage.TRANSCRIBED_TEXT)
 
         assert result.success == True
-        # Todas las keywords deberían tener >= 5 caracteres
-        for kw in result.data:
-            assert len(kw["keyword"]) >= 5
+        # Frequency-extracted terms must honor the configured minimum too.
+        assert "datos" in [kw["keyword"] for kw in result.data]
+        assert all(len(kw["keyword"]) >= 5 for kw in result.data)
 
 
 class TestBlockManager:

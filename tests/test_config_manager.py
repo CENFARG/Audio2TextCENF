@@ -41,8 +41,8 @@ class TestConfigManagerInitialization:
             assert manager.config_file == config_file
             assert manager.config is not None
             assert "app_version" in manager.config
-            assert manager.config["app_version"] == "0.13.0"
-            assert manager.config["hotkey"] == "f12"
+            assert manager.config["app_version"] == "0.15.0"
+            assert manager.config["hotkey"] == "f9"  # FIX: default F9 (pedido del usuario)
             assert manager.config["default_language"] == "es"
         finally:
             if os.path.exists(config_file):
@@ -59,12 +59,85 @@ class TestConfigManagerInitialization:
             manager = ConfigManager(config_file=config_file)
 
             # Should override with default version but keep other settings
-            assert manager.config["app_version"] == "0.13.0"
+            assert manager.config["app_version"] == "0.15.0"
             assert manager.config["hotkey"] == "F10"
             assert manager.config["default_language"] == "en"
         finally:
             if os.path.exists(config_file):
                 os.unlink(config_file)
+
+
+@pytest.mark.unit
+class TestIndependentLanguageConfiguration:
+    """Language settings are independent and safely migrate legacy config."""
+
+    @pytest.fixture
+    def config_file(self, tmp_path):
+        return tmp_path / "config.json"
+
+    def write_config(self, config_file, payload):
+        config_file.write_text(json.dumps(payload), encoding="utf-8")
+
+    def load(self, config_file):
+        return ConfigManager(config_file=str(config_file))
+
+    def test_new_language_settings_are_independent(self, config_file):
+        self.write_config(config_file, {
+            "ui_language": "en",
+            "transcription_output_language": "es",
+            "custom_setting": "preserve-me",
+        })
+
+        manager = self.load(config_file)
+
+        assert manager.get("ui_language") == "en"
+        assert manager.get("transcription_output_language") == "es"
+        assert manager.get("custom_setting") == "preserve-me"
+        assert manager.localization_manager.lang_code == "en"
+
+    @pytest.mark.parametrize("payload, expected", [
+        ({"default_language": "en"}, ("en", "en")),
+        ({"default_language": "es"}, ("es", "es")),
+        ({}, ("es", "es")),
+        ({"default_language": "fr"}, ("es", "es")),
+    ])
+    def test_legacy_missing_language_values_normalize(self, config_file, payload, expected):
+        self.write_config(config_file, payload)
+
+        manager = self.load(config_file)
+
+        assert (manager.get("ui_language"), manager.get("transcription_output_language")) == expected
+
+    def test_invalid_new_values_default_independently_to_spanish(self, config_file):
+        self.write_config(config_file, {
+            "default_language": "en",
+            "ui_language": "fr",
+            "transcription_output_language": "de",
+            "unrelated": {"keep": True},
+        })
+
+        manager = self.load(config_file)
+
+        assert manager.get("ui_language") == "es"
+        assert manager.get("transcription_output_language") == "es"
+        assert manager.get("unrelated") == {"keep": True}
+
+    def test_migration_is_idempotent_and_persists_without_runtime_legacy_dependency(self, config_file):
+        self.write_config(config_file, {
+            "default_language": "en",
+            "unrelated": "keep",
+        })
+
+        first = self.load(config_file)
+        first_saved = json.loads(config_file.read_text(encoding="utf-8"))
+        second = self.load(config_file)
+        second_saved = json.loads(config_file.read_text(encoding="utf-8"))
+
+        assert first_saved == second_saved
+        assert first.get("ui_language") == "en"
+        assert second.get("ui_language") == "en"
+        second.config["default_language"] = "es"
+        assert second.localization_manager.lang_code == "en"
 
 
 @pytest.mark.unit
@@ -323,7 +396,7 @@ class TestConfigValidation:
 
         # Reload and verify it's back to default
         manager2 = ConfigManager(config_file=manager.config_file)
-        assert manager2.config["app_version"] == "0.13.0"
+        assert manager2.config["app_version"] == "0.15.0"
 
     def test_audio_priority_apps_default(self, manager):
         """Test that audio_priority_apps has default values."""

@@ -3,8 +3,10 @@ import json
 import os
 
 class LocalizationManager:
+    SUPPORTED_LANGUAGES = {"es", "en"}
+
     def __init__(self, lang_code="es", lang_dir="lang"):
-        self.lang_code = lang_code
+        self.lang_code = self._normalize_language(lang_code)
         # Ajustar la ruta para que sea relativa al directorio del script
         self.lang_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", lang_dir)
         self.translations = {}
@@ -13,11 +15,11 @@ class LocalizationManager:
     def load_translations(self):
         lang_file = os.path.join(self.lang_dir, f"{self.lang_code}.json")
         if not os.path.exists(lang_file):
-            print(f"Warning: Language file not found for {self.lang_code}. Falling back to 'en'.")
-            self.lang_code = "en"
+            print(f"Warning: Language file not found for {self.lang_code}. Falling back to 'es'.")
+            self.lang_code = "es"
             lang_file = os.path.join(self.lang_dir, f"{self.lang_code}.json")
             if not os.path.exists(lang_file):
-                print(f"Error: Default language file 'en.json' not found at {lang_file}.")
+                print(f"Error: Default language file 'es.json' not found at {lang_file}.")
                 self.translations = {}
                 return
 
@@ -33,6 +35,12 @@ class LocalizationManager:
         return text.format(**kwargs)
     
     def set_language(self, lang_code):
+        lang_code = self._normalize_language(lang_code)
         if self.lang_code != lang_code:
             self.lang_code = lang_code
             self.load_translations()
+        return self.lang_code
+
+    @classmethod
+    def _normalize_language(cls, lang_code):
+        return lang_code if lang_code in cls.SUPPORTED_LANGUAGES else "es"

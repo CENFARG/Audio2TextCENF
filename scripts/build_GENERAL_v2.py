@@ -1,4 +1,4 @@
-# Build script para Audio2Text v0.10.0 - (Unificado)
+# Build script para Audio2Text v0.14.0 - (Unificado)
 import subprocess
 import sys
 import os
@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-APP_VERSION = "0.13.0"
+APP_VERSION = "0.15.0"
 VARIANT = ""
 APP_NAME = f"Audio2Text_CENF_v{APP_VERSION}"
 
@@ -73,39 +73,18 @@ command = [
     "--hidden-import", "backend.transcription_metadata_generator",
     "--hidden-import", "backend.hotkey_manager",
     "--hidden-import", "backend.emoji_picker",
-    "--hidden-import", "ui_flet.components.design_system",
-    "--hidden-import", "ui_flet.components.history_tab",
-    "--hidden-import", "flet",
-    "--hidden-import", "flet.core",
-    "--hidden-import", "flet.core.page",
-    "--hidden-import", "flet.core.controls",
-    "--hidden-import", "flet.URIDataReaderAtOrigin",
-    "--hidden-import", "flet.pubsub",
-    "--hidden-import", "flet.runtime",
-    "--hidden-import", "flet.runtime.app",
-    "--hidden-import", "flet.runtime.pubsub",
-    "--hidden-import", "flet.runtime.web",
-    "--hidden-import", "flet_view",
-    "--hidden-import", "flet_view.adwaita",
-    "--hidden-import", "flet_view.platform",
-    "--hidden-import", "flet_view.platform.android",
-    "--hidden-import", "flet_view.platform.ios",
-    "--hidden-import", "flet_view.platform.linux",
-    "--hidden-import", "flet_view.platform.mac",
-    "--hidden-import", "flet_view.platform.windows",
-    "--hidden-import", "flet_view.theme",
-    "--hidden-import", "flet_view.utils",
-    "--hidden-import", "flet_view.utils.logging",
-    "--hidden-import", "flet_view.utils.tasks",
-    "--hidden-import", "flet_view.utils.transform",
-    "--hidden-import", "flet_view.utils.version",
-    "--hidden-import", "faster_whisper",
-    "--hidden-import", "ctranslate2",
-    "--hidden-import", "transformers",
-    "--hidden-import", "tokenizers",
-    "--hidden-import", "huggingface_hub",
+    # FIX v0.15.0: ERRADICADO faster-whisper + modelo local (ctranslate2/transformers/
+    # tokenizers/huggingface_hub) — la app usa SOLO API cloud Groq.
+    # FIX v0.15.0: ERRADICADO stack flet/ui_flet/flet_view (código muerto, no se importa)
     "--exclude-module", "pandas",
     "--exclude-module", "yt_dlp",
+    "--exclude-module", "faster_whisper",
+    "--exclude-module", "ctranslate2",
+    "--exclude-module", "transformers",
+    "--exclude-module", "tokenizers",
+    "--exclude-module", "huggingface_hub",
+    "--exclude-module", "flet",
+    "--exclude-module", "flet_view",
     str(main_script_path)
 ]
 

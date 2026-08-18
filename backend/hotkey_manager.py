@@ -71,10 +71,11 @@ class HotkeyManager:
         Returns:
             Objeto Hotkey parseado
         """
-        parts = hotkey_str.lower().split("+")
+        parts = [part.strip() for part in hotkey_str.lower().split("+") if part.strip()]
 
         key = parts[-1]  # Última parte es la tecla
-        modifiers = [p for p in parts[:-1] if p in self.MODIFIERS]
+        # Keep unknown modifiers so validation can reject them explicitly.
+        modifiers = [p for p in parts[:-1] if p not in self.MOUSE_BUTTONS]
         mouse_button = None
 
         # Detectar si incluye botón mouse
@@ -246,6 +247,25 @@ class HotkeyManager:
         }
 
         return suggestions.get(category, ["f1", "f2", "f3"])
+
+    def register_via_ipc(self, hotkey_str: str, callback: Optional[Callable] = None) -> bool:
+        """
+        Register hotkey through IPC bridge (fallback for mouse-button hotkeys).
+
+        Called from the sidecar when Rust native hotkey registration fails
+        (e.g., for mouse-button hotkeys that require the `keyboard` library).
+
+        Args:
+            hotkey_str: Hotkey string like "ctrl+shift+f1"
+            callback: Optional callback. If None, a no-op callback is used.
+
+        Returns:
+            True if registration succeeded
+        """
+        if callback is None:
+            callback = lambda: None
+
+        return self.register_hotkey(hotkey_str, callback)
 
 
 if __name__ == "__main__":

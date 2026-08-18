@@ -165,7 +165,10 @@ class KeywordExtractorBlock(BaseBlock):
         }
 
         # Tokenizar
-        words = re.findall(r'\b[a-záéíóúñ]{4,}\b', text.lower())
+        words = re.findall(
+            rf'\b[a-záéíóúñ]{{{self.min_length},}}\b',
+            text.lower()
+        )
 
         # Contar frecuencia
         freq = {}

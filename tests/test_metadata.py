@@ -392,7 +392,7 @@ class TestMetadataOperations:
 
     def test_get_display_name_fallback_to_filename(self, metadata):
         """Test display name falls back to filename if no title."""
-        display = metadata.get_display_name("audio_1.wav")
+        display = metadata.get_display_name("audio_1.wav", include_emoji=False)
 
         assert display == "audio_1.wav"
 
