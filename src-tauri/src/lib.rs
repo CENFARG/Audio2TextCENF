@@ -25,6 +25,12 @@ pub fn run() {
     let overlay_state = Arc::new(OverlayState::new());
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -77,38 +83,60 @@ pub fn run() {
             });
 
             // Spawn the Python sidecar process — MUST use venv Python for dependencies
-            // Try multiple paths: cwd/.venv, exe-dir/.venv, exe-dir/../.venv
+            // Compile-time manifest dir gives us <repo>/src-tauri deterministically.
+            let manifest_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+            let repo_root = manifest_dir
+                .parent()
+                .map(|p| p.to_path_buf())
+                .unwrap_or_else(|| std::env::current_dir().unwrap_or_default());
+
             let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
             let exe_dir = std::env::current_exe()
                 .ok()
                 .and_then(|p| p.parent().map(|p| p.to_path_buf()))
                 .unwrap_or_else(|| cwd.clone());
 
-            let python = if cfg!(target_os = "windows") {
-                let fallback = cwd.join(".venv").join("Scripts").join("python.exe");
-                let paths = [
-                    fallback.clone(),
-                    exe_dir.join(".venv").join("Scripts").join("python.exe"),
-                    exe_dir.join("..").join(".venv").join("Scripts").join("python.exe"),
-                ];
-                paths.into_iter().find(|p| p.exists()).unwrap_or(fallback)
-            } else {
-                let fallback = cwd.join(".venv").join("bin").join("python3");
-                let paths = [
-                    fallback.clone(),
-                    exe_dir.join(".venv").join("bin").join("python3"),
-                    exe_dir.join("..").join(".venv").join("bin").join("python3"),
-                ];
-                paths.into_iter().find(|p| p.exists()).unwrap_or(fallback)
+            // Candidate repo roots: manifest parent first (most reliable), then cwd and exe
+            let roots: Vec<std::path::PathBuf> = {
+                let mut v = Vec::new();
+                v.push(repo_root.clone());
+                if cwd != repo_root {
+                    v.push(cwd.clone());
+                }
+                if let Some(p) = cwd.parent() {
+                    let p = p.to_path_buf();
+                    if !v.contains(&p) { v.push(p); }
+                }
+                let exe_parent = exe_dir.join("..");
+                if !v.contains(&exe_parent) { v.push(exe_parent); }
+                let exe_grandparent = exe_dir.join("..").join("..");
+                if !v.contains(&exe_grandparent) { v.push(exe_grandparent); }
+                v
             };
-            let python_str = python.to_string_lossy().to_string();
+
+            let venv_script = if cfg!(target_os = "windows") {
+                std::path::Path::new(".venv").join("Scripts").join("python.exe")
+            } else {
+                std::path::Path::new(".venv").join("bin").join("python3")
+            };
+
+            let (resolved_root, python) = roots
+                .iter()
+                .map(|r| (r.clone(), r.join(&venv_script)))
+                .find(|(_, p)| p.exists())
+                .unwrap_or_else(|| (repo_root.clone(), repo_root.join(&venv_script)));
+
             let sidecar_for_spawn = Arc::clone(&sidecar_for_setup);
 
-            log::info!("Sidecar Python: {} (cwd: {})", python_str, cwd.display());
+            log::info!(
+                "Sidecar Python: {} (repo root: {})",
+                python.display(),
+                resolved_root.display()
+            );
             match sidecar_for_spawn.spawn(
-                &python_str,
+                &python.to_string_lossy(),
                 "backend.sidecar_entry",
-                Some(&cwd),
+                Some(&resolved_root),
             ) {
                 Ok(()) => {
                     log::info!("Sidecar spawned successfully");

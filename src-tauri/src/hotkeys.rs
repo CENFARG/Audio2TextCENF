@@ -149,7 +149,7 @@ fn toggle_recording(app: &tauri::AppHandle, sidecar: &SidecarState) {
     }
 }
 
-/// Register the default global hotkey (Ctrl+Alt+F9) for toggling recording.
+/// Register the default global hotkey (Ctrl+Alt+F10) for toggling recording.
 pub fn register_default_hotkey(
     app_handle: &tauri::AppHandle,
     sidecar: Arc<SidecarState>,
@@ -159,17 +159,32 @@ pub fn register_default_hotkey(
 
     let sidecar_clone = sidecar.clone();
     let app_clone = app_handle.clone();
-    app_handle
+    let result = app_handle
         .global_shortcut()
         .on_shortcut(shortcut, move |_app, _shortcut, event| {
             if event.state == ShortcutState::Pressed {
                 toggle_recording(&app_clone, &sidecar_clone);
             }
-        })
-        .map_err(|e| format!("Failed to register shortcut handler: {}", e))?;
+        });
 
-    log::info!("Global hotkey Ctrl+Alt+F10 registered");
-    Ok(())
+    match result {
+        Ok(()) => {
+            log::info!("Global hotkey Ctrl+Alt+F10 registered");
+            Ok(())
+        }
+        Err(e) => {
+            let msg = e.to_string();
+            if msg.to_lowercase().contains("already registered") {
+                log::warn!(
+                    "Hotkey Ctrl+Alt+F10 already registered by another process — \
+                     hotkey disabled for this session. Close the other instance or use the tray icon."
+                );
+                Ok(()) // Non-fatal: app works without hotkey
+            } else {
+                Err(format!("Failed to register shortcut handler: {}", e))
+            }
+        }
+    }
 }
 
 /// Register a custom hotkey string via the global shortcut API.

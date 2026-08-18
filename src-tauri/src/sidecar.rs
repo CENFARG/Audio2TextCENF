@@ -51,6 +51,7 @@ struct SidecarInner {
     is_recording: bool,
     last_stderr: String,
     python_path: String,
+    working_dir: Option<std::path::PathBuf>,
 }
 
 impl SidecarState {
@@ -63,6 +64,7 @@ impl SidecarState {
                 is_recording: false,
                 last_stderr: String::new(),
                 python_path: String::new(),
+                working_dir: None,
             })),
         }
     }
@@ -129,6 +131,7 @@ impl SidecarState {
         inner.restart_count += 1;
         inner.last_stderr.clear();
         inner.python_path = python_path.to_string();
+        inner.working_dir = working_dir.map(|d| d.to_path_buf());
 
         log::info!(
             "Sidecar spawned (restart #{})",
@@ -307,18 +310,18 @@ pub fn start_health_check(
                 tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
 
                 // Attempt restart using the same Python path that was originally spawned
-                let python = {
+                let (python, working_dir) = {
                     let inner = match state.inner.lock() {
                         Ok(i) => i,
                         Err(_) => continue,
                     };
-                    inner.python_path.clone()
+                    (inner.python_path.clone(), inner.working_dir.clone())
                 };
                 if python.is_empty() {
                     log::error!("Cannot restart sidecar: no python path stored");
                     continue;
                 }
-                if let Err(e) = state.spawn(&python, "backend.sidecar_entry", None) {
+                if let Err(e) = state.spawn(&python, "backend.sidecar_entry", working_dir.as_deref()) {
                     log::error!("Sidecar restart failed: {}", e);
                 }
             }
