@@ -154,7 +154,7 @@ pub fn register_default_hotkey(
     app_handle: &tauri::AppHandle,
     sidecar: Arc<SidecarState>,
 ) -> Result<(), String> {
-    let (modifiers, code) = parse_shortcut_string("Ctrl+Alt+F9")?;
+    let (modifiers, code) = parse_shortcut_string("Ctrl+Alt+F10")?;
     let shortcut = Shortcut::new(Some(modifiers), code);
 
     let sidecar_clone = sidecar.clone();
@@ -168,7 +168,7 @@ pub fn register_default_hotkey(
         })
         .map_err(|e| format!("Failed to register shortcut handler: {}", e))?;
 
-    log::info!("Global hotkey Ctrl+Alt+F9 registered");
+    log::info!("Global hotkey Ctrl+Alt+F10 registered");
     Ok(())
 }
 

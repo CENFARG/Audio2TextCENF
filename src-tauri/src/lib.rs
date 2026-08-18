@@ -49,7 +49,7 @@ pub fn run() {
                 log::error!("Failed to create overlay: {}", e);
             }
 
-            // Register global hotkey (Ctrl+Alt+F9)
+            // Register global hotkey (Ctrl+Alt+F10)
             if let Err(e) = hotkeys::register_default_hotkey(app.handle(), sidecar_for_hotkey) {
                 log::error!("Failed to register hotkey: {}", e);
                 let _ = app.emit("hotkey:error", serde_json::json!({ "error": e.to_string() }));
@@ -77,12 +77,29 @@ pub fn run() {
             });
 
             // Spawn the Python sidecar process — MUST use venv Python for dependencies
-            // Resolve absolute path to venv Python so it works regardless of working dir
+            // Try multiple paths: cwd/.venv, exe-dir/.venv, exe-dir/../.venv
             let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            let exe_dir = std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+                .unwrap_or_else(|| cwd.clone());
+
             let python = if cfg!(target_os = "windows") {
-                cwd.join(".venv").join("Scripts").join("python.exe")
+                let fallback = cwd.join(".venv").join("Scripts").join("python.exe");
+                let paths = [
+                    fallback.clone(),
+                    exe_dir.join(".venv").join("Scripts").join("python.exe"),
+                    exe_dir.join("..").join(".venv").join("Scripts").join("python.exe"),
+                ];
+                paths.into_iter().find(|p| p.exists()).unwrap_or(fallback)
             } else {
-                cwd.join(".venv").join("bin").join("python3")
+                let fallback = cwd.join(".venv").join("bin").join("python3");
+                let paths = [
+                    fallback.clone(),
+                    exe_dir.join(".venv").join("bin").join("python3"),
+                    exe_dir.join("..").join(".venv").join("bin").join("python3"),
+                ];
+                paths.into_iter().find(|p| p.exists()).unwrap_or(fallback)
             };
             let python_str = python.to_string_lossy().to_string();
             let sidecar_for_spawn = Arc::clone(&sidecar_for_setup);
