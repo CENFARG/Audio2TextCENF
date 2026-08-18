@@ -2,6 +2,7 @@ use crate::sidecar::{SidecarCommand, SidecarResponse, SidecarState};
 use serde::Serialize;
 use std::sync::Arc;
 use tauri::State;
+use tauri::Emitter;
 
 /// Generic Tauri command response.
 #[derive(Debug, Serialize)]
@@ -30,18 +31,30 @@ impl From<Result<SidecarResponse, String>> for CommandResult {
 
 /// Start audio recording via the sidecar.
 #[tauri::command]
-pub async fn start_recording(state: State<'_, Arc<SidecarState>>) -> Result<CommandResult, String> {
-    Ok(CommandResult::from(
-        state.send_command(&SidecarCommand::StartRecording),
-    ))
+pub async fn start_recording(
+    state: State<'_, Arc<SidecarState>>,
+    app: tauri::AppHandle,
+) -> Result<CommandResult, String> {
+    let result = CommandResult::from(state.send_command(&SidecarCommand::StartRecording));
+    if result.status == "ok" {
+        state.set_recording(true);
+        let _ = app.emit("recording:started", ());
+    }
+    Ok(result)
 }
 
 /// Stop audio recording via the sidecar.
 #[tauri::command]
-pub async fn stop_recording(state: State<'_, Arc<SidecarState>>) -> Result<CommandResult, String> {
-    Ok(CommandResult::from(
-        state.send_command(&SidecarCommand::StopRecording),
-    ))
+pub async fn stop_recording(
+    state: State<'_, Arc<SidecarState>>,
+    app: tauri::AppHandle,
+) -> Result<CommandResult, String> {
+    let result = CommandResult::from(state.send_command(&SidecarCommand::StopRecording));
+    if result.status == "ok" {
+        state.set_recording(false);
+        let _ = app.emit("recording:stopped", ());
+    }
+    Ok(result)
 }
 
 /// Get current configuration from the sidecar.
@@ -69,6 +82,17 @@ pub async fn get_history(state: State<'_, Arc<SidecarState>>) -> Result<CommandR
     Ok(CommandResult::from(
         state.send_command(&SidecarCommand::GetHistory),
     ))
+}
+
+/// Auto-paste: copy text to clipboard and paste into the active window.
+#[tauri::command]
+pub async fn auto_paste(text: String) -> Result<CommandResult, String> {
+    crate::clipboard::auto_paste(&text)?;
+    Ok(CommandResult {
+        status: "ok".into(),
+        data: Some(serde_json::json!({ "pasted": true })),
+        error: None,
+    })
 }
 
 #[cfg(test)]
