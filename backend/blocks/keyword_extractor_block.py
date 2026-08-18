@@ -144,7 +144,7 @@ class KeywordExtractorBlock(BaseBlock):
             for num, score in numbers:
                 keywords[num] = keywords.get(num, 0) + score
 
-        # Convertir a lista de diccionarios
+        # Convertir a lista de diccionarios, filtrando por min_length
         return [
             {
                 'keyword': kw,
@@ -152,6 +152,7 @@ class KeywordExtractorBlock(BaseBlock):
                 'type': self._classify_keyword(kw)
             }
             for kw, score in keywords.items()
+            if len(kw) >= self.min_length
         ]
 
     def _extract_by_frequency(self, text: str) -> List[Tuple[str, float]]:
