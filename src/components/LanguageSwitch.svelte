@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { currentLanguage, setLanguage } from "../lib/i18n";
+  import { currentLanguage, setLanguage } from "../lib/i18n.svelte";
 
   let lang = $derived(currentLanguage());
 

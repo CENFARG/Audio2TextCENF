@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getHistory } from "../lib/commands";
-  import { t } from "../lib/i18n";
+  import { t } from "../lib/i18n.svelte";
 
   interface HistoryItem {
     filename: string;

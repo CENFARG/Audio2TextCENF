@@ -1872,5 +1872,155 @@
       "method": "rules"
     },
     "updated_at": "2026-08-17T21:22:25.358144"
+  },
+  "tmpyw6hfdja.wav": {
+    "auto": {
+      "filename": "tmpyw6hfdja.wav",
+      "generated_at": "2026-08-17T21:44:11.735542",
+      "transcription_length": 2469,
+      "word_count": 466,
+      "title": "Now i'm going to try...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Now I'm going to try if this works  It worked like hell",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T21:44:11.735542"
+  },
+  "tmpukr6fz_c.wav": {
+    "auto": {
+      "filename": "tmpukr6fz_c.wav",
+      "generated_at": "2026-08-17T21:46:36.691813",
+      "transcription_length": 300,
+      "word_count": 59,
+      "title": "First i'll tell you something...",
+      "category": "personal",
+      "tags": [],
+      "summary": "First I'll tell you something about the previous version, the one we had in the beginning, becaus...",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T21:46:36.691813"
+  },
+  "tmpqboop0z9.wav": {
+    "auto": {
+      "filename": "tmpqboop0z9.wav",
+      "generated_at": "2026-08-17T21:46:54.218662",
+      "transcription_length": 103,
+      "word_count": 22,
+      "title": "I need you to tell...",
+      "category": "personal",
+      "tags": [],
+      "summary": "I need you to tell me what the command is that I should insert to be able to execute the Entauri ...",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T21:46:54.218662"
+  },
+  "tmp9xqgswqn.wav": {
+    "auto": {
+      "filename": "tmp9xqgswqn.wav",
+      "generated_at": "2026-08-17T22:17:17.900746",
+      "transcription_length": 514,
+      "word_count": 95,
+      "title": "Tendría que probar si esto...",
+      "category": "personal",
+      "tags": [
+        "nota"
+      ],
+      "summary": "Tendría que probar si esto ahora cambiando el idioma de la interfaz, dando todo bien  Cuando voy ...",
+      "emoji": "🏠",
+      "sentiment": "positivo",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T22:17:17.900746"
+  },
+  "tmp6r5vnyyh.wav": {
+    "auto": {
+      "filename": "tmp6r5vnyyh.wav",
+      "generated_at": "2026-08-17T22:24:01.098589",
+      "transcription_length": 4571,
+      "word_count": 847,
+      "title": "Lo otro que me asombra...",
+      "category": "idea",
+      "tags": [
+        "idea"
+      ],
+      "summary": "Lo otro que me asombra es que esto me pareció a mí que lo hizo rapidísimo  Si bien yo acá no grab...",
+      "emoji": "💡",
+      "sentiment": "positivo",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T22:24:01.102618"
+  },
+  "tmpsw0g9452.wav": {
+    "auto": {
+      "filename": "tmpsw0g9452.wav",
+      "generated_at": "2026-08-17T22:37:14.533292",
+      "transcription_length": 2578,
+      "word_count": 459,
+      "title": "Bueno, mientras eso se está...",
+      "category": "idea",
+      "tags": [
+        "idea"
+      ],
+      "summary": "Bueno, mientras eso se está terminando de construir, porque le falta un poco y todavía no funcion...",
+      "emoji": "💡",
+      "sentiment": "positivo",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T22:37:14.537337"
+  },
+  "tmpy4bjnlyw.wav": {
+    "auto": {
+      "filename": "tmpy4bjnlyw.wav",
+      "generated_at": "2026-08-17T22:38:22.609499",
+      "transcription_length": 983,
+      "word_count": 165,
+      "title": "Y bueno, estos ajustes también...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Y bueno, estos ajustes también tenemos que guardarlos porque en la aplicación después de Tauri, p...",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T22:38:22.609499"
+  },
+  "tmpcj4wahpm.wav": {
+    "auto": {
+      "filename": "tmpcj4wahpm.wav",
+      "generated_at": "2026-08-17T22:39:50.085774",
+      "transcription_length": 753,
+      "word_count": 133,
+      "title": "Y te aclaro mientras tanto...",
+      "category": "personal",
+      "tags": [],
+      "summary": "Y te aclaro mientras tanto que la herramienta acá en Tauri, tanto en web, localhost, puerto abier...",
+      "emoji": "🏠",
+      "sentiment": "neutral",
+      "action_items": [],
+      "mentions": [],
+      "method": "rules"
+    },
+    "updated_at": "2026-08-17T22:39:50.089946"
   }
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getConfig, saveConfig } from "../lib/commands";
-  import { t } from "../lib/i18n";
-  import { setLanguage, currentLanguage } from "../lib/i18n";
+  import { t } from "../lib/i18n.svelte";
+  import { setLanguage, currentLanguage } from "../lib/i18n.svelte";
 
   interface VocabEntry {
     incorrect: string;

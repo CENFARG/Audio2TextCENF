@@ -1,6 +1,6 @@
 <script lang="ts">
   import { getRecordingState, startRecording, stopRecording } from "../lib/stores/recording.svelte";
-  import { t } from "../lib/i18n";
+  import { t } from "../lib/i18n.svelte";
 
   const state = getRecordingState();
 

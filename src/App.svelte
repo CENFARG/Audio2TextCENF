@@ -4,7 +4,7 @@
   import Settings from "./components/Settings.svelte";
   import LanguageSwitch from "./components/LanguageSwitch.svelte";
   import StatusBar from "./components/StatusBar.svelte";
-  import { t } from "./lib/i18n";
+  import { t } from "./lib/i18n.svelte";
 
   let activeTab = $state<"recording" | "history" | "settings">("recording");
 </script>
