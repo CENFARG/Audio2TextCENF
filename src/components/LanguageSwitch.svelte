@@ -3,6 +3,15 @@
 
   let transcriptionLanguage = $state("es");
 
+  // Load saved language on mount
+  invoke<{ transcription_language?: string }>("get_config")
+    .then((cfg) => {
+      if (cfg.transcription_language) {
+        transcriptionLanguage = cfg.transcription_language;
+      }
+    })
+    .catch(() => {});
+
   function toggle(): void {
     transcriptionLanguage = transcriptionLanguage === "es" ? "en" : "es";
     invoke("save_config", { config: { transcription_language: transcriptionLanguage } });

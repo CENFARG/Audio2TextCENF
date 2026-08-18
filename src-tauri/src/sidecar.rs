@@ -50,6 +50,7 @@ struct SidecarInner {
     restart_count: u32,
     is_recording: bool,
     last_stderr: String,
+    python_path: String,
 }
 
 impl SidecarState {
@@ -61,6 +62,7 @@ impl SidecarState {
                 restart_count: 0,
                 is_recording: false,
                 last_stderr: String::new(),
+                python_path: String::new(),
             })),
         }
     }
@@ -126,6 +128,7 @@ impl SidecarState {
         inner.started_at = Instant::now();
         inner.restart_count += 1;
         inner.last_stderr.clear();
+        inner.python_path = python_path.to_string();
 
         log::info!(
             "Sidecar spawned (restart #{})",
@@ -152,34 +155,49 @@ impl SidecarState {
     /// Send a command and read a single-line JSON response.
     ///
     /// This locks, takes ownership of stdin/stdout, does I/O, then returns them.
+    /// Handles are ALWAYS returned to the child, even on error.
     pub fn send_command(&self, cmd: &SidecarCommand) -> Result<SidecarResponse, String> {
         let mut inner = self.inner.lock().map_err(|e| e.to_string())?;
 
         let child = inner.child.as_mut().ok_or("Sidecar not running")?;
 
         let mut stdin = child.stdin.take().ok_or("No stdin handle")?;
-        let stdout = child.stdout.take().ok_or("No stdout handle")?;
+        let mut stdout = child.stdout.take().ok_or("No stdout handle")?;
 
         // Write command
-        let payload = serde_json::to_string(cmd).map_err(|e| e.to_string())?;
-        stdin
-            .write_all(payload.as_bytes())
-            .map_err(|e| format!("Write failed: {}", e))?;
-        stdin
-            .write_all(b"\n")
-            .map_err(|e| format!("Write newline failed: {}", e))?;
-        stdin.flush().map_err(|e| format!("Flush failed: {}", e))?;
+        let write_result = (|| {
+            let payload = serde_json::to_string(cmd).map_err(|e| e.to_string())?;
+            stdin
+                .write_all(payload.as_bytes())
+                .map_err(|e| format!("Write failed: {}", e))?;
+            stdin
+                .write_all(b"\n")
+                .map_err(|e| format!("Write newline failed: {}", e))?;
+            stdin
+                .flush()
+                .map_err(|e| format!("Flush failed: {}", e))?;
+            Ok::<(), String>(())
+        })();
 
-        // Read response
-        let mut reader = BufReader::new(stdout);
-        let mut line = String::new();
-        reader
-            .read_line(&mut line)
-            .map_err(|e| format!("Read failed: {}", e))?;
+        if let Err(e) = write_result {
+            child.stdin = Some(stdin);
+            child.stdout = Some(stdout);
+            return Err(e);
+        }
 
-        // Return stdin/stdout to the child
+        // Read response — borrow stdout temporarily, then drop the reader
+        let line = {
+            let mut reader = BufReader::new(&mut stdout);
+            let mut line = String::new();
+            reader
+                .read_line(&mut line)
+                .map_err(|e| format!("Read failed: {}", e))?;
+            line
+        }; // reader dropped here, borrow on stdout ends
+
+        // Return handles
         child.stdin = Some(stdin);
-        child.stdout = Some(reader.into_inner());
+        child.stdout = Some(stdout);
 
         if line.is_empty() {
             return Err("Sidecar closed stdout".into());
@@ -190,11 +208,26 @@ impl SidecarState {
 
     /// Check if the sidecar process is alive.
     pub fn is_alive(&self) -> bool {
-        let inner = match self.inner.lock() {
+        let mut inner = match self.inner.lock() {
             Ok(i) => i,
             Err(_) => return false,
         };
-        inner.child.is_some()
+        if let Some(ref mut child) = inner.child {
+            match child.try_wait() {
+                Ok(Some(_status)) => {
+                    // Process has exited
+                    inner.child = None;
+                    false
+                }
+                Ok(None) => true,  // Still running
+                Err(_) => {
+                    inner.child = None;
+                    false
+                }
+            }
+        } else {
+            false
+        }
     }
 
     /// Get uptime in seconds.
@@ -273,13 +306,19 @@ pub fn start_health_check(
                 );
                 tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
 
-                // Attempt restart
-                let python = if cfg!(target_os = "windows") {
-                    "python"
-                } else {
-                    "python3"
+                // Attempt restart using the same Python path that was originally spawned
+                let python = {
+                    let inner = match state.inner.lock() {
+                        Ok(i) => i,
+                        Err(_) => continue,
+                    };
+                    inner.python_path.clone()
                 };
-                if let Err(e) = state.spawn(python, "backend.sidecar_entry", None) {
+                if python.is_empty() {
+                    log::error!("Cannot restart sidecar: no python path stored");
+                    continue;
+                }
+                if let Err(e) = state.spawn(&python, "backend.sidecar_entry", None) {
                     log::error!("Sidecar restart failed: {}", e);
                 }
             }

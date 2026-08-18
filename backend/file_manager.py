@@ -27,8 +27,8 @@ class FileManager:
             self.base_dir = os.path.dirname(self.base_dir)
 
         # Convertir paths relativos a absolutos
-        audio_path_rel = self.config.get("audio_path")
-        transcriptions_path_rel = self.config.get("transcriptions_path")
+        audio_path_rel = self.config.get("audio_path") or "./audio"
+        transcriptions_path_rel = self.config.get("transcriptions_path") or "./transcriptions"
 
         if os.path.isabs(audio_path_rel):
             self.audio_path = audio_path_rel

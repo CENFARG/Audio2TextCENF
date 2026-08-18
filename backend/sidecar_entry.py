@@ -7,10 +7,14 @@ import json
 import sys
 import os
 import logging
+import threading
+import time
 
 logger = logging.getLogger("SidecarEntry")
 
 _transcriber = None
+_pending_result = None
+_result_event = threading.Event()
 
 
 def _get_transcriber():
@@ -28,12 +32,17 @@ def _get_transcriber():
             file_mgr = FileManager(config)
             loc = LocalizationManager()
 
+            def _on_transcription(data):
+                global _pending_result
+                _pending_result = data
+                _result_event.set()
+
             _transcriber = Transcriber(
                 config_manager=config,
                 sound_manager=sound,
                 file_manager=file_mgr,
                 update_status_callback=lambda msg, color: None,
-                transcription_callback=lambda data: None,
+                transcription_callback=_on_transcription,
                 localization_manager=loc,
             )
             logger.info("Transcriber initialized successfully")
@@ -72,10 +81,25 @@ def _handle_start_recording(cmd):
 
 
 def _handle_stop_recording(cmd):
+    global _pending_result
     try:
         t = _get_transcriber()
+        _result_event.clear()
+        _pending_result = None
         t.stop_recording()
-        return _make_response("ok", {"recording": False})
+        # Wait up to 120s for transcription to complete (long audio may take time)
+        if _result_event.wait(timeout=120):
+            result = _pending_result
+            _pending_result = None
+            _result_event.clear()
+            text = ""
+            if isinstance(result, dict):
+                text = result.get("text", "")
+            elif isinstance(result, str):
+                text = result
+            return _make_response("ok", {"recording": False, "text": text})
+        else:
+            return _make_response("ok", {"recording": False, "text": "", "warning": "Transcription timed out"})
     except Exception as e:
         return _make_response("error", error=str(e))
 
@@ -109,26 +133,35 @@ def _handle_save_config(cmd):
 
 
 def _handle_get_history(cmd):
-    return _make_response("ok", [])
+    """Read transcription history from transcriptions_log.jsonl."""
+    try:
+        from backend.config_manager import ConfigManager
+        config = ConfigManager()
+        transcriptions_path = config.get("transcriptions_path", "./transcriptions")
+        log_file = os.path.join(transcriptions_path, "transcriptions_log.jsonl")
+        if not os.path.exists(log_file):
+            return _make_response("ok", [])
+        entries = []
+        with open(log_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        entries.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        continue
+        # Return newest first, limit to 100
+        entries.reverse()
+        return _make_response("ok", entries[:100])
+    except Exception as e:
+        logger.exception("get_history error")
+        return _make_response("error", error=str(e))
 
 
 def _handle_register_hotkey(cmd):
-    """Register a hotkey through the Python keyboard library (fallback)."""
-    hotkey_str = cmd.get("hotkey", "")
-    if not hotkey_str:
-        return _make_response("error", error="Missing 'hotkey' field")
-
-    try:
-        from backend.hotkey_manager import HotkeyManager
-        manager = HotkeyManager()
-        success = manager.register_via_ipc(hotkey_str)
-        if success:
-            return _make_response("ok", {"registered": True})
-        else:
-            return _make_response("error", error=f"Failed to register hotkey: {hotkey_str}")
-    except Exception as e:
-        logger.exception("register_hotkey handler error")
-        return _make_response("error", error=str(e))
+    """Hotkey registration is handled by Rust (tauri-plugin-global-shortcut).
+    This is a no-op for backward compatibility."""
+    return _make_response("ok", {"registered": True, "note": "Managed by Rust"})
 
 
 def _handle_clear_audio(cmd):

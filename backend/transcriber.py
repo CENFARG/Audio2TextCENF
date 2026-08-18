@@ -641,7 +641,8 @@ class Transcriber:
             return
         
         threading.Thread(target=self.process_recording, daemon=True).start()
-        self._stopping.clear()
+        # NOTE: _stopping is cleared in process_recording's finally block,
+        # NOT here — otherwise a new recording could start before processing finishes.
 
     def process_recording(self):
         operation = OperationTracker()
@@ -711,6 +712,7 @@ class Transcriber:
             self.update_status(f'{self.localization_manager.get_string("processing_error")} {e}', "red")
             self.logger.critical(f"Error crítico durante el procesamiento: {e}", exc_info=True)
         finally:
+            self._stopping.clear()
             if temp_path and os.path.exists(temp_path): os.unlink(temp_path)
 
     def _set_transcription_failure(self, code, message):

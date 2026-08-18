@@ -19,7 +19,7 @@
   }
 
   function toggleRecording(): void {
-    if (state.isRecording) {
+    if (recState.isRecording) {
       stopRecording();
     } else {
       startRecording();
