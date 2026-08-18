@@ -29,6 +29,8 @@ pub enum SidecarCommand {
     SaveConfig { data: serde_json::Value },
     #[serde(rename = "get_history")]
     GetHistory,
+    #[serde(rename = "register_hotkey")]
+    RegisterHotkey { hotkey: String },
 }
 
 /// Shared sidecar state managed by Tauri.
@@ -40,6 +42,7 @@ struct SidecarInner {
     child: Option<Child>,
     started_at: Instant,
     restart_count: u32,
+    is_recording: bool,
 }
 
 impl SidecarState {
@@ -49,6 +52,7 @@ impl SidecarState {
                 child: None,
                 started_at: Instant::now(),
                 restart_count: 0,
+                is_recording: false,
             }),
         }
     }
@@ -148,6 +152,21 @@ impl SidecarState {
         }
         inner.child = None;
         Ok(())
+    }
+
+    /// Check if recording is active.
+    pub fn is_recording(&self) -> bool {
+        self.inner
+            .lock()
+            .map(|i| i.is_recording)
+            .unwrap_or(false)
+    }
+
+    /// Set recording state.
+    pub fn set_recording(&self, recording: bool) {
+        if let Ok(mut inner) = self.inner.lock() {
+            inner.is_recording = recording;
+        }
     }
 }
 

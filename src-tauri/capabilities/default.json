@@ -1,7 +1,7 @@
 {
   "identifier": "default",
   "description": "Default capabilities for Audio2Text",
-  "windows": ["main"],
+  "windows": ["main", "overlay"],
   "permissions": [
     "core:default",
     "shell:default",
