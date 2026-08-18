@@ -23,10 +23,5 @@
         "fullscreen": false
       }
     ]
-  },
-  "plugins": {
-    "shell": {
-      "sidecar": true
-    }
   }
 }
