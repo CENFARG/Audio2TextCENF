@@ -95,6 +95,26 @@ pub async fn auto_paste(text: String) -> Result<CommandResult, String> {
     })
 }
 
+/// Clear all audio files via the sidecar.
+#[tauri::command]
+pub async fn clear_audio(
+    state: State<'_, Arc<SidecarState>>,
+) -> Result<CommandResult, String> {
+    Ok(CommandResult::from(
+        state.send_command(&SidecarCommand::ClearAudio),
+    ))
+}
+
+/// Clear all transcriptions via the sidecar.
+#[tauri::command]
+pub async fn clear_transcriptions(
+    state: State<'_, Arc<SidecarState>>,
+) -> Result<CommandResult, String> {
+    Ok(CommandResult::from(
+        state.send_command(&SidecarCommand::ClearTranscriptions),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

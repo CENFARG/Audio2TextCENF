@@ -1,17 +1,19 @@
 <script lang="ts">
-  import { currentLanguage, setLanguage } from "../lib/i18n.svelte";
+  import { invoke } from "@tauri-apps/api/core";
 
-  let lang = $derived(currentLanguage());
+  let transcriptionLanguage = $state("es");
 
   function toggle(): void {
-    setLanguage(lang === "es" ? "en" : "es");
+    transcriptionLanguage = transcriptionLanguage === "es" ? "en" : "es";
+    invoke("save_config", { config: { transcription_language: transcriptionLanguage } });
   }
 </script>
 
-<button class="lang-switch" onclick={toggle} title={lang === "es" ? "Switch to English" : "Cambiar a Español"}>
-  <span class="lang-code" class:active={lang === "es"}>ES</span>
+<button class="lang-switch" onclick={toggle} title={transcriptionLanguage === "es" ? "Transcribir en Español" : "Transcribe in English"}>
+  <span class="lang-label">Transcribir en:</span>
+  <span class="lang-code" class:active={transcriptionLanguage === "es"}>ES</span>
   <span class="separator">/</span>
-  <span class="lang-code" class:active={lang === "en"}>EN</span>
+  <span class="lang-code" class:active={transcriptionLanguage === "en"}>EN</span>
 </button>
 
 <style>
@@ -30,6 +32,12 @@
 
   .lang-switch:hover {
     border-color: var(--accent);
+  }
+
+  .lang-label {
+    color: var(--text-secondary);
+    font-weight: 400;
+    margin-right: 0.2rem;
   }
 
   .lang-code {

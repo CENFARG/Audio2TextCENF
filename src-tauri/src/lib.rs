@@ -36,6 +36,8 @@ pub fn run() {
             commands::save_config,
             commands::get_history,
             commands::auto_paste,
+            commands::clear_audio,
+            commands::clear_transcriptions,
         ])
         .setup(move |app| {
             log::info!("Audio2Text Tauri v2 started");

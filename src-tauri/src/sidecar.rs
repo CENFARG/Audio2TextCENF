@@ -31,6 +31,10 @@ pub enum SidecarCommand {
     GetHistory,
     #[serde(rename = "register_hotkey")]
     RegisterHotkey { hotkey: String },
+    #[serde(rename = "clear_audio")]
+    ClearAudio,
+    #[serde(rename = "clear_transcriptions")]
+    ClearTranscriptions,
 }
 
 /// Shared sidecar state managed by Tauri.
@@ -257,6 +261,20 @@ mod tests {
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert_eq!(parsed["command"], "save_config");
         assert_eq!(parsed["data"]["hotkey"], "f9");
+    }
+
+    #[test]
+    fn test_sidecar_command_clear_audio() {
+        let cmd = SidecarCommand::ClearAudio;
+        let json = serde_json::to_string(&cmd).unwrap();
+        assert_eq!(json, r#"{"command":"clear_audio"}"#);
+    }
+
+    #[test]
+    fn test_sidecar_command_clear_transcriptions() {
+        let cmd = SidecarCommand::ClearTranscriptions;
+        let json = serde_json::to_string(&cmd).unwrap();
+        assert_eq!(json, r#"{"command":"clear_transcriptions"}"#);
     }
 
     #[test]

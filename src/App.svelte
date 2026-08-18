@@ -2,11 +2,12 @@
   import RecordingPanel from "./components/RecordingPanel.svelte";
   import History from "./components/History.svelte";
   import Settings from "./components/Settings.svelte";
+  import Info from "./components/Info.svelte";
   import LanguageSwitch from "./components/LanguageSwitch.svelte";
   import StatusBar from "./components/StatusBar.svelte";
   import { t } from "./lib/i18n.svelte";
 
-  let activeTab = $state<"recording" | "history" | "settings">("recording");
+  let activeTab = $state<"recording" | "history" | "settings" | "info">("recording");
 </script>
 
 <div class="app">
@@ -37,6 +38,13 @@
     >
       {t("tab_settings")}
     </button>
+    <button
+      class="tab"
+      class:active={activeTab === "info"}
+      onclick={() => (activeTab = "info")}
+    >
+      {t("tab_info")}
+    </button>
   </nav>
 
   <main class="content">
@@ -44,8 +52,10 @@
       <RecordingPanel />
     {:else if activeTab === "history"}
       <History />
-    {:else}
+    {:else if activeTab === "settings"}
       <Settings />
+    {:else}
+      <Info />
     {/if}
   </main>
 

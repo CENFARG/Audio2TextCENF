@@ -126,6 +126,28 @@ def _handle_register_hotkey(cmd):
         return _make_response("error", error=str(e))
 
 
+def _handle_clear_audio(cmd):
+    try:
+        from backend.file_manager import FileManager
+        from backend.config_manager import ConfigManager
+        fm = FileManager(ConfigManager())
+        fm.clear_audio_files()
+        return _make_response("ok", {"cleared": True})
+    except Exception as e:
+        return _make_response("error", error=str(e))
+
+
+def _handle_clear_transcriptions(cmd):
+    try:
+        from backend.file_manager import FileManager
+        from backend.config_manager import ConfigManager
+        fm = FileManager(ConfigManager())
+        fm.clear_transcriptions()
+        return _make_response("ok", {"cleared": True})
+    except Exception as e:
+        return _make_response("error", error=str(e))
+
+
 _COMMAND_HANDLERS = {
     "start_recording": _handle_start_recording,
     "stop_recording": _handle_stop_recording,
@@ -133,6 +155,8 @@ _COMMAND_HANDLERS = {
     "save_config": _handle_save_config,
     "get_history": _handle_get_history,
     "register_hotkey": _handle_register_hotkey,
+    "clear_audio": _handle_clear_audio,
+    "clear_transcriptions": _handle_clear_transcriptions,
 }
 
 
