@@ -161,9 +161,9 @@
   <h2>{t("tab_settings")}</h2>
 
   <section class="section">
-    <h3>Idioma de la Interfaz</h3>
+    <h3>{t("language_label")}</h3>
     <label class="field">
-      <span>UI Language</span>
+      <span>{t("language_label")}</span>
       <select bind:value={uiLanguage} class="input">
         <option value="es">Español</option>
         <option value="en">English</option>
@@ -177,14 +177,6 @@
     <label class="field">
       <span>{t("hotkey_label")}</span>
       <input type="text" bind:value={hotkey} class="input" />
-    </label>
-
-    <label class="field">
-      <span>Idioma de transcripción</span>
-      <select bind:value={transcriptionLanguage} class="input">
-        <option value="es">Español</option>
-        <option value="en">English</option>
-      </select>
     </label>
 
     <label class="field">
@@ -266,32 +258,38 @@
 
     <div class="vocab-io">
       <div class="vocab-io-section">
-        <h4>Importar</h4>
+        <h4>{t("vocab_import_button")}</h4>
         <textarea
           class="vocab-textarea"
-          placeholder="palabra incorrecta = palabra correcta&#10;otra palabra = corrección"
+          placeholder={currentLanguage() === "es" ? "palabra incorrecta = palabra correcta\notra palabra = corrección" : "incorrect word = correct word\nanother word = correction"}
           bind:value={importText}
           rows="4"
         ></textarea>
-        <button class="btn-small" onclick={importVocab} disabled={!importText.trim()}>Importar</button>
+        <button class="btn-small" onclick={importVocab} disabled={!importText.trim()}>
+          {currentLanguage() === "es" ? "Importar" : "Import"}
+        </button>
         {#if importStatus === "ok"}
-          <span class="io-status ok">{importCount} correcciones importadas</span>
+          <span class="io-status ok">
+            {currentLanguage() === "es" ? `${importCount} correcciones importadas` : `${importCount} corrections imported`}
+          </span>
         {:else if importStatus === "empty"}
-          <span class="io-status error">Formato inválido (usar: palabra = corrección)</span>
+          <span class="io-status error">
+            {currentLanguage() === "es" ? "Formato inválido (usar: palabra = corrección)" : "Invalid format (use: word = correction)"}
+          </span>
         {/if}
       </div>
 
       <div class="vocab-io-section">
-        <h4>Exportar</h4>
+        <h4>{t("vocab_export_button")}</h4>
         <textarea
           class="vocab-textarea"
           readonly
           value={exportText}
           rows="4"
-          placeholder="No hay vocabulario para exportar"
+          placeholder={currentLanguage() === "es" ? "No hay vocabulario para exportar" : "No vocabulary to export"}
         ></textarea>
         <button class="btn-small" onclick={copyExport} disabled={!exportText}>
-          {copyStatus === "copied" ? "✓ Copiado" : "Copiar"}
+          {copyStatus === "copied" ? "✓" : (currentLanguage() === "es" ? "Copiar" : "Copy")}
         </button>
       </div>
     </div>

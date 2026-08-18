@@ -16,25 +16,30 @@ _transcriber = None
 def _get_transcriber():
     global _transcriber
     if _transcriber is None:
-        from backend.transcriber import Transcriber
-        from backend.config_manager import ConfigManager
-        from backend.sound_manager import SoundManager
-        from backend.file_manager import FileManager
-        from backend.localization_manager import LocalizationManager
+        try:
+            from backend.transcriber import Transcriber
+            from backend.config_manager import ConfigManager
+            from backend.sound_manager import SoundManager
+            from backend.file_manager import FileManager
+            from backend.localization_manager import LocalizationManager
 
-        config = ConfigManager()
-        sound = SoundManager()
-        file_mgr = FileManager(config)
-        loc = LocalizationManager()
+            config = ConfigManager()
+            sound = SoundManager()
+            file_mgr = FileManager(config)
+            loc = LocalizationManager()
 
-        _transcriber = Transcriber(
-            config_manager=config,
-            sound_manager=sound,
-            file_manager=file_mgr,
-            update_status_callback=lambda msg, color: None,
-            transcription_callback=lambda data: None,
-            localization_manager=loc,
-        )
+            _transcriber = Transcriber(
+                config_manager=config,
+                sound_manager=sound,
+                file_manager=file_mgr,
+                update_status_callback=lambda msg, color: None,
+                transcription_callback=lambda data: None,
+                localization_manager=loc,
+            )
+            logger.info("Transcriber initialized successfully")
+        except Exception:
+            logger.exception("Failed to initialize Transcriber")
+            raise
     return _transcriber
 
 
@@ -148,6 +153,19 @@ def _handle_clear_transcriptions(cmd):
         return _make_response("error", error=str(e))
 
 
+def _handle_get_status(cmd):
+    """Return sidecar health and transcriber state."""
+    try:
+        t = _get_transcriber()
+        return _make_response("ok", {
+            "transcriber_ready": True,
+            "is_recording": getattr(t, "is_recording", False),
+        })
+    except Exception as e:
+        logger.exception("get_status handler error")
+        return _make_response("error", error=f"Transcriber init failed: {e}")
+
+
 _COMMAND_HANDLERS = {
     "start_recording": _handle_start_recording,
     "stop_recording": _handle_stop_recording,
@@ -157,6 +175,7 @@ _COMMAND_HANDLERS = {
     "register_hotkey": _handle_register_hotkey,
     "clear_audio": _handle_clear_audio,
     "clear_transcriptions": _handle_clear_transcriptions,
+    "get_status": _handle_get_status,
 }
 
 

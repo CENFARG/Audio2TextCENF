@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getRecordingState, startRecording, stopRecording } from "../lib/stores/recording.svelte";
   import { invoke } from "@tauri-apps/api/core";
-  import { t } from "../lib/i18n.svelte";
+  import { t, currentLanguage } from "../lib/i18n.svelte";
 
   const recState = getRecordingState();
 
@@ -98,8 +98,24 @@
   <div class="timer">{formatTime(recState.elapsedSeconds)}</div>
 
   {#if recState.currentText}
-    <div class="transcription-preview">
-      <p>{state.currentText}</p>
+    <div class="transcription-output">
+      <h3>{t("transcription_output_language_label")}</h3>
+      <textarea
+        class="transcription-textarea"
+        readonly
+        value={recState.currentText}
+        placeholder={currentLanguage() === "es" ? "La transcripción aparecerá aquí..." : "Transcription will appear here..."}
+      ></textarea>
+    </div>
+  {:else if recState.isRecording}
+    <div class="transcription-output">
+      <h3>{t("transcription_output_language_label")}</h3>
+      <textarea
+        class="transcription-textarea"
+        readonly
+        value=""
+        placeholder={currentLanguage() === "es" ? "Grabando... la transcripción aparecerá aquí..." : "Recording... transcription will appear here..."}
+      ></textarea>
     </div>
   {/if}
 
@@ -227,21 +243,37 @@
     letter-spacing: 2px;
   }
 
-  .transcription-preview {
+  .transcription-output {
     width: 100%;
-    max-height: 150px;
-    overflow-y: auto;
-    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .transcription-output h3 {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  .transcription-textarea {
+    width: 100%;
+    min-height: 100px;
+    max-height: 200px;
+    padding: 0.75rem;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: 8px;
-    margin-top: 0.5rem;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    resize: vertical;
+    outline: none;
+    font-family: inherit;
   }
 
-  .transcription-preview p {
-    font-size: 0.9rem;
-    line-height: 1.5;
-    color: var(--text-secondary);
+  .transcription-textarea:focus {
+    border-color: var(--accent);
   }
 
   .error-msg {

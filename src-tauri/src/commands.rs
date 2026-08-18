@@ -115,6 +115,25 @@ pub async fn clear_transcriptions(
     ))
 }
 
+/// Get sidecar health and recent stderr for diagnostics.
+#[tauri::command]
+pub async fn get_sidecar_status(
+    state: State<'_, Arc<SidecarState>>,
+) -> Result<CommandResult, String> {
+    let alive = state.is_alive();
+    let uptime = state.uptime_secs();
+    let stderr = state.read_stderr(2048);
+    Ok(CommandResult {
+        status: "ok".into(),
+        data: Some(serde_json::json!({
+            "alive": alive,
+            "uptime_secs": uptime,
+            "last_stderr": stderr,
+        })),
+        error: None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

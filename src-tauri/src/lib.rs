@@ -11,6 +11,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tauri::Emitter;
 use tauri::Listener;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -38,6 +39,7 @@ pub fn run() {
             commands::auto_paste,
             commands::clear_audio,
             commands::clear_transcriptions,
+            commands::get_sidecar_status,
         ])
         .setup(move |app| {
             log::info!("Audio2Text Tauri v2 started");
@@ -81,7 +83,19 @@ pub fn run() {
                 "python3"
             };
             let sidecar_for_spawn = Arc::clone(&sidecar_for_setup);
-            match sidecar_for_spawn.spawn(python, "backend.sidecar_entry") {
+
+            // Resolve working directory: prefer resource_dir (packaged), fallback to cwd
+            let sidecar_dir = app
+                .path()
+                .resource_dir()
+                .ok()
+                .or_else(|| std::env::current_dir().ok());
+
+            match sidecar_for_spawn.spawn(
+                python,
+                "backend.sidecar_entry",
+                sidecar_dir.as_deref(),
+            ) {
                 Ok(()) => {
                     log::info!("Sidecar spawned successfully");
                     start_health_check(

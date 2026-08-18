@@ -22,3 +22,7 @@ export async function saveConfig(
 export async function getHistory(): Promise<CommandResponse> {
   return invoke<CommandResponse>("get_history");
 }
+
+export async function getSidecarStatus(): Promise<CommandResponse> {
+  return invoke<CommandResponse>("get_sidecar_status");
+}

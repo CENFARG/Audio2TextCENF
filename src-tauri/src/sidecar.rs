@@ -35,11 +35,13 @@ pub enum SidecarCommand {
     ClearAudio,
     #[serde(rename = "clear_transcriptions")]
     ClearTranscriptions,
+    #[serde(rename = "get_status")]
+    GetStatus,
 }
 
 /// Shared sidecar state managed by Tauri.
 pub struct SidecarState {
-    inner: Mutex<SidecarInner>,
+    inner: Arc<Mutex<SidecarInner>>,
 }
 
 struct SidecarInner {
@@ -47,22 +49,29 @@ struct SidecarInner {
     started_at: Instant,
     restart_count: u32,
     is_recording: bool,
+    last_stderr: String,
 }
 
 impl SidecarState {
     pub fn new() -> Self {
         Self {
-            inner: Mutex::new(SidecarInner {
+            inner: Arc::new(Mutex::new(SidecarInner {
                 child: None,
                 started_at: Instant::now(),
                 restart_count: 0,
                 is_recording: false,
-            }),
+                last_stderr: String::new(),
+            })),
         }
     }
 
-    /// Spawn the sidecar Python process and take control of its stdin/stdout.
-    pub fn spawn(&self, python_path: &str, entry_module: &str) -> Result<(), String> {
+    /// Spawn the sidecar Python process with an optional working directory.
+    pub fn spawn(
+        &self,
+        python_path: &str,
+        entry_module: &str,
+        working_dir: Option<&std::path::Path>,
+    ) -> Result<(), String> {
         let mut inner = self.inner.lock().map_err(|e| e.to_string())?;
 
         // Kill existing sidecar if any
@@ -71,23 +80,73 @@ impl SidecarState {
             let _ = child.wait();
         }
 
-        let child = Command::new(python_path)
-            .args(["-m", entry_module])
+        let mut cmd = Command::new(python_path);
+        cmd.args(["-m", entry_module])
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
+            .stderr(Stdio::piped());
+
+        if let Some(dir) = working_dir {
+            cmd.current_dir(dir);
+            log::info!("Sidecar working dir: {}", dir.display());
+        }
+
+        let mut child = cmd
             .spawn()
             .map_err(|e| format!("Failed to spawn sidecar: {}", e))?;
+
+        // Drain stderr in a background thread so it doesn't block
+        if let Some(stderr) = child.stderr.take() {
+            let stderr_inner = self.inner.clone();
+            std::thread::spawn(move || {
+                let mut reader = BufReader::new(stderr);
+                let mut buf = String::new();
+                loop {
+                    buf.clear();
+                    match reader.read_line(&mut buf) {
+                        Ok(0) => break, // EOF
+                        Ok(_) => {
+                            log::error!("[sidecar stderr] {}", buf.trim_end());
+                            if let Ok(mut lock) = stderr_inner.lock() {
+                                lock.last_stderr.push_str(&buf);
+                                // Keep only last 8KB
+                                let len = lock.last_stderr.len();
+                                if len > 8192 {
+                                    lock.last_stderr = lock.last_stderr[len - 4096..].to_string();
+                                }
+                            }
+                        }
+                        Err(_) => break,
+                    }
+                }
+            });
+        }
 
         inner.child = Some(child);
         inner.started_at = Instant::now();
         inner.restart_count += 1;
+        inner.last_stderr.clear();
 
         log::info!(
             "Sidecar spawned (restart #{})",
             inner.restart_count
         );
         Ok(())
+    }
+
+    /// Read the last N bytes of stderr output for diagnostics.
+    pub fn read_stderr(&self, max_bytes: usize) -> String {
+        self.inner
+            .lock()
+            .map(|i| {
+                let s = &i.last_stderr;
+                if s.len() <= max_bytes {
+                    s.clone()
+                } else {
+                    s[s.len() - max_bytes..].to_string()
+                }
+            })
+            .unwrap_or_default()
     }
 
     /// Send a command and read a single-line JSON response.
@@ -220,7 +279,7 @@ pub fn start_health_check(
                 } else {
                     "python3"
                 };
-                if let Err(e) = state.spawn(python, "backend.sidecar_entry") {
+                if let Err(e) = state.spawn(python, "backend.sidecar_entry", None) {
                     log::error!("Sidecar restart failed: {}", e);
                 }
             }
