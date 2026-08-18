@@ -1,0 +1,50 @@
+//! Auto-paste: copy text to clipboard and simulate Ctrl+V paste.
+
+/// Copy text to clipboard and simulate Ctrl+V paste into the active window.
+pub fn auto_paste(text: &str) -> Result<(), String> {
+    // 1. Copy to system clipboard
+    {
+        let mut clipboard =
+            arboard::Clipboard::new().map_err(|e| format!("Failed to open clipboard: {}", e))?;
+        clipboard
+            .set_text(text)
+            .map_err(|e| format!("Failed to set clipboard text: {}", e))?;
+    }
+
+    // 2. Brief delay for clipboard to settle
+    std::thread::sleep(std::time::Duration::from_millis(50));
+
+    // 3. Simulate Ctrl+V via enigo
+    use enigo::{Direction, Enigo, Key, Keyboard, Settings};
+    let mut enigo =
+        Enigo::new(&Settings::default()).map_err(|e| format!("Failed to init enigo: {}", e))?;
+
+    enigo
+        .key(Key::Control, Direction::Press)
+        .map_err(|e| format!("Failed to press Ctrl: {}", e))?;
+    enigo
+        .key(Key::Unicode('v'), Direction::Click)
+        .map_err(|e| format!("Failed to press V: {}", e))?;
+    enigo
+        .key(Key::Control, Direction::Release)
+        .map_err(|e| format!("Failed to release Ctrl: {}", e))?;
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_auto_paste_empty_string() {
+        // Empty string should still attempt clipboard write + paste
+        // In CI this may fail due to no display server; verify no panic
+        let _ = auto_paste("");
+    }
+
+    #[test]
+    fn test_auto_paste_ascii_text() {
+        let _ = auto_paste("Hello, World!");
+    }
+}

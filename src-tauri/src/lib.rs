@@ -1,10 +1,16 @@
-//! Audio2Text Tauri v2 shell — manages backend process, hotkeys, and IPC.
+//! Audio2Text Tauri v2 shell — manages backend process, hotkeys, overlay, tray, and IPC.
 
+pub mod clipboard;
 pub mod hotkeys;
+pub mod overlay;
+pub mod tray;
 
+use overlay::{create_overlay_window, hide_overlay, show_overlay, start_timer, OverlayState};
+use std::sync::Arc;
 use std::sync::Mutex;
 use std::process::{Child, Command};
 use tauri::Emitter;
+use tauri::Listener;
 use tauri::Manager;
 
 static BACKEND: Mutex<Option<Child>> = Mutex::new(None);
@@ -57,9 +63,17 @@ fn set_hotkey(name: String, binding: String) -> String {
     format!(r#"{{"{}":"{}"}}"#, name, binding)
 }
 
+#[tauri::command]
+fn auto_paste(text: String) -> Result<String, String> {
+    clipboard::auto_paste(&text)?;
+    Ok(r#"{"status":"ok","pasted":true}"#.into())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     env_logger::init();
+
+    let overlay_state = Arc::new(OverlayState::new());
 
     tauri::Builder::default()
         // Single-instance guard: focus existing window if second instance launched
@@ -71,11 +85,16 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .setup(|app| {
+        .manage(overlay_state.clone())
+        .setup(move |app| {
             log::info!("Audio2Text Tauri v2 started");
 
+            // Create overlay window (hidden by default)
+            if let Err(e) = create_overlay_window(app) {
+                log::error!("Failed to create overlay: {}", e);
+            }
+
             // Register default global hotkey: Ctrl+Alt+F10 for recording toggle
-            let app_handle = app.handle().clone();
             if let Err(e) = hotkeys::register_global_hotkey(
                 app.handle(),
                 "Ctrl+Alt+F10",
@@ -87,6 +106,27 @@ pub fn run() {
                 let _ = app.emit("hotkey:error", serde_json::json!({ "error": e }));
             }
 
+            // Create system tray
+            if let Err(e) = tray::create_system_tray(app) {
+                log::error!("Failed to create tray: {}", e);
+            }
+
+            // Listen for recording events to control overlay
+            let overlay_for_started = overlay_state.clone();
+            let app_handle_started = app.handle().clone();
+            app.listen("recording:started", move |_| {
+                overlay_for_started.start();
+                let _ = show_overlay(&app_handle_started);
+                start_timer(app_handle_started.clone(), overlay_for_started.clone());
+            });
+
+            let overlay_for_stopped = overlay_state.clone();
+            let app_handle_stopped = app.handle().clone();
+            app.listen("recording:stopped", move |_| {
+                overlay_for_stopped.stop();
+                let _ = hide_overlay(&app_handle_stopped);
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -96,6 +136,7 @@ pub fn run() {
             get_backend_status,
             get_hotkeys,
             set_hotkey,
+            auto_paste,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
