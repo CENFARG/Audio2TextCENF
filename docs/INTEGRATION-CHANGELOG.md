@@ -98,20 +98,19 @@ This integration merges Pablo's v0.15.0 fixes and features into Gonzalo's v0.16.
 
 ## Known Issues
 
-1. **`core_infrastructure` not installed** — causes import errors in infrastructure tests
+1. **`core_infrastructure` not installed** — external package from Gonzalo's env, causes 16 infrastructure test errors
 2. **`core-cenf-ts` not available** — frontend bootstrap is a no-op placeholder
-3. **pnpm install slow** — possible network issue, requires retry
-4. **19 pre-existing test failures** — related to missing dependencies and API keys
+3. **pnpm install slow** — network issue, requires manual retry
+4. **16 legacy test failures** — tests for old `backend/` code that was superseded by `audio2text/` Clean Architecture (pre-existing, not regressions)
 
 ---
 
 ## Next Steps
 
-1. Install `core_infrastructure` dependency
-2. Install `core-cenf-ts` frontend package
+1. Get `core_infrastructure` package from Gonzalo and install it
+2. Get `core-cenf-ts` frontend package from Gonzalo
 3. Complete `pnpm install` and verify frontend build
-4. Add overlay window, system tray, auto-paste modules
-5. Run full E2E tests with Playwright
+4. Run full E2E tests with Playwright
 
 ---
 
