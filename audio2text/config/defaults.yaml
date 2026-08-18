@@ -42,6 +42,7 @@ audio:
   max_recording_time_s: 300
   max_audio_files: 100
   auto_cleanup_enabled: true
+  output_language: es
 
 hotkey:
   record_toggle: f8

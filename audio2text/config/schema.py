@@ -64,6 +64,7 @@ class AudioConfig(BaseModel):
     max_recording_time_s: int = 300
     max_audio_files: int = 100
     auto_cleanup_enabled: bool = True
+    output_language: str = "es"  # Transcription output language (independent of UI language)
 
 
 class HotkeyConfig(BaseModel):
