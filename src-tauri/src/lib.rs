@@ -1,5 +1,10 @@
+//! Audio2Text Tauri v2 shell — manages backend process, hotkeys, and IPC.
+
+pub mod hotkeys;
+
 use std::sync::Mutex;
 use std::process::{Child, Command};
+use tauri::Emitter;
 use tauri::Manager;
 
 static BACKEND: Mutex<Option<Child>> = Mutex::new(None);
@@ -44,7 +49,7 @@ fn get_backend_status() -> String {
 
 #[tauri::command]
 fn get_hotkeys() -> String {
-    r#"{"record":"Ctrl+Shift+R","cancel":"Escape"}"#.into()
+    r#"{"record":"Ctrl+Alt+F10","cancel":"Escape"}"#.into()
 }
 
 #[tauri::command]
@@ -54,20 +59,34 @@ fn set_hotkey(name: String, binding: String) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    env_logger::init();
+
     tauri::Builder::default()
+        // Single-instance guard: focus existing window if second instance launched
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
-            // Register default global shortcut: Ctrl+Shift+R for recording
-            let handle = app.handle().clone();
-            #[cfg(desktop)]
-            {
-                use tauri_plugin_global_shortcut::GlobalShortcutExt;
-                if let Err(err) = app.global_shortcut().register("Ctrl+Shift+R") {
-                    eprintln!("Failed to register global shortcut: {}", err);
-                }
-                let _ = handle;
+            log::info!("Audio2Text Tauri v2 started");
+
+            // Register default global hotkey: Ctrl+Alt+F10 for recording toggle
+            let app_handle = app.handle().clone();
+            if let Err(e) = hotkeys::register_global_hotkey(
+                app.handle(),
+                "Ctrl+Alt+F10",
+                move |app| {
+                    let _ = app.emit("hotkey:toggle_recording", ());
+                },
+            ) {
+                log::error!("Failed to register hotkey: {}", e);
+                let _ = app.emit("hotkey:error", serde_json::json!({ "error": e }));
             }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
