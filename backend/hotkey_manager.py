@@ -71,10 +71,10 @@ class HotkeyManager:
         Returns:
             Objeto Hotkey parseado
         """
-        parts = hotkey_str.lower().split("+")
+        parts = [p.strip() for p in hotkey_str.lower().split("+")]
 
         key = parts[-1]  # Última parte es la tecla
-        modifiers = [p for p in parts[:-1] if p in self.MODIFIERS]
+        modifiers = [p for p in parts[:-1] if p not in self.MOUSE_BUTTONS]
         mouse_button = None
 
         # Detectar si incluye botón mouse
