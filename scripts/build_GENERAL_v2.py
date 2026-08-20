@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-APP_VERSION = "0.17.0"
+APP_VERSION = "0.16.0"
 VARIANT = ""
 APP_NAME = f"Audio2Text_CENF_v{APP_VERSION}"
 
@@ -72,7 +72,10 @@ command = [
     "--hidden-import", "backend.transcription_metadata",
     "--hidden-import", "backend.transcription_metadata_generator",
     "--hidden-import", "backend.hotkey_manager",
-    "--hidden-import", "backend.emoji_picker",
+    "--hidden-import", "ui.emoji_picker",
+    "--hidden-import", "ui.hotkey_selector",
+    "--hidden-import", "ui.recording_overlay",
+    "--hidden-import", "ui.update_tab",
     "--hidden-import", "ui_flet.components.design_system",
     "--hidden-import", "ui_flet.components.history_tab",
     "--hidden-import", "flet",
