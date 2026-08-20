@@ -489,9 +489,15 @@ class App(ctk.CTk):
         self.vocab_list_frame = ctk.CTkScrollableFrame(vocab_frame, height=100)
         self.vocab_list_frame.grid(row=3, column=0, columnspan=3, padx=10, pady=5, sticky="nsew")
 
-        # Botón para ver/editar correcciones
-        manage_vocab_btn = ctk.CTkButton(vocab_frame, text="Ver/Editar Correcciones", width=150, command=self._show_vocab_corrections)
-        manage_vocab_btn.grid(row=4, column=0, columnspan=3, padx=10, pady=10, sticky="w")
+        # Botones: ver/editar, importar archivo, exportar
+        vocab_buttons_frame = ctk.CTkFrame(vocab_frame, fg_color="transparent")
+        vocab_buttons_frame.grid(row=4, column=0, columnspan=3, padx=10, pady=10, sticky="w")
+        manage_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text="Ver/Editar Correcciones", width=150, command=self._show_vocab_corrections)
+        manage_vocab_btn.pack(side="left", padx=(0, 5))
+        import_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text="Importar archivo", width=200, command=self._import_vocab_file)
+        import_vocab_btn.pack(side="left", padx=5)
+        export_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text="Exportar", width=100, command=self._export_vocab_file)
+        export_vocab_btn.pack(side="left", padx=5)
 
         # Cargar lista de correcciones al iniciar
         self._refresh_vocab_list()
@@ -1158,6 +1164,47 @@ class App(ctk.CTk):
                 self.update_status("Error al agregar corrección", "red")
         else:
             self.update_status("CustomVocabulary no disponible", "red")
+
+    def _import_vocab_file(self):
+        """Importar correcciones de vocabulario desde un archivo (TXT/MD/JSON)."""
+        try:
+            if not hasattr(self.transcriber, 'custom_vocab'):
+                self.update_status("CustomVocabulary no disponible", "red")
+                return
+            from tkinter import filedialog
+            fp = filedialog.askopenfilename(title="Importar vocabulario", filetypes=[("Archivos de vocabulario", "*.txt;*.md;*.json"), ("Texto", "*.txt;*.md"), ("JSON", "*.json"), ("Todos", "*.*")])
+            if not fp:
+                return
+            cnt = self.transcriber.custom_vocab.import_from_file(fp)
+            if cnt > 0:
+                import os
+                self.update_status(f"Importadas {cnt} correcciones de {os.path.basename(fp)}", "green")
+                self._refresh_vocab_list()
+            else:
+                self.update_status("No se importo ninguna correccion", "orange")
+        except Exception as e:
+            self.logger.error(f"Error importando vocabulario: {e}")
+            self.update_status(f"Error importando vocabulario: {e}", "red")
+
+    def _export_vocab_file(self):
+        """Exportar el vocabulario actual a un archivo de texto."""
+        try:
+            if not hasattr(self.transcriber, 'custom_vocab'):
+                self.update_status("CustomVocabulary no disponible", "red")
+                return
+            from tkinter import filedialog
+            fp = filedialog.asksaveasfilename(title="Exportar vocabulario", defaultextension=".txt", filetypes=[("Texto", "*.txt"), ("Markdown", "*.md"), ("Todos", "*.*")])
+            if not fp:
+                return
+            import os
+            if self.transcriber.custom_vocab.export_to_file(fp):
+                self.update_status(f"Vocabulario exportado a {os.path.basename(fp)}", "green")
+            else:
+                self.update_status("Error exportando vocabulario", "red")
+        except Exception as e:
+            self.logger.error(f"Error exportando vocabulario: {e}")
+            self.update_status(f"Error exportando vocabulario: {e}", "red")
+
 
     def _show_vocab_corrections(self):
         """Mostrar ventana para ver/editar correcciones de vocabulario."""
