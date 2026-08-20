@@ -1,3 +1,4 @@
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { startRecording as invokeStart, stopRecording as invokeStop } from "../commands";
 
 let isRecording = $state(false);
@@ -5,7 +6,34 @@ let elapsedSeconds = $state(0);
 let currentText = $state("");
 let status = $state<"idle" | "recording" | "processing" | "error">("idle");
 
-let _timerInterval: ReturnType<typeof setInterval> | null = null;
+let _unlistenTick: UnlistenFn | null = null;
+
+function parseTimeToSeconds(time: string): number {
+  const parts = time.split(":").map(Number);
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return 0;
+}
+
+async function attachTickListener(): Promise<void> {
+  if (_unlistenTick) return;
+  _unlistenTick = await listen<{ time: string } | number>("overlay:tick", (event) => {
+    const payload = event.payload as unknown;
+    if (typeof payload === "string") {
+      elapsedSeconds = parseTimeToSeconds(payload);
+    } else if (typeof payload === "number") {
+      elapsedSeconds = payload;
+    } else if (payload && typeof payload === "object" && "time" in (payload as Record<string, unknown>)) {
+      elapsedSeconds = parseTimeToSeconds((payload as { time: string }).time);
+    }
+  });
+}
+
+function detachTickListener(): void {
+  if (_unlistenTick) {
+    _unlistenTick();
+    _unlistenTick = null;
+  }
+}
 
 export function getRecordingState() {
   return {
@@ -29,23 +57,23 @@ export async function startRecording(): Promise<void> {
   elapsedSeconds = 0;
   status = "recording";
   currentText = "";
-  _timerInterval = setInterval(() => { elapsedSeconds++; }, 1000);
+  await attachTickListener();
   try {
     const response = await invokeStart();
     if (response.status !== "ok") {
-      stopTimer();
+      detachTickListener();
       isRecording = false;
       status = "error";
     }
   } catch {
-    stopTimer();
+    detachTickListener();
     isRecording = false;
     status = "error";
   }
 }
 
 export async function stopRecording(): Promise<void> {
-  stopTimer();
+  detachTickListener();
   status = "processing";
   try {
     const response = await invokeStop();
@@ -68,16 +96,9 @@ export async function stopRecording(): Promise<void> {
 }
 
 export function resetRecording(): void {
-  stopTimer();
+  detachTickListener();
   isRecording = false;
   elapsedSeconds = 0;
   currentText = "";
   status = "idle";
-}
-
-function stopTimer(): void {
-  if (_timerInterval !== null) {
-    clearInterval(_timerInterval);
-    _timerInterval = null;
-  }
 }

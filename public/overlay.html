@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: rgba(30, 30, 30, 0.92);
+            color: #ff4444;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-size: 22px;
+            font-weight: 600;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            user-select: none;
+            overflow: hidden;
+        }
+        .indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .dot {
+            width: 10px;
+            height: 10px;
+            background: #ff4444;
+            border-radius: 50%;
+            animation: pulse 1s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        #timer {
+            font-variant-numeric: tabular-nums;
+        }
+    </style>
+</head>
+<body data-tauri-drag-region>
+    <div class="indicator" data-tauri-drag-region>
+        <div class="dot"></div>
+        <span id="timer">00:00</span>
+    </div>
+    <script>
+        const { listen } = window.__TAURI__.event;
+        listen('overlay:tick', (e) => {
+            document.getElementById('timer').textContent = e.payload.time;
+        });
+    </script>
+</body>
+</html>

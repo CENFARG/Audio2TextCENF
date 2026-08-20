@@ -111,13 +111,18 @@ pub fn run() {
                 log::error!("Failed to create tray: {}", e);
             }
 
-            // Listen for recording events to control overlay
+            // Listen for recording events to control overlay — single-instance guard
+            // `setup` runs once, so these listeners are registered exactly once.
+            // `OverlayState::start()` is idempotent and `start_timer` has its own
+            // single-instance guard, so duplicate `recording:started` never spawns a second tick task.
             let overlay_for_started = overlay_state.clone();
             let app_handle_started = app.handle().clone();
             app.listen("recording:started", move |_| {
-                overlay_for_started.start();
+                let is_new = overlay_for_started.start();
                 let _ = show_overlay(&app_handle_started);
-                start_timer(app_handle_started.clone(), overlay_for_started.clone());
+                if is_new {
+                    start_timer(app_handle_started.clone(), overlay_for_started.clone());
+                }
             });
 
             let overlay_for_stopped = overlay_state.clone();
