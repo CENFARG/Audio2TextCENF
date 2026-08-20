@@ -19,17 +19,19 @@ class ConfigManager:
             "hotkey": "f9",  # FIX: default F9 (estaba f12) — pedido del usuario
             "hotkey_modifier": "",  # DEPRECATED: Usar formato "ctrl+f9" en hotkey
             "record_mode": "toggle", # Opciones: "hold" o "toggle"
-            "default_language": "es",
+            "default_language": "es",  # Idioma de INTERFAZ (siempre es)
+            "transcription_language": "es",  # Idioma de TRANSCRIPCIÓN (es/en, configurable por el usuario)
             "max_audio_files": 100,
             "max_log_entries": 1000,
-            "max_recording_time": 300,
+            "max_recording_time": 1200,  # FIX: default 20 min (antes 5 min)
             "max_transcription_age_days": 30,  # Días antes de limpiar transcripciones antiguas
             "auto_cleanup_enabled": True,      # Limpieza automática de archivos antiguos
             "groq_api_key": "JDYlGSgLcSgkLwUNLTk8CxQEBD0cHi11GQE7KidwFBwSOhc5LmwpHQkIH2d6D3kMBxkKCAoKHBI=", # Encoded user-provided key
             "gift_key_encoded": "JDYlGSgLcSgkLwUNLTk8CxQEBD0cHi11GQE7KidwFBwSOhc5LmwpHQkIH2d6D3kMBxkKCAoKHBI=", # Encoded user-provided key
             "audio_priority_apps": ["zoom.exe", "teams.exe", "meet.exe", "skype.exe"],
-            "show_transcription_panel": False,
+            "show_transcription_panel": True,  # FIX: panel visible por defecto
             "auto_paste_text": True,  # FIX: auto-pegar habilitado por defecto (pedido del usuario)
+            "autostart_windows": False,  # FIX: desactivado por defecto
             "client_logo_path": "",
             "utf8_validation": True,  # Validación y corrección UTF-8 para caracteres españoles
             "asr_provider": "groq",   # Servicio de transcripción: "groq" o "nvidia"
@@ -45,6 +47,7 @@ class ConfigManager:
     def load_config(self):
         """Cargar configuración desde archivo."""
         config = self.default_config.copy()
+        loaded_config = {}
         needs_save = False
         try:
             if os.path.exists(self.config_file):
@@ -64,6 +67,17 @@ class ConfigManager:
         except Exception as e:
             self.logger.error(f"Error al cargar configuración desde {self.config_file}: {e}, usando configuración por defecto.")
         
+        # Migración: si el archivo no tenía transcription_language, copiar desde su default_language
+        if "transcription_language" not in loaded_config:
+            # Si el archivo tenía default_language (ej: "en"), respetarlo para transcripción
+            if "default_language" in loaded_config:
+                config["transcription_language"] = loaded_config.get("default_language", "es")
+            # Si no, ya tiene el default "es"
+            needs_save = True
+
+        # Forzar interfaz siempre en español (requisito v0.15.1)
+        config["default_language"] = "es"
+
         # Ensure we don't overwrite the hardcoded version in memory
         config["app_version"] = self.default_config["app_version"]
         

@@ -21,6 +21,8 @@
   "record_mode_label": "Recording Mode:",
   "record_mode_hold": "Hold",
   "record_mode_toggle": "Toggle",
+  "max_duration_label": "Max duration:",
+  "transcription_language_label": "Transcription language:",
   "auto_paste_switch": "Auto-paste transcription",
   "autostart_windows_switch": "Start with Windows",
   "show_panel_switch": "Show transcription panel",

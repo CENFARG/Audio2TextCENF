@@ -43,6 +43,8 @@
   "record_mode_label": "Modo de Grabación:",
   "record_mode_hold": "Mantener",
   "record_mode_toggle": "Alternar",
+  "max_duration_label": "Duración máxima:",
+  "transcription_language_label": "Idioma de transcripción:",
   "auto_paste_switch": "Auto-pegar transcripción",
   "autostart_windows_switch": "Iniciar con Windows",
   "show_panel_switch": "Mostrar panel de transcripción",

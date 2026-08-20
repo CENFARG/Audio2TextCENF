@@ -219,11 +219,14 @@ class App(ctk.CTk):
 
     def create_widgets(self):
         self.logger.debug("Creando widgets de la interfaz de usuario.")
-        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
+        # --- Switch omnipresente de idioma de transcripción (visible en todas las pestañas) ---
+        self._create_omnipresent_lang_switch()
+
         self.main_frame = ctk.CTkTabview(self)
-        self.main_frame.grid(row=0, column=0, padx=10, pady=(10, 5), sticky="nsew")
+        self.main_frame.grid(row=1, column=0, padx=10, pady=(10, 5), sticky="nsew")
         self.main_frame.add(self.localization_manager.get_string("tab_main"))
         self.main_frame.add(self.localization_manager.get_string("tab_settings"))
         self.main_frame.add(self.localization_manager.get_string("tab_info"))
@@ -237,11 +240,69 @@ class App(ctk.CTk):
         self.create_update_tab()
 
         self.bottom_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.bottom_frame.grid(row=1, column=0, padx=10, pady=5, sticky="ew")  # Cambio de row=2 a row=1
+        self.bottom_frame.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
         cenf_link = ctk.CTkLabel(self.bottom_frame, text=self.localization_manager.get_string("cenf_website"), font=DesignSystem.TYPOGRAPHY["link"], text_color=DesignSystem.COLORS["primary"], cursor="hand2")
         cenf_link.pack(side="right")
         cenf_link.bind("<Button-1>", lambda e: webbrowser.open_new("https://www.cenfarg.com.ar"))
         self.logger.debug("Widgets de la interfaz de usuario creados.")
+
+    def _create_omnipresent_lang_switch(self):
+        """Barra superior omnipresente con switch ES ⟷ EN para idioma de transcripción."""
+        top_bar = ctk.CTkFrame(self, fg_color="transparent", height=28)
+        top_bar.grid(row=0, column=0, padx=10, pady=(5, 0), sticky="ew")
+        top_bar.grid_columnconfigure(0, weight=1)
+
+        # Idioma actual de transcripción
+        current = self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es"))
+        self._lang_switch_var = tk.StringVar(value=current)
+
+        # Label + SegmentedButton (ES / EN) — 1 clic para cambiar
+        ctk.CTkLabel(top_bar, text="🌐 Transcripción:", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(side="left", padx=(5, 5))
+
+        self._lang_switch = ctk.CTkSegmentedButton(
+            top_bar,
+            values=["ES", "EN"],
+            variable=self._lang_switch_var,
+            command=self._on_omnipresent_lang_change,
+            width=90,
+            height=24,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            selected_color=DesignSystem.COLORS["primary"],
+            selected_hover_color=DesignSystem.COLORS["primary_hover"],
+        )
+        self._lang_switch.pack(side="left")
+        # Seleccionar valor inicial correctamente (SegmentedButton usa el string exacto)
+        self._lang_switch.set(current.upper())
+
+        self._lang_switch_label = ctk.CTkLabel(
+            top_bar,
+            text="Español" if current == "es" else "English",
+            font=DesignSystem.TYPOGRAPHY["body_small"],
+            text_color=DesignSystem.COLORS["text_secondary"],
+        )
+        self._lang_switch_label.pack(side="left", padx=(8, 0))
+
+    def _on_omnipresent_lang_change(self, value: str):
+        """Callback del switch omnipresente — cambia idioma de transcripción y sincroniza config."""
+        new_lang = value.lower()  # "ES" -> "es"
+        old = self.config_manager.get("transcription_language", "es")
+        if new_lang == old:
+            return
+        self.config_manager.set("transcription_language", new_lang)
+        # Mantener default_language en es (interfaz siempre español) pero también actualizarlo
+        # para compatibilidad si alguien lee default_language
+        if self.config_manager.get("default_language") != "es":
+            self.config_manager.set("default_language", "es")
+        self._update_lang_switch_label(new_lang)
+        # Sincronizar el ComboBox de Configuración si existe
+        if hasattr(self, 'language_var'):
+            self.language_var.set(new_lang)
+        self.logger.info(f"Idioma de transcripción (omnipresente): {old} → {new_lang}")
+        self.update_status(f"🌐 Transcripción: {'Español' if new_lang == 'es' else 'English'}", "green")
+
+    def _update_lang_switch_label(self, lang: str):
+        if hasattr(self, '_lang_switch_label'):
+            self._lang_switch_label.configure(text="Español" if lang == "es" else "English")
 
     def update_overlay(self, state, minutes=0, seconds=0):
         """Actualizar el overlay de grabación según el estado (Thread-safe)"""
@@ -339,12 +400,12 @@ class App(ctk.CTk):
         self.log_size_label = ctk.CTkLabel(info_frame, text=self.localization_manager.get_string("transcriptions_info", size="..."))
         self.log_size_label.grid(row=0, column=1, sticky="e")
 
-        # Button frame - REDUCIDO padding
+        # Button frame - FIX: 2 botones ocupan todo el ancho del textbox, centrados e iguales
         button_frame = ctk.CTkFrame(tab, fg_color="transparent")
-        button_frame.grid(row=2, column=0, padx=15, pady=(0, 5), sticky="ew")  # Reducido padding
-        button_frame.grid_columnconfigure((0, 1, 2), weight=1)
-        ctk.CTkButton(button_frame, text=self.localization_manager.get_string("clear_audio_button"), command=self.clear_audio_with_feedback).grid(row=0, column=0, padx=5, sticky="ew")
-        ctk.CTkButton(button_frame, text=self.localization_manager.get_string("clear_transcriptions_button"), command=self.clear_logs_with_feedback).grid(row=0, column=1, padx=5, sticky="ew")
+        button_frame.grid(row=2, column=0, padx=10, pady=(0, 5), sticky="ew")
+        button_frame.grid_columnconfigure((0, 1), weight=1, uniform="btn")
+        ctk.CTkButton(button_frame, text=self.localization_manager.get_string("clear_audio_button"), command=self.clear_audio_with_feedback).grid(row=0, column=0, padx=(0, 5), sticky="ew")
+        ctk.CTkButton(button_frame, text=self.localization_manager.get_string("clear_transcriptions_button"), command=self.clear_logs_with_feedback).grid(row=0, column=1, padx=(5, 0), sticky="ew")
         
 
         
@@ -376,8 +437,9 @@ class App(ctk.CTk):
 
         ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("settings_title_main"), font=DesignSystem.TYPOGRAPHY["heading_medium"]).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
-        self.api_key_status_label = ctk.CTkLabel(main_conf_frame, text="●", font=("Segoe UI", 20), text_color="grey")
+        self.api_key_status_label = ctk.CTkLabel(main_conf_frame, text="●", font=("Segoe UI", 20), text_color="grey", cursor="hand2")
         self.api_key_status_label.grid(row=1, column=0, padx=(10,0), sticky="w")
+        self.api_key_status_label.bind("<Button-1>", lambda e: self._on_api_dot_click())
         self.api_key_var = tk.StringVar(value=self.config_manager.get("groq_api_key"))
         api_entry = ctk.CTkEntry(main_conf_frame, textvariable=self.api_key_var, show="*", placeholder_text=self.localization_manager.get_string("api_key_placeholder"))
         api_entry.grid(row=1, column=1, padx=5, sticky="ew")
@@ -454,19 +516,14 @@ class App(ctk.CTk):
         ctk.CTkRadioButton(record_mode_frame, text=self.localization_manager.get_string("record_mode_hold"), variable=self.record_mode_var, value="hold", command=self.save_config).grid(row=0, column=0, padx=5, sticky="w")
         ctk.CTkRadioButton(record_mode_frame, text=self.localization_manager.get_string("record_mode_toggle"), variable=self.record_mode_var, value="toggle", command=self.save_config).grid(row=0, column=1, padx=10, sticky="w")
 
-        # Max Recording Duration
-        # FIX layout: el label va ARRIBA del combo (col 1, columna derecha) para no
-        # superponerse con el switch de auto-paste que antes ocupaba la misma fila 9
-        duration_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
-        duration_frame.grid(row=9, column=1, columnspan=2, padx=5, pady=5, sticky="w")
-        ctk.CTkLabel(duration_frame, text=self.localization_manager.get_string("max_duration_label"), font=DesignSystem.TYPOGRAPHY["body_small"]).pack(anchor="w")
-        current_duration = self.config_manager.get("max_recording_time", 300)
+        # Max Recording Duration — label a la izquierda (col 0) como todos los demás campos
+        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("max_duration_label")).grid(row=9, column=0, padx=10, pady=5, sticky="w")
+        current_duration = self.config_manager.get("max_recording_time", 1200)
         duration_options = {"5 min": 300, "10 min": 600, "15 min": 900, "20 min": 1200}
         reverse_map = {v: k for k, v in duration_options.items()}
-        current_label = reverse_map.get(current_duration, "5 min")
+        current_label = reverse_map.get(current_duration, "20 min")
         self.max_duration_var = tk.StringVar(value=current_label)
-        duration_combo = ctk.CTkComboBox(duration_frame, values=list(duration_options.keys()), variable=self.max_duration_var, state="readonly", width=120, command=lambda e: self.save_config())
-        duration_combo.pack(anchor="w", pady=(2, 0))
+        ctk.CTkComboBox(main_conf_frame, values=list(duration_options.keys()), variable=self.max_duration_var, state="readonly", width=120, command=lambda e: self.save_config()).grid(row=9, column=1, columnspan=2, padx=5, pady=5, sticky="w")
 
         # Auto-paste & Show panel (filas propias, sin superposición)
         self.auto_paste_var = tk.BooleanVar(value=self.config_manager.get("auto_paste_text"))
@@ -484,10 +541,9 @@ class App(ctk.CTk):
         self.autostart_windows_var = tk.BooleanVar(value=actual_autostart_state)
         ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("autostart_windows_switch"), variable=self.autostart_windows_var, command=self.save_config).grid(row=12, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
-        # Language selection
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("language_label")).grid(row=13, column=0, padx=10, pady=5, sticky="w")
-        self.language_var = tk.StringVar(value=self.config_manager.get("default_language"))
-        # Command triggers when selection changes
+        # Idioma de transcripción (NO cambia interfaz — siempre ES)
+        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("transcription_language_label")).grid(row=13, column=0, padx=10, pady=5, sticky="w")
+        self.language_var = tk.StringVar(value=self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es")))
         ctk.CTkComboBox(main_conf_frame, values=["es", "en"], variable=self.language_var, state="readonly", command=lambda e: self.save_config()).grid(row=13, column=1, padx=5, pady=5, sticky="ew", columnspan=2)
 
         # --- File Management Frame ---
@@ -1157,7 +1213,7 @@ class App(ctk.CTk):
                 self.display_transcription(text)
                 self.file_manager.save_transcription_entry({
                     "text": text, "duration": 0, # Duration unknown/irrelevant for re-transcription
-                    "language": self.config_manager.get("default_language"), "audio_file": file_path
+                    "language": self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es")), "audio_file": file_path
                 })
                 self.update_status(self.localization_manager.get_string("transcription_completed"), "green")
                 self.sound_manager.sound_success()
@@ -1217,18 +1273,74 @@ class App(ctk.CTk):
         # FIX v0.15.0: solo Groq (Gemini quitado del selector por benchmark 5-87s)
         self.logger.info("Verificando claves API...")
 
-        # Groq Check
         groq_key = self.api_key_var.get()
         if groq_key:
             self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["warning"]); self.update_idletasks()
             try:
                 Groq(api_key=groq_key).models.list()
                 self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["success"])
+                self._api_key_last_valid = True
+                self.update_status("✅ API Key de Groq verificada", "green")
             except Exception as e:
                 self.logger.error(f"Error verificando API Key de Groq: {e}")
                 self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["error"])
+                self._api_key_last_valid = False
+                self.update_status("❌ API Key de Groq inválida — ver Información para configurarla", "red")
+                self._show_api_key_error_hint(str(e))
         else:
             self.api_key_status_label.configure(text="●", text_color="grey")
+            self._api_key_last_valid = None
+            self.update_status("⚠️ Sin API Key — configurala en Configuración", "orange")
+
+    def _on_api_dot_click(self):
+        """Click en el dot de estado — si está en rojo, llevar a Información."""
+        try:
+            if getattr(self, '_api_key_last_valid', None) is False:
+                self.main_frame.set(self.localization_manager.get_string("tab_info"))
+                self.update_status("ℹ️ Ver Información para configurar tu API Key de Groq", "orange")
+            else:
+                self._check_api_key()
+        except Exception:
+            self._check_api_key()
+
+    def _show_api_key_error_hint(self, error_detail: str = ""):
+        """Mostrar hint y ofrecer navegar a Información cuando la API Key falla."""
+        # Evitar spam: solo mostrar si no se mostró hace poco (debounce 10s)
+        import time
+        now = time.time()
+        if hasattr(self, '_last_api_hint_time') and (now - self._last_api_hint_time) < 10:
+            return
+        self._last_api_hint_time = now
+
+        def _go_to_info():
+            try:
+                self.main_frame.set(self.localization_manager.get_string("tab_info"))
+            except Exception:
+                pass
+            hint_win.destroy()
+
+        hint_win = ctk.CTkToplevel(self)
+        hint_win.title("API Key no válida")
+        hint_win.geometry("460x220")
+        hint_win.transient(self)
+        hint_win.lift()
+        hint_win.attributes('-topmost', True)
+        hint_win.after(100, lambda: hint_win.attributes('-topmost', False))
+        hint_win.grab_set()
+
+        ctk.CTkLabel(hint_win, text="❌ API Key de Groq no válida", font=DesignSystem.TYPOGRAPHY["heading_medium"], text_color=DesignSystem.COLORS["error"]).pack(pady=(15, 5))
+        ctk.CTkLabel(hint_win, text="La verificación falló. Configurá tu API Key gratis en:", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(pady=2)
+        link = ctk.CTkLabel(hint_win, text="https://console.groq.com/keys", font=DesignSystem.TYPOGRAPHY["link"], text_color=DesignSystem.COLORS["primary"], cursor="hand2")
+        link.pack(pady=2)
+        link.bind("<Button-1>", lambda e: webbrowser.open_new("https://console.groq.com/keys"))
+        if error_detail:
+            ctk.CTkLabel(hint_win, text=error_detail[:80], font=ctk.CTkFont(size=10), text_color="gray").pack(pady=2)
+        ctk.CTkLabel(hint_win, text="Pegá la clave en Configuración → API Key → Verificar", font=DesignSystem.TYPOGRAPHY["body_small"], text_color=DesignSystem.COLORS["text_secondary"]).pack(pady=2)
+
+        btn_frame = ctk.CTkFrame(hint_win, fg_color="transparent")
+        btn_frame.pack(pady=10)
+        ctk.CTkButton(btn_frame, text="Ir a Información", width=140, command=_go_to_info).pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="Cerrar", width=100, fg_color="gray", hover_color="#555", command=hint_win.destroy).pack(side="left", padx=5)
 
     def _show_block_stats(self):
         """Mostrar estadísticas de los bloques de procesamiento."""
@@ -1608,7 +1720,7 @@ class App(ctk.CTk):
         if not hasattr(self, 'api_key_var') or not hasattr(self, 'asr_provider_var'):
             return
         self.logger.info("Guardando configuración...")
-        old_lang = self.config_manager.get("default_language")
+        old_tlang = self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es"))
         old_show_panel = self.config_manager.get("show_transcription_panel")
 
         # Obtener configuración de bloques actual
@@ -1623,14 +1735,15 @@ class App(ctk.CTk):
             "nvidia_mode": self.nvidia_mode_var.get() if hasattr(self, 'nvidia_mode_var') else "cloud",
             "hotkey": hotkey_actual,  # FIX: el hotkey se mantiene con su valor actual (viene del config_manager)
             "record_mode": self.record_mode_var.get(),
-            "max_recording_time": {"5 min": 300, "10 min": 600, "15 min": 900, "20 min": 1200}.get(self.max_duration_var.get() if hasattr(self, "max_duration_var") else "5 min", 300),
+            "max_recording_time": {"5 min": 300, "10 min": 600, "15 min": 900, "20 min": 1200}.get(self.max_duration_var.get() if hasattr(self, "max_duration_var") else "20 min", 1200),
             "auto_paste_text": self.auto_paste_var.get(), "show_transcription_panel": self.show_panel_var.get(),
             "audio_path": self.audio_path_var.get(), "transcriptions_path": self.transcriptions_path_var.get(),
             "save_audio": self.save_audio_var.get(), "save_logs": self.save_logs_var.get(),
             "max_audio_files": int(self.config_manager.get("max_audio_files")),
             "max_log_entries": int(self.config_manager.get("max_log_entries")),
             "audio_priority_apps": self.config_manager.get("audio_priority_apps"),
-            "default_language": self.language_var.get(),
+            "default_language": "es",  # Interfaz siempre español
+            "transcription_language": self.language_var.get(),
             "autostart_windows": self.autostart_windows_var.get(),
             "blocks": {
                 **blocks_config,  # Mantener configuración existente
@@ -1649,10 +1762,13 @@ class App(ctk.CTk):
             self.logger.error(f"Error al configurar inicio automático: {settings['autostart_windows']}")
         # ----------------------------
         
-        # Check for language change
-        if self.language_var.get() != old_lang:
-            self.config_manager.set_language(self.language_var.get())
-            self.recreate_ui_for_language_change()
+        # Idioma de transcripción cambió — sincronizar switch omnipresente si existe
+        new_tlang = self.language_var.get()
+        if new_tlang != old_tlang:
+            self.logger.info(f"Idioma de transcripción: {old_tlang} → {new_tlang}")
+            if hasattr(self, '_lang_switch_var') and self._lang_switch_var.get() != new_tlang:
+                self._lang_switch_var.set(new_tlang)
+                self._update_lang_switch_label(new_tlang)
         
         # --- API Key Logic Fix ---
         # FIX v0.15.0: recargar cliente SIEMPRE al guardar config (el provider

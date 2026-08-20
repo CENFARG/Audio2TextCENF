@@ -601,7 +601,7 @@ class Transcriber:
                 self.transcription_callback(transcription)
                 self.file_manager.save_transcription_entry({
                     "text": transcription, "duration": duration,
-                    "language": self.config_manager.get("default_language"), "audio_file": audio_file_path or ""
+                    "language": self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es")), "audio_file": audio_file_path or ""
                 })
                 self.sound_manager.sound_success()
                 self.update_status(self.localization_manager.get_string("transcription_completed"), "green")
@@ -632,7 +632,7 @@ class Transcriber:
                 file=(os.path.basename(wav_path), f.read()),
                 model="whisper-large-v3",
                 response_format="text",
-                language=self.config_manager.get("default_language", "es"),
+                language=self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es")),
             )
             if prompt:
                 kwargs["prompt"] = prompt
@@ -714,9 +714,12 @@ class Transcriber:
             return None
         try:
             self.logger.debug(f"Enviando audio {audio_path} a NVIDIA Riva ASR.")
+            _tlang = self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es"))
+            # NVIDIA espera formato es-ES/en-US
+            _nvidia_lang = "en-US" if _tlang.startswith("en") else "es-ES"
             response = self.nvidia_client.transcribe(
                 audio_path=audio_path,
-                language_code=self.config_manager.get("default_language", "es-US")
+                language_code=_nvidia_lang
             )
 
             if not response:
