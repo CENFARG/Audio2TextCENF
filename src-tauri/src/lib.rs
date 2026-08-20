@@ -55,7 +55,7 @@ fn get_backend_status() -> String {
 
 #[tauri::command]
 fn get_hotkeys() -> String {
-    r#"{"record":"Ctrl+Alt+F10","cancel":"Escape"}"#.into()
+    r#"{"record":"F9","cancel":"Escape"}"#.into()
 }
 
 #[tauri::command]
@@ -94,10 +94,10 @@ pub fn run() {
                 log::error!("Failed to create overlay: {}", e);
             }
 
-            // Register default global hotkey: Ctrl+Alt+F10 for recording toggle
+            // Register default global hotkey: F9 for recording toggle
             if let Err(e) = hotkeys::register_global_hotkey(
                 app.handle(),
-                "Ctrl+Alt+F10",
+                "F9",
                 move |app| {
                     let _ = app.emit("hotkey:toggle_recording", ());
                 },

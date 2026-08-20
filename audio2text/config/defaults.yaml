@@ -45,7 +45,7 @@ audio:
   output_language: es
 
 hotkey:
-  record_toggle: f8
+  record_toggle: f9
   cancel: Esc
   enabled: true
 

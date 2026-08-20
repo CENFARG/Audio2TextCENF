@@ -69,7 +69,7 @@ class AudioConfig(BaseModel):
 
 class HotkeyConfig(BaseModel):
     """Hotkey settings."""
-    record_toggle: str = "f8"
+    record_toggle: str = "f9"
     cancel: str = "Esc"
     enabled: bool = True
 
