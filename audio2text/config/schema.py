@@ -1,7 +1,7 @@
 """@File: audio2text/config/schema.py
-@Description: Audio2Text v0.16 Pydantic config schema model.
+@Description: Audio2Text v0.17 Pydantic config schema model.
     Single source of truth for all configuration fields.
-@Version: 0.16.0
+@Version: 0.17.0
 @Author: CENF Development Team
 @License: Apache-2.0
 """
@@ -140,8 +140,8 @@ class LoggingConfig(BaseModel):
 
 
 class Audio2TextConfig(BaseModel):
-    """Root Audio2Text v0.16 configuration model."""
-    version: str = "0.16.0"
+    """Root Audio2Text v0.17 configuration model."""
+    version: str = "0.17.0"
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
     audio: AudioConfig = Field(default_factory=AudioConfig)
     hotkey: HotkeyConfig = Field(default_factory=HotkeyConfig)

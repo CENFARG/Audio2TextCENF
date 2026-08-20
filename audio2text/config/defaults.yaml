@@ -1,8 +1,8 @@
-# Audio2Text v0.16 — Default configuration
+# Audio2Text v0.17 — Default configuration
 # These values are used when no config file exists.
 # They match the Pydantic schema in audio2text/config/schema.py
 
-version: "0.16.0"
+version: "0.17.0"
 
 providers:
   primary: groq

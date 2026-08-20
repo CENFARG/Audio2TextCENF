@@ -1,6 +1,6 @@
 """@File: audio2text/config/_schema.py
-@Description: v0.16 config schema defaults, key mapping, and nested dict helpers.
-@Version: 0.16.0
+@Description: v0.17 config schema defaults, key mapping, and nested dict helpers.
+@Version: 0.17.0
 @Author: CENF Development Team
 @License: Apache-2.0
 """
@@ -34,9 +34,9 @@ _SECRET_KEYS: list[str] = ["groq_api_key", "nvidia_api_key", "gift_key_encoded"]
 
 
 def build_default_config() -> dict[str, Any]:
-    """Return a skeleton v0.16 config with sensible defaults."""
+    """Return a skeleton v0.17 config with sensible defaults."""
     return {
-        "version": "0.16.0",
+        "version": "0.17.0",
         "providers": {
             "primary": "groq",
             "fallback_chain": [],

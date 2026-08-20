@@ -9,6 +9,10 @@ import psutil
 import threading
 from groq import Groq
 import logging
+import hashlib
+import uuid
+from collections import deque
+from dataclasses import dataclass
 from .localization_manager import LocalizationManager
 from .utf8_validator import UTF8Validator
 from .custom_vocabulary import CustomVocabulary
@@ -17,28 +21,97 @@ from .blocks.task_extractor_block import TaskExtractorBlock
 from .blocks.summary_block import SummaryBlock
 from .blocks.keyword_extractor_block import KeywordExtractorBlock
 from .nvidia_asr import NvidiaASR
-from .faster_whisper_asr import FasterWhisperASR
 from .transcription_metadata import TranscriptionMetadata
 from .transcription_metadata_generator import TranscriptionMetadataGenerator
+from .audio_chunker import transcribe_chunks
+from .hotkey_manager import HotkeyManager
 
 MIN_AUDIO_DURATION = 0.5
+CHUNK_THRESHOLD_S = 28.0  # Audio >= 28s se troza para evitar pérdida en costuras de Groq
+
+
+@dataclass(frozen=True)
+class TranscriptionFailure:
+    """Recoverable, UI-safe description of the last failed transcription."""
+
+    code: str
+    message: str
+    recoverable: bool = True
+
+
+def _normalized_text(text):
+    return " ".join(str(text or "").split())
+
+
+def text_sha256(text):
+    return hashlib.sha256(_normalized_text(text).encode("utf-8")).hexdigest()
+
+
+class OperationTracker:
+    """Bounded, correlation-aware state machine for one user operation."""
+
+    def __init__(self, operation_id=None, max_events=256):
+        self.operation_id = operation_id or str(uuid.uuid4())
+        self.state = "pending"
+        self.events = deque(maxlen=max_events)
+        self._claims = set()
+
+    def event(self, event_type, text="", chunk_index=None, attempt=None):
+        event = {"operation_id": self.operation_id, "event_type": event_type,
+                 "text_sha256": text_sha256(text), "timestamp": time.time()}
+        if chunk_index is not None:
+            event["chunk_index"] = chunk_index
+        if attempt is not None:
+            event["attempt"] = attempt
+        self.events.append(event)
+        return event
+
+    def claim(self, stage, text="", chunk_index=None, attempt=None):
+        if stage in self._claims or self.state in {"displayed", "failed"}:
+            self.event("rejected_duplicate", text, chunk_index, attempt)
+            return False
+        self._claims.add(stage)
+        self.event(stage, text, chunk_index, attempt)
+        return True
+
+    def finish(self, state, text="", attempt=None):
+        if state not in {"displayed", "failed"} or self.state != "pending":
+            self.event("rejected_duplicate", text, attempt=attempt)
+            return False
+        self.state = state
+        self.event(state, text, attempt=attempt)
+        return True
+
+
+def build_operation_envelope(operation_id, text, attempt=1):
+    return {"operation_id": operation_id, "text": text, "attempt": attempt}
+
 
 class Transcriber:
     def __init__(self, config_manager, sound_manager, file_manager, update_status_callback, transcription_callback, localization_manager, overlay_callback=None):
+        import queue as _queue
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.last_transcription_failure = None
+        self.operations = {}
         self.config_manager = config_manager
         self.sound_manager = sound_manager
         self.file_manager = file_manager
         self.update_status = update_status_callback
         self.transcription_callback = transcription_callback
         self.localization_manager = localization_manager
-        self.overlay_callback = overlay_callback  # Callback para actualizar overlay
+        # FIX v0.15.0: overlay_callback (si existe) se canaliza por la cola de eventos
+        # para que el thread de grabación/transcripción NUNCA toque la UI directamente.
+        self.overlay_callback = overlay_callback  # se llama vía _push_overlay_event
+        self.timer_queue = _queue.Queue(maxsize=8)  # cola de eventos (timer/overlay) para polling
 
         self.logger.info(f"Transcriber inicializado con hotkey: {self.config_manager.get('hotkey')}, modo de grabación: {self.config_manager.get('record_mode')}")
 
         self.is_recording = False
         self.recording_lock = threading.Lock()
+        # FIX Bug F: lock dedicado para audio_data (compartido entre _record_loop y process_recording)
+        self.audio_lock = threading.Lock()
         self.stop_event = threading.Event()
+        self._stopping = threading.Event()
         self.last_key_event_time = 0
         self.debounce_time = 0.2
 
@@ -46,13 +119,15 @@ class Transcriber:
         self.audio_data = [] # List to store numpy arrays
         self.freq = 16000
         self.hotkey = self.config_manager.get("hotkey", "f12")
+        self.hotkey_manager = HotkeyManager()
         self.record_mode = self.config_manager.get("record_mode", "toggle")
         self.audio_priority_apps = self.config_manager.get("audio_priority_apps", [])
+        self._cached_priority_apps = set()
+        self._cache_time = 0
 
         self.input_stream = None # sounddevice InputStream
         self.cliente = self._init_groq_client()
         self.nvidia_client = self._init_nvidia_client()
-        self.faster_whisper_client = self._init_faster_whisper_client()
 
         self.hotkey_thread = threading.Thread(target=self.hotkey_listener, daemon=True)
         self.hotkey_thread.start()
@@ -79,7 +154,9 @@ class Transcriber:
         self.logger.info("TranscriptionMetadata inicializado")
 
         # Inicializar generador de metadatos automáticos con LLM
-        self.metadata_generator = TranscriptionMetadataGenerator(use_llm=True)
+        # FIX Bug H: use_llm=False — evitar SEGUNDA llamada a la API por cada transcripción
+        # (duplicaba costo y latencia). Con False usa reglas simples, sin llamada extra.
+        self.metadata_generator = TranscriptionMetadataGenerator(use_llm=False)
         self.logger.info("TranscriptionMetadataGenerator inicializado (LLM enabled)")
 
     def _setup_blocks(self):
@@ -161,61 +238,34 @@ class Transcriber:
             return None
 
     def _init_faster_whisper_client(self):
-        """Inicializar cliente faster-whisper (transcripción local sin Docker)."""
-        faster_whisper_enabled = self.config_manager.get("faster_whisper_enabled", False)
-
-        if not faster_whisper_enabled:
-            self.logger.info("faster-whisper deshabilitado en configuración.")
-            return None
-
-        try:
-            # Obtener configuración del modelo
-            model_size = self.config_manager.get("faster_whisper_model", "base")
-            device = self.config_manager.get("faster_whisper_device", "auto")
-
-            client = FasterWhisperASR(model_size=model_size, device=device)
-            if client.is_available():
-                model_info = client.get_model_info()
-                self.logger.info(f"Cliente faster-whisper inicializado (modelo={model_size}, device={model_info['device']})")
-                return client
-            else:
-                self.logger.warning("faster-whisper: no se pudo inicializar el modelo")
-                return None
-        except Exception as e:
-            self.logger.warning(f"Error al inicializar faster-whisper: {e}")
-            return None
+        """FIX: faster-whisper (modelo local) ERRADICADO — la app usa API cloud (Groq)."""
+        return None
 
     def get_transcription_service(self):
         """
         Obtener el servicio de transcripción activo.
 
         Returns:
-            'nvidia', 'groq', 'faster_whisper' o None si no hay ninguno disponible.
+            'nvidia' o 'groq', o None si no hay ninguno disponible.
         """
-        asr_provider = self.config_manager.get("asr_provider", "groq")  # "groq", "nvidia" o "faster_whisper"
+        asr_provider = self.config_manager.get("asr_provider", "groq")  # "groq" o "nvidia"
 
-        if asr_provider == "nvidia" and self.nvidia_client:
-            return "nvidia"
-        elif asr_provider == "faster_whisper" and self.faster_whisper_client:
-            return "faster_whisper"
-        elif self.cliente:
-            return "groq"
+        if asr_provider == "nvidia":
+            return "nvidia" if self.nvidia_client else None
         else:
-            return None
+            return "groq" if self.cliente else None
 
     def reload_client(self):
-        """Reinicializa los clientes de transcripción (Groq, NVIDIA y faster-whisper)."""
+        """Reinicializa los clientes de transcripción (Groq y NVIDIA)."""
         self.logger.info("Recargando clientes de transcripción...")
         self.cliente = self._init_groq_client()
         self.nvidia_client = self._init_nvidia_client()
-        self.faster_whisper_client = self._init_faster_whisper_client()
 
         service = self.get_transcription_service()
         if service:
             service_names = {
                 "nvidia": "NVIDIA Riva",
                 "groq": "Groq",
-                "faster_whisper": "faster-whisper"
             }
             service_name = service_names.get(service, service)
             self.update_status(f"Cliente {service_name} listo", "white")
@@ -397,22 +447,48 @@ class Transcriber:
         except Exception as e:
             self.logger.debug(f"Error en _handle_modifier_hotkey: {e}")
 
+    def _refresh_priority_cache(self):
+        """Refresh cached process list for priority apps (30s TTL, non-blocking)."""
+        now = time.time()
+        if now - self._cache_time < 30:
+            return
+
+        def _do_refresh():
+            try:
+                apps = {
+                    p.info['name'].lower()
+                    for p in psutil.process_iter(['pid', 'name'])
+                    if p.info.get('name')
+                }
+                self._cached_priority_apps = apps
+                self._cache_time = time.time()
+            except Exception:
+                pass
+
+        try:
+            threading.Thread(target=_do_refresh, daemon=True).start()
+        except Exception:
+            pass
+
     def start_recording(self):
         if self.is_recording: return
-        if any(p.info['name'].lower() in self.audio_priority_apps for p in psutil.process_iter(['pid', 'name'])):
+        if self._stopping.is_set(): return
+        self._refresh_priority_cache()
+        if any(app in self._cached_priority_apps for app in self.audio_priority_apps):
             self.update_status(self.localization_manager.get_string("priority_app_in_use"), "orange")
             return
 
         self.is_recording = True
-        self.audio_data = []
+        # FIX Bug F: reset de audio_data bajo lock (evita correr contra process_recording)
+        with self.audio_lock:
+            self.audio_data = []
         self.stop_event.clear()
         self.sound_manager.sound_start_recording()
         self.update_status(self.localization_manager.get_string("status_recording"), "green")
         self.logger.info("Grabación iniciada.")
         
-        # Actualizar overlay
-        if self.overlay_callback:
-            self.overlay_callback("recording", 0, 0)
+        # Actualizar overlay (vía cola, nunca directo desde el thread)
+        self._push_overlay_event("recording", 0, 0)
         
         try:
             # Initialize SoundDevice Stream
@@ -427,35 +503,125 @@ class Transcriber:
             self.logger.error(f"Error al iniciar el stream de audio: {e}")
 
     def _record_loop(self):
+        """Bucle de grabación — HOT LOOP de SOLO lectura de audio.
+
+        FIX v0.15.0 (Kaizen Nodal / sdd-explore): el bug de grabaciones largas era
+        la UI dentro del bucle: update_status/overlay_callback hacen after() cross-
+        thread que se traban con el lock de Tcl cuando el main thread está ocupado,
+        estancando el read() de audio → frames perdidos SILENCIOSAMENTE → audio
+        comprimido/cortado → Groq devuelve texto con palabras cortadas y tildes
+        faltantes en esos puntos ("funciona por momentos y por momentos no").
+
+        Propiedad ESTRUCTURAL: la captura de audio es un hot-loop que NUNCA debe
+        bloquearse. La UI se actualiza por POLLING desde el main thread vía cola.
+        """
+        import queue
+        if not hasattr(self, 'timer_queue'):
+            self.timer_queue = queue.Queue(maxsize=4)  # cola acotada, put_nowait no bloquea
+
         start_time = time.time()
         max_time = self.config_manager.get("max_recording_time", 300)
-        
+        last_ui_push = 0.0
+        ui_interval = 0.25  # 250ms — push de timer a la cola, NUNCA bloquea lectura
+
         while not self.stop_event.is_set():
             try:
-                # Read from stream
+                # 1) ÚNICA prioridad: leer audio, inmediato y sin bloqueos
                 if self.input_stream.active:
                     data, overflowed = self.input_stream.read(1024)
                     if overflowed:
                         self.logger.warning("Audio buffer overflow")
-                    self.audio_data.append(data)
-                
-                elapsed_time = time.time() - start_time
+                    with self.audio_lock:
+                        self.audio_data.append(data)
+
+                # 2) Push de timer a la cola (no bloquea: put_nowait + cola acotada)
+                now = time.time()
+                elapsed_time = now - start_time
                 if elapsed_time > max_time:
-                    self.stop_recording(); break
-                minutes, seconds = divmod(int(elapsed_time), 60)
-                self.update_status(f'{self.localization_manager.get_string("status_recording")} {minutes:02d}:{seconds:02d}', "green")
-                
-                # Actualizar overlay si existe
-                if self.overlay_callback:
-                    self.overlay_callback("recording", minutes, seconds)
-                    
+                    # FIX: drenar el buffer antes de cortar (última lectura parcial)
+                    self._drain_remaining_audio()
+                    # Avisar que se cortó por límite (vía cola, sin bloquear)
+                    try:
+                        self.timer_queue.put_nowait(("limit", int(max_time)))
+                    except Exception:
+                        pass
+                    self.stop_recording()
+                    break
+                if now - last_ui_push >= ui_interval:
+                    last_ui_push = now
+                    minutes, seconds = divmod(int(elapsed_time), 60)
+                    try:
+                        self.timer_queue.put_nowait(("timer", minutes, seconds))
+                    except Exception:
+                        pass  # cola llena → se saltea un tick, nunca bloquea la captura
+
             except Exception as e:
                 self.logger.error(f"Error en bucle de grabación: {e}")
                 self.stop_recording()
                 break
 
+    def _drain_remaining_audio(self):
+        """FIX: leer lo que quede en el buffer de PortAudio antes de cerrar.
+
+        Cuando se corta por max_recording_time o por stop, el stream puede tener
+        frames pendientes que de otro modo se pierden (la race que descartaba el
+        bloque final). Se lee hasta vaciar o timeout corto (sin bloquear mucho).
+        """
+        try:
+            if not self.input_stream or not self.input_stream.active:
+                return
+            import time as _t
+            deadline = _t.time() + 0.15  # máx 150ms de drenado
+            while _t.time() < deadline and self.input_stream.active:
+                try:
+                    data, _ = self.input_stream.read(1024)
+                    with self.audio_lock:
+                        self.audio_data.append(data)
+                except Exception:
+                    break
+        except Exception as e:
+            self.logger.warning(f"Error drenando audio: {e}")
+
+    def get_timer_event(self):
+        """Consumir un evento de timer de la cola (usado por el polling de la UI).
+
+        Returns:
+            Tupla ("timer", minutes, seconds), ("limit", seconds),
+            ("overlay", state, minutes, seconds) o None si vacía.
+        """
+        import queue
+        q = getattr(self, 'timer_queue', None)
+        if q is None:
+            return None
+        try:
+            return q.get_nowait()
+        except queue.Empty:
+            return None
+
+    def _push_overlay_event(self, state, minutes=0, seconds=0):
+        """FIX: canalizar actualizaciones de overlay por la cola (nunca bloquear).
+
+        El thread de grabación/transcripción NO debe tocar la UI directamente
+        (eso trababa la captura en grabaciones largas). Este método encola el
+        evento; la UI lo consume por polling.
+        """
+        q = getattr(self, 'timer_queue', None)
+        if q is None:
+            # Fallback: si no hay cola, usar el callback directo (compatibilidad)
+            if self.overlay_callback:
+                try:
+                    self.overlay_callback(state, minutes, seconds)
+                except Exception:
+                    pass
+            return
+        try:
+            q.put_nowait(("overlay", state, minutes, seconds))
+        except Exception:
+            pass  # cola llena → se saltea, nunca bloquea
+
     def stop_recording(self):
         if not self.is_recording: return
+        self._stopping.set()
         
         self.stop_event.set()
         self.is_recording = False
@@ -463,35 +629,75 @@ class Transcriber:
         self.update_status(self.localization_manager.get_string("status_processing"), "yellow")
         self.logger.info("Grabación detenida. Iniciando procesamiento.")
         
-        # Actualizar overlay
-        if self.overlay_callback:
-            self.overlay_callback("processing", 0, 0)
+        # Actualizar overlay (vía cola)
+        self._push_overlay_event("processing", 0, 0)
 
-        time.sleep(0.1)
+        # FIX: esperar a que el loop termine (evita cerrar el stream a mitad de read)
+        recording_thread = getattr(self, 'recording_thread', None)
+        if (recording_thread and recording_thread.is_alive()
+                and recording_thread is not threading.current_thread()):
+            self.recording_thread.join(timeout=0.5)
 
         if self.input_stream:
-            self.input_stream.stop()
-            self.input_stream.close()
+            try:
+                self.input_stream.stop()
+                self.input_stream.close()
+            except Exception as e:
+                self.logger.warning(f"Error cerrando stream: {e}")
             self.input_stream = None
 
         if not self.audio_data:
-            self.update_status(self.localization_manager.get_string("no_audio_captured"), "red")
+            msg = self.localization_manager.get_string("no_audio_captured")
+            self._set_transcription_failure("audio_too_short", msg)
+            self.update_status(msg, "red")
+            self._push_overlay_event("ready")
+            try:
+                if self.transcription_callback:
+                    self.transcription_callback({"error": msg, "text": ""})
+            except Exception:
+                pass
+            self._stopping.clear()
             return
         
         threading.Thread(target=self.process_recording, daemon=True).start()
+        # NOTE: _stopping is cleared in process_recording's finally block,
+        # NOT here — otherwise a new recording could start before processing finishes.
 
     def process_recording(self):
+        operation = OperationTracker()
+        self.operations[operation.operation_id] = operation
         self.logger.info("Iniciando procesamiento de grabación.")
         temp_path = None
         try:
+            # FIX Bug F: tomar snapshot bajo lock para no correr contra un reset de audio_data
+            with self.audio_lock:
+                audio_snapshot = list(self.audio_data)
+            if not audio_snapshot:
+                msg = self.localization_manager.get_string("no_audio_captured")
+                self._set_transcription_failure("audio_too_short", msg)
+                self.update_status(msg, "red")
+                self._push_overlay_event("ready")
+                try:
+                    if self.transcription_callback:
+                        self.transcription_callback({"error": msg, "text": ""})
+                except Exception:
+                    pass
+                return
             # Combine audio data chunks
-            full_audio = np.concatenate(self.audio_data, axis=0)
+            full_audio = np.concatenate(audio_snapshot, axis=0)
             duration = len(full_audio) / self.freq
-            
+
             if duration < MIN_AUDIO_DURATION:
-                self.update_status(self.localization_manager.get_string("audio_too_short", min_duration=1.5), "red")
+                msg = self.localization_manager.get_string("audio_too_short", min_duration=1.5)
+                self._set_transcription_failure("audio_too_short", msg)
+                self.update_status(msg, "red")
                 self.logger.warning("Audio demasiado corto (< 1.5s).")
-                self.overlay_callback("ready") # Ocultar overlay si es corto
+                self._push_overlay_event("ready")
+                try:
+                    if self.transcription_callback:
+                        self.transcription_callback({"error": msg, "text": ""})
+                except Exception:
+                    pass
                 return
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_audio_file:
                 temp_path = temp_audio_file.name
@@ -511,28 +717,28 @@ class Transcriber:
             service_names = {
                 "nvidia": "NVIDIA Riva",
                 "groq": "Groq",
-                "faster_whisper": "faster-whisper"
             }
             service_name = service_names.get(service, service)
             self.logger.info(f"Iniciando transcripción con {service_name}.")
-            transcription = self.transcribe(temp_path)
+            transcription = self.transcribe(temp_path, operation_id=operation.operation_id)
             
             if transcription:
-                self.transcription_callback(transcription)
+                operation.event("response", transcription)
+                operation.event("callback", transcription)
+                self.transcription_callback(build_operation_envelope(operation.operation_id, transcription))
                 self.file_manager.save_transcription_entry({
                     "text": transcription, "duration": duration,
                     "language": self.config_manager.get("default_language"), "audio_file": audio_file_path or ""
                 })
                 self.sound_manager.sound_success()
                 self.update_status(self.localization_manager.get_string("transcription_completed"), "green")
-                # Actualizar overlay
-                if self.overlay_callback:
-                    self.overlay_callback("ready", 0, 0)
+                # Actualizar overlay (vía cola)
+                self._push_overlay_event("ready", 0, 0)
             else:
+                operation.finish("failed")
                 self.update_status(self.localization_manager.get_string("transcription_failed"), "red")
-                # Actualizar overlay
-                if self.overlay_callback:
-                    self.overlay_callback("error", 0, 0)
+                # Actualizar overlay (vía cola)
+                self._push_overlay_event("error", 0, 0)
             
             if os.path.exists(temp_path): os.unlink(temp_path)
             
@@ -540,18 +746,151 @@ class Transcriber:
             self.update_status(f'{self.localization_manager.get_string("processing_error")} {e}', "red")
             self.logger.critical(f"Error crítico durante el procesamiento: {e}", exc_info=True)
         finally:
+            self._stopping.clear()
             if temp_path and os.path.exists(temp_path): os.unlink(temp_path)
 
-    def transcribe_with_groq(self, audio_path):
+    def _set_transcription_failure(self, code, message):
+        self.last_transcription_failure = TranscriptionFailure(
+            code=code, message=str(message)
+        )
+        self.logger.warning("Transcription failed (%s): %s", code, message)
+
+    @staticmethod
+    def _select_groq_endpoint(source_language, output_language):
+        """Return the supported Groq operation for a source/target pair."""
+        source = (source_language or "").lower()
+        output = (output_language or "").lower()
+        if source == output and source in {"es", "en"}:
+            return "transcription"
+        if source == "es" and output == "en":
+            return "translation"
+        return None
+
+    def _call_groq_api(
+        self, wav_path, prompt=None, source_language="es", output_language="es",
+        operation_id=None, chunk_index=None, attempt=1
+    ):
+        """Llamar a la API de Groq con un único archivo WAV.
+
+        Args:
+            wav_path: Ruta al archivo WAV.
+            prompt: Texto de contexto para mantener consistencia entre ventanas.
+        """
+        endpoint = self._select_groq_endpoint(source_language, output_language)
+        if endpoint is None:
+            self._set_transcription_failure(
+                "unsupported_language_pair",
+                f"Unsupported source/output pair: {source_language}->{output_language}",
+            )
+            return None
+
+        operation = self.operations.get(operation_id) if operation_id else None
+        if operation:
+            operation.event("api", "", chunk_index, attempt)
+        with open(wav_path, "rb") as f:
+            kwargs = dict(
+                file=(os.path.basename(wav_path), f.read()),
+                model="whisper-large-v3",
+                response_format="text",
+            )
+            if endpoint == "transcription":
+                kwargs["language"] = source_language
+                api_method = self.cliente.audio.transcriptions.create
+            else:
+                api_method = self.cliente.audio.translations.create
+            if not prompt and self.custom_vocab:
+                prompt = self.custom_vocab.get_whisper_prompt()
+            if prompt:
+                kwargs["prompt"] = prompt
+            kwargs["temperature"] = 0
+            response = api_method(**kwargs)
+            if operation:
+                operation.event("response", response, chunk_index, attempt)
+            return response
+
+    def _groq_chunk_callback(
+        self, chunk, sr, prompt=None, source_language="es", output_language="es",
+        operation_id=None, chunk_index=None, attempt=1
+    ):
+        """Callback para transcribe_chunks: escribe chunk a WAV temporal y llama Groq."""
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp_path = tmp.name
+            sf.write(tmp_path, chunk, sr)
+            return (
+                self._call_groq_api(
+                    tmp_path,
+                    prompt=prompt,
+                    source_language=source_language,
+                    output_language=output_language,
+                    operation_id=operation_id,
+                    chunk_index=chunk_index,
+                    attempt=attempt,
+                )
+                or ""
+            )
+        except Exception as e:
+            code = (
+                "translation_failed"
+                if source_language == "es" and output_language == "en"
+                else "transcription_failed"
+            )
+            self._set_transcription_failure(code, e)
+            return ""
+        finally:
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+    def transcribe_with_groq(self, audio_path, source_language="es", output_language=None, operation_id=None):
         if not self.cliente:
+            self._set_transcription_failure(
+                "client_unavailable", "Groq client is not initialized"
+            )
             self.update_status(self.localization_manager.get_string("groq_client_not_initialized"), "red")
             return None
+        if output_language is None:
+            output_language = self.config_manager.get("transcription_output_language", "es")
+        if self._select_groq_endpoint(source_language, output_language) is None:
+            self._set_transcription_failure(
+                "unsupported_language_pair",
+                f"Unsupported source/output pair: {source_language}->{output_language}",
+            )
+            return None
+        self.last_transcription_failure = None
         try:
-            self.logger.debug(f"Enviando audio {audio_path} a la API de Groq.")
-            with open(audio_path, "rb") as audio_file:
-                response = self.cliente.audio.transcriptions.create(
-                    file=(os.path.basename(audio_path), audio_file.read()), model="whisper-large-v3",
-                    response_format="text", language=self.config_manager.get("default_language", "es")
+            data, sr = sf.read(audio_path)
+            duration = len(data) / sr
+
+            if duration >= CHUNK_THRESHOLD_S:
+                self.logger.info(
+                    f"Audio largo ({duration:.1f}s): trozando en ventanas <30s "
+                    f"para evitar pérdida en costuras de Groq."
+                )
+                chunk_sr = sr
+                chunk_counter = [0]
+                def chunk_cb(chunk, prompt=None):
+                    chunk_index = chunk_counter[0]
+                    chunk_counter[0] += 1
+                    return self._groq_chunk_callback(
+                        chunk, chunk_sr, prompt, source_language, output_language,
+                        operation_id=operation_id,
+                        chunk_index=chunk_index,
+                    )
+                def chunk_event(event):
+                    if operation_id and operation_id in self.operations:
+                        self.operations[operation_id].event(**event)
+                response = transcribe_chunks(
+                    data, sr, api_call=chunk_cb, target_s=25.0, max_s=29.0,
+                    operation_id=operation_id, event_callback=chunk_event,
+                )
+            else:
+                self.logger.debug(f"Enviando audio {audio_path} a la API de Groq.")
+                response = self._call_groq_api(
+                    audio_path,
+                    source_language=source_language,
+                    output_language=output_language,
+                    operation_id=operation_id,
                 )
 
             # Aplicar validación UTF-8 si está habilitada
@@ -574,7 +913,6 @@ class Transcriber:
                         transcription=response,
                         filename=filename
                     )
-                    # Guardar metadatos automáticos
                     self.metadata_manager.set_auto_metadata(filename, auto_metadata)
                     self.logger.info(f"Metadatos automáticos generados para {filename}")
                 except Exception as e:
@@ -582,6 +920,12 @@ class Transcriber:
 
             return response
         except Exception as e:
+            code = (
+                "translation_failed"
+                if source_language == "es" and output_language == "en"
+                else "transcription_failed"
+            )
+            self._set_transcription_failure(code, e)
             self.update_status(f'{self.localization_manager.get_string("groq_api_error")} {e}', "red")
             self.logger.error(f"Error de API Groq: {e}")
             return None
@@ -634,57 +978,9 @@ class Transcriber:
             self.logger.error(f"Error de NVIDIA Riva: {e}")
             return None
 
-    def transcribe_with_faster_whisper(self, audio_path):
-        """Transcribir audio usando faster-whisper (local sin Docker)."""
-        if not self.faster_whisper_client:
-            self.update_status("Cliente faster-whisper no inicializado", "red")
-            return None
-        try:
-            self.logger.debug(f"Transcribiendo audio {audio_path} con faster-whisper.")
-            response = self.faster_whisper_client.transcribe(
-                audio_path=audio_path,
-                language_code=self.config_manager.get("default_language", "es")
-            )
-
-            if not response:
-                self.logger.error("faster-whisper: No se pudo transcribir el audio")
-                return None
-
-            # Aplicar validación UTF-8 si está habilitada
-            if self.utf8_validation_enabled and response:
-                response = self.validate_transcription_utf8(response)
-
-            # Aplicar correcciones de vocabulario personalizado
-            if response:
-                response = self.custom_vocab.apply_corrections(response)
-
-            # Procesar con bloques POST-transcripción
-            if response:
-                response = self._process_with_blocks(response)
-
-            # Generar metadatos automáticos con LLM
-            if response:
-                try:
-                    filename = os.path.basename(audio_path)
-                    auto_metadata = self.metadata_generator.generate_metadata(
-                        transcription=response,
-                        filename=filename
-                    )
-                    # Guardar metadatos automáticos
-                    self.metadata_manager.set_auto_metadata(filename, auto_metadata)
-                    self.logger.info(f"Metadatos automáticos generados para {filename}")
-                except Exception as e:
-                    self.logger.warning(f"Error generando metadatos automáticos: {e}")
-
-            return response
-        except Exception as e:
-            self.update_status(f'Error de faster-whisper: {e}', "red")
-            self.logger.error(f"Error de faster-whisper: {e}")
-            return None
-
-    def transcribe(self, audio_path):
+    def transcribe(self, audio_path, operation_id=None):
         """
-        Transcribir audio usando el servicio configurado (Groq, NVIDIA o faster-whisper).
+        Transcribir audio usando el servicio configurado (Groq o NVIDIA).
 
         Elige automáticamente según la configuración 'asr_provider'.
         """
@@ -692,10 +988,8 @@ class Transcriber:
 
         if service == "nvidia":
             return self.transcribe_with_nvidia(audio_path)
-        elif service == "faster_whisper":
-            return self.transcribe_with_faster_whisper(audio_path)
         else:
-            return self.transcribe_with_groq(audio_path)
+            return self.transcribe_with_groq(audio_path, operation_id=operation_id)
 
     def _process_with_blocks(self, text: str) -> str:
         """
