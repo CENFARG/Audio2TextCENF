@@ -18,3 +18,4 @@ log = "0.4"
 tokio = { version = "1", features = ["time"] }
 arboard = "3"
 enigo = { version = "0.2", default-features = false }
+uuid = { version = "1", features = ["v4"] }

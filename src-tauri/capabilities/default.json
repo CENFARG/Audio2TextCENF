@@ -1,7 +1,7 @@
 {
   "identifier": "default",
   "description": "Default capabilities for Audio2Text",
-  "windows": ["main"],
+  "windows": ["main", "overlay"],
   "permissions": [
     "core:default",
     {
@@ -12,6 +12,7 @@
     "global-shortcut:allow-unregister",
     "core:window:allow-close",
     "core:window:allow-hide",
-    "core:window:allow-show"
+    "core:window:allow-show",
+    "core:window:allow-start-dragging"
   ]
 }

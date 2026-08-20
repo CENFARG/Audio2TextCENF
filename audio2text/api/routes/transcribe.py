@@ -113,6 +113,13 @@ async def transcribe_audio(
     if result is None:
         raise HTTPException(status_code=503, detail="Transcription failed")
 
+    # Single Owner: never return ok with empty text — 422 transcription_empty
+    if not result.text.strip():
+        raise HTTPException(
+            status_code=422,
+            detail={"state": "failed", "error": {"code": "transcription_empty", "recoverable": False}},
+        )
+
     transcription_id = str(uuid.uuid4())
 
     return TranscriptionResponse(
@@ -184,13 +191,10 @@ async def stop_recording_session(session_id: str | None = None) -> dict[str, obj
         logger.error("Failed to stop audio capture: %s", exc)
 
     if audio_segment is None:
-        return {
-            "session_id": target_id,
-            "status": "stopped",
-            "text": "",
-            "provider": None,
-            "duration_s": 0.0,
-        }
+        raise HTTPException(
+            status_code=422,
+            detail={"state": "failed", "error": {"code": "transcription_empty", "recoverable": False}},
+        )
 
     # Write audio to temp WAV for transcription
     import soundfile as sf  # type: ignore[import-untyped]
@@ -203,13 +207,10 @@ async def stop_recording_session(session_id: str | None = None) -> dict[str, obj
         sf.write(temp_path, audio_segment.data, audio_segment.sample_rate)
     except Exception as exc:
         logger.error("Failed to write temp WAV: %s", exc)
-        return {
-            "session_id": target_id,
-            "status": "stopped",
-            "text": "",
-            "provider": None,
-            "duration_s": 0.0,
-        }
+        raise HTTPException(
+            status_code=422,
+            detail={"state": "failed", "error": {"code": "transcription_empty", "recoverable": False}},
+        )
 
     # Run transcription
     try:
@@ -218,27 +219,21 @@ async def stop_recording_session(session_id: str | None = None) -> dict[str, obj
 
         tx_svc: TranscriptionService | None = get_transcription_service()
         if tx_svc is None:
-            return {
-                "session_id": target_id,
-                "status": "stopped",
-                "text": "",
-                "provider": None,
-                "duration_s": 0.0,
-            }
+            raise HTTPException(
+                status_code=422,
+                detail={"state": "failed", "error": {"code": "transcription_empty", "recoverable": False}},
+            )
 
         result = tx_svc.transcribe(temp_path, language="es")
     finally:
         if Path(temp_path).exists():
             Path(temp_path).unlink()
 
-    if result is None:
-        return {
-            "session_id": target_id,
-            "status": "stopped",
-            "text": "",
-            "provider": None,
-            "duration_s": 0.0,
-        }
+    if result is None or not result.text.strip():
+        raise HTTPException(
+            status_code=422,
+            detail={"state": "failed", "error": {"code": "transcription_empty", "recoverable": False}},
+        )
 
     return {
         "session_id": target_id,

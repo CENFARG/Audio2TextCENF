@@ -1,21 +1,17 @@
 <script lang="ts">
   import { APIClient } from '$lib/infrastructure/api-client';
   import { transcriptionState } from '$lib/state/transcription.svelte';
-  import { createReconnectingWS } from '$lib/infrastructure/ws-reconnect';
 
   const api = new APIClient();
-  let interval: ReturnType<typeof setInterval> | null = null;
+
+  // Single Owner: timer is owned by Rust OverlayState + recording.svelte.ts via overlay:tick.
+  // No setInterval here — this component only toggles capture via APIClient.
 
   async function toggleRecording() {
     if (transcriptionState.recordingStatus === 'idle') {
       try {
-        const { session_id } = await api.startRecording();
+        await api.startRecording();
         transcriptionState.recordingStatus = 'recording';
-        transcriptionState.elapsedSeconds = 0;
-
-        interval = setInterval(() => {
-          transcriptionState.elapsedSeconds += 1;
-        }, 1000);
 
         const stream = api.connectStream();
         stream.onmessage = (event) => {
@@ -28,7 +24,6 @@
         transcriptionState.recordingStatus = 'idle';
       }
     } else {
-      interval && clearInterval(interval);
       transcriptionState.recordingStatus = 'processing';
       try {
         await api.stopRecording();

@@ -1,6 +1,7 @@
+// @ts-ignore - mock implements subset, legacy test helper
 import type { APIClient } from './api-client';
 
-export class MockAPIClient implements APIClient {
+export class MockAPIClient implements Partial<APIClient> {
   async getHealth() { return { status: 'ok', version: '0.16.0-mock' }; }
   async getSettings() { return { providers: { primary: 'mock' } }; }
   async updateSettings(_: Record<string, unknown>) { return { providers: { primary: 'mock' } }; }

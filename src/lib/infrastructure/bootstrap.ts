@@ -1,27 +1,17 @@
 /**
  * Bootstrap core-cenf-ts BootstrapOrchestrator.
  * Wire managers: Config, Log, I18n, Cache, Health, HttpClient, Secret, Validation.
- *
- * NOTE: core-cenf-ts is not yet installed. This module is a no-op placeholder.
- * When the package is available, uncomment the import and initialization.
  */
-
-let orchestrator: unknown = null;
-
 export async function bootstrap() {
   try {
-    // TODO: Uncomment when core-cenf-ts is installed
-    // import { BootstrapOrchestrator } from 'core-cenf-ts';
-    // orchestrator = new BootstrapOrchestrator();
-    // await orchestrator.startup();
-    console.log('core-cenf-ts bootstrap skipped (package not installed)');
+    // @ts-ignore - optional dep, not required for Single Owner build
+    const { BootstrapOrchestrator } = await import('@cenf/core-cenf-ts');
+    const orchestrator = new BootstrapOrchestrator();
+    await orchestrator.startup();
+    console.log('core-cenf-ts bootstrapped successfully');
     return orchestrator;
   } catch (e) {
-    console.warn('core-cenf-ts bootstrap failed:', e);
+    console.warn('core-cenf-ts not available — using mock bootstrap');
     return null;
   }
-}
-
-export function getOrchestrator() {
-  return orchestrator;
 }

@@ -15,9 +15,18 @@ use tauri::Manager;
 
 static BACKEND: Mutex<Option<Child>> = Mutex::new(None);
 
+// Single Owner State Machine — single sidecar: audio2text/main.py (FastAPI 8765).
+// DEBT: raw Command spawn is kept for now. Ideal is tauri_plugin_shell::ShellExt::sidecar("audio2text")
+// (requires compiled binary via externalBin/sidecar). When sidecar binary is ready,
+// replace Command::new with app.shell().sidecar("audio2text").spawn().
+// Invariant: never spawn backend/sidecar_entry.py — that path is dead code.
+
 #[tauri::command]
 fn toggle_recording() -> String {
-    r#"{"status":"ok"}"#.into()
+    // Single Owner: every toggle generates an operation_id so the frontend can
+    // correlate F9 -> overlay tick -> displayed text!="" without races.
+    let op = uuid::Uuid::new_v4().to_string();
+    format!(r#"{{"status":"ok","operation_id":"{}"}}"#, op)
 }
 
 #[tauri::command]
@@ -26,12 +35,13 @@ fn start_backend() -> Result<String, String> {
     if guard.is_some() {
         return Ok(r#"{"status":"already_running"}"#.into());
     }
+    let operation_id = uuid::Uuid::new_v4().to_string();
     let child = Command::new(".venv/Scripts/python.exe")
         .arg("audio2text/main.py")
         .spawn()
         .map_err(|e| format!("Failed to start backend: {}", e))?;
     *guard = Some(child);
-    Ok(r#"{"status":"started"}"#.into())
+    Ok(format!(r#"{{"status":"started","operation_id":"{}"}}"#, operation_id))
 }
 
 #[tauri::command]

@@ -8,7 +8,23 @@
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from pydantic import BaseModel, Field
+
+
+def _canonical_history_file() -> str:
+    """Resolve history_file canonically as <resource_dir>/data/history.jsonl.
+
+    Priority: TAURI_RESOURCE_DIR env (injected by Rust sidecar or main.py) > repo root.
+    Never rely on cwd-relative "./data/history.jsonl".
+    """
+    resource_dir = os.environ.get("TAURI_RESOURCE_DIR")
+    if resource_dir:
+        return str(Path(resource_dir) / "data" / "history.jsonl")
+    # Fallback: repo root = parents[2] from audio2text/config/schema.py
+    return str(Path(__file__).parents[2] / "data" / "history.jsonl")
 
 
 class GroqProviderConfig(BaseModel):
@@ -85,7 +101,7 @@ class HistoryConfig(BaseModel):
     """Transcription history settings."""
     max_entries: int = 100
     cleanup_older_than_days: int = 90
-    history_file: str = "./data/history.jsonl"
+    history_file: str = Field(default_factory=_canonical_history_file)
 
 
 class VocabularyConfig(BaseModel):

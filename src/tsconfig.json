@@ -6,7 +6,9 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "types": []
   },
-  "include": ["src/**/*.ts", "src/**/*.svelte"]
+  "include": ["**/*.ts", "**/*.svelte"],
+  "exclude": ["node_modules", "**/__tests__/**", "test-results"]
 }
