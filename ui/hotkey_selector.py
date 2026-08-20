@@ -1,4 +1,4 @@
-﻿"""
+"""
 Hotkey Selector - Selector de hotkeys con modificadores.
 
 Permite al usuario seleccionar combinaciones de teclas con Ctrl, Alt, Shift.
@@ -25,10 +25,10 @@ class HotkeySelector(ctk.CTkToplevel):
 
         Args:
             parent: Ventana padre
-            localization_manager: Gestor de localizaci├│n
+            localization_manager: Gestor de localización
             on_hotkey_selected: Callback cuando se selecciona hotkey
             current_hotkey: Hotkey actual
-            title: T├¡tulo de la ventana
+            title: Título de la ventana
         """
         super().__init__(parent)
 
@@ -38,7 +38,7 @@ class HotkeySelector(ctk.CTkToplevel):
         self.selected_hotkey = None
         self.hotkey_manager = HotkeyManager()
 
-        # T├¡tulo localizado
+        # Título localizado
         if not title:
             title = self.localization_manager.get_string("hotkey_selector_title", "Seleccionar Hotkey")
 
@@ -74,7 +74,7 @@ class HotkeySelector(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             header_frame,
-            text="Ôî¿´©Å",
+            text="⌨️",
             font=ctk.CTkFont(size=20)
         ).pack(side="left", padx=(10, 5))
 
@@ -88,7 +88,7 @@ class HotkeySelector(ctk.CTkToplevel):
         scroll_frame = ctk.CTkScrollableFrame(self, label_text=self.localization_manager.get_string("hotkey_configuration"))
         scroll_frame.pack(fill="both", expand=True, padx=10, pady=(0, 10))
 
-        # Secci├│n: Modificadores
+        # Sección: Modificadores
         ctk.CTkLabel(
             scroll_frame,
             text=self.localization_manager.get_string("hotkey_modifiers"),
@@ -126,14 +126,14 @@ class HotkeySelector(ctk.CTkToplevel):
             command=self._update_preview
         ).grid(row=0, column=2, padx=5, pady=5)
 
-        # Secci├│n: Tecla principal
+        # Sección: Tecla principal
         ctk.CTkLabel(
             scroll_frame,
             text=self.localization_manager.get_string("hotkey_main_key"),
             font=ctk.CTkFont(size=14, weight="bold")
         ).pack(anchor="w", padx=10, pady=(10, 5))
 
-        # Tabs para teclas F y alfanum├®ricas
+        # Tabs para teclas F y alfanuméricas
         tabview = ctk.CTkTabview(scroll_frame)
         tabview.pack(fill="x", padx=10, pady=(0, 10))
 
@@ -141,7 +141,7 @@ class HotkeySelector(ctk.CTkToplevel):
         tab_f = tabview.add(self.localization_manager.get_string("hotkey_tab_f_keys", "Teclas F"))
         self._create_f_keys(tab_f)
 
-        # Tab alfanum├®ricas
+        # Tab alfanuméricas
         tab_alpha = tabview.add(self.localization_manager.get_string("hotkey_tab_alpha_keys", "A-Z"))
         self._create_alpha_keys(tab_alpha)
 
@@ -163,7 +163,7 @@ class HotkeySelector(ctk.CTkToplevel):
         )
         self.preview_label.pack(padx=10, pady=(0, 10))
 
-        # Sugerencias por categor├¡a
+        # Sugerencias por categoría
         ctk.CTkLabel(
             scroll_frame,
             text=self.localization_manager.get_string("hotkey_suggestions"),
@@ -249,10 +249,10 @@ class HotkeySelector(ctk.CTkToplevel):
         keys_grid = ctk.CTkFrame(parent, fg_color="transparent")
         keys_grid.pack(fill="x", padx=10, pady=10)
 
-        # A-Z en 4 filas de 7 (├║ltima fila con 5)
+        # A-Z en 4 filas de 7 (última fila con 5)
         alphabet = [chr(i) for i in range(ord('a'), ord('z') + 1)]
 
-        # Agregar n├║meros 0-9 tambi├®n
+        # Agregar números 0-9 también
         for i, char in enumerate(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"] + alphabet):
             row = i // 7
             col = i % 7
@@ -316,7 +316,7 @@ class HotkeySelector(ctk.CTkToplevel):
         self._update_preview()
 
     def _confirm_selection(self):
-        """Confirmar selecci├│n."""
+        """Confirmar selección."""
         if self.selected_hotkey:
             self.on_hotkey_selected(self.selected_hotkey)
             self.destroy()
@@ -333,7 +333,7 @@ def show_hotkey_selector(
 
     Args:
         parent: Ventana padre
-        localization_manager: Gestor de localizaci├│n
+        localization_manager: Gestor de localización
         on_hotkey_selected: Callback cuando se selecciona
         current_hotkey: Hotkey actual
 
