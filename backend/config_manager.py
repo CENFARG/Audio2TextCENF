@@ -11,7 +11,7 @@ class ConfigManager:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.config_file = config_file
         self.default_config = {
-            "app_version": "0.13.0",  # Actualizado versión
+            "app_version": "0.16.0",  # Actualizado versión
             "audio_path": "./audio",
             "transcriptions_path": "./transcriptions",
             "save_audio": True,
@@ -28,8 +28,8 @@ class ConfigManager:
             "groq_api_key": "JDYlGSgLcSgkLwUNLTk8CxQEBD0cHi11GQE7KidwFBwSOhc5LmwpHQkIH2d6D3kMBxkKCAoKHBI=", # Encoded user-provided key
             "gift_key_encoded": "JDYlGSgLcSgkLwUNLTk8CxQEBD0cHi11GQE7KidwFBwSOhc5LmwpHQkIH2d6D3kMBxkKCAoKHBI=", # Encoded user-provided key
             "audio_priority_apps": ["zoom.exe", "teams.exe", "meet.exe", "skype.exe"],
-            "show_transcription_panel": False,
-            "auto_paste_text": False,
+            "show_transcription_panel": True,
+            "auto_paste_text": True,
             "client_logo_path": "",
             "utf8_validation": True,  # Validación y corrección UTF-8 para caracteres españoles
             "asr_provider": "groq",   # Servicio de transcripción: "groq", "nvidia" o "faster_whisper"
