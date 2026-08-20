@@ -1,4 +1,3 @@
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { startRecording as invokeStart, stopRecording as invokeStop } from "../commands";
 
 let isRecording = $state(false);
@@ -6,34 +5,7 @@ let elapsedSeconds = $state(0);
 let currentText = $state("");
 let status = $state<"idle" | "recording" | "processing" | "error">("idle");
 
-let _unlistenTick: UnlistenFn | null = null;
-
-function parseTimeToSeconds(time: string): number {
-  const parts = time.split(":").map(Number);
-  if (parts.length === 2) return parts[0] * 60 + parts[1];
-  return 0;
-}
-
-async function attachTickListener(): Promise<void> {
-  if (_unlistenTick) return;
-  _unlistenTick = await listen<{ time: string } | number>("overlay:tick", (event) => {
-    const payload = event.payload as unknown;
-    if (typeof payload === "string") {
-      elapsedSeconds = parseTimeToSeconds(payload);
-    } else if (typeof payload === "number") {
-      elapsedSeconds = payload;
-    } else if (payload && typeof payload === "object" && "time" in (payload as Record<string, unknown>)) {
-      elapsedSeconds = parseTimeToSeconds((payload as { time: string }).time);
-    }
-  });
-}
-
-function detachTickListener(): void {
-  if (_unlistenTick) {
-    _unlistenTick();
-    _unlistenTick = null;
-  }
-}
+let _timerInterval: ReturnType<typeof setInterval> | null = null;
 
 export function getRecordingState() {
   return {
@@ -53,27 +25,24 @@ export function getRecordingState() {
 }
 
 export async function startRecording(): Promise<void> {
-  isRecording = true;
-  elapsedSeconds = 0;
-  status = "recording";
-  currentText = "";
-  await attachTickListener();
   try {
     const response = await invokeStart();
-    if (response.status !== "ok") {
-      detachTickListener();
-      isRecording = false;
+    if (response.status === "ok") {
+      isRecording = true;
+      status = "recording";
+      elapsedSeconds = 0;
+      currentText = "";
+      _timerInterval = setInterval(() => { elapsedSeconds++; }, 1000);
+    } else {
       status = "error";
     }
   } catch {
-    detachTickListener();
-    isRecording = false;
     status = "error";
   }
 }
 
 export async function stopRecording(): Promise<void> {
-  detachTickListener();
+  stopTimer();
   status = "processing";
   try {
     const response = await invokeStop();
@@ -81,24 +50,46 @@ export async function stopRecording(): Promise<void> {
       status = "idle";
       if (response.data && typeof response.data === "object") {
         const data = response.data as Record<string, unknown>;
-        if (typeof data.text === "string") {
-          currentText = data.text;
+        // Backend returns data.text (primary) — also handle fallback keys
+        const textVal =
+          (typeof data.text === "string" ? data.text : null) ??
+          (typeof data.transcription === "string" ? (data.transcription as string) : null) ??
+          (data.data && typeof (data.data as Record<string, unknown>).text === "string"
+            ? ((data.data as Record<string, unknown>).text as string)
+            : null);
+        if (typeof textVal === "string" && textVal.trim().length > 0) {
+          currentText = textVal;
+        } else if (typeof textVal === "string" && textVal.length === 0) {
+          // Empty string is valid but indicates upstream bug — keep error visibility
+          currentText = "";
         }
       }
     } else {
       status = "error";
+      // Preserve any error message for debugging
+      if (response.error) {
+        console.error("stopRecording error:", response.error);
+      }
     }
     isRecording = false;
-  } catch {
+  } catch (e) {
+    console.error("stopRecording exception:", e);
     status = "error";
     isRecording = false;
   }
 }
 
 export function resetRecording(): void {
-  detachTickListener();
+  stopTimer();
   isRecording = false;
   elapsedSeconds = 0;
   currentText = "";
   status = "idle";
+}
+
+function stopTimer(): void {
+  if (_timerInterval !== null) {
+    clearInterval(_timerInterval);
+    _timerInterval = null;
+  }
 }

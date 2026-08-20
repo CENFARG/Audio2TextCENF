@@ -98,14 +98,32 @@ def _handle_stop_recording(cmd):
             result = _pending_result
             _pending_result = None
             _result_event.clear()
+            if isinstance(result, dict) and result.get("error"):
+                return _make_response("error", error=str(result.get("error")))
             text = ""
+            metadata = None
             if isinstance(result, dict):
-                if result.get("error"):
-                    return _make_response("error", error=str(result.get("error")))
-                text = result.get("text", "")
+                text = result.get("text", "") or result.get("transcription", "")
+                metadata = result.get("metadata")
+                # Fallback: some callers send envelope with operation_id
+                if not text and result.get("data"):
+                    data = result.get("data")
+                    if isinstance(data, dict):
+                        text = data.get("text", "") or ""
+                        metadata = data.get("metadata") or metadata
             elif isinstance(result, str):
                 text = result
-            return _make_response("ok", {"recording": False, "text": text})
+            # Empty text is an error, not silent success — user reported "no transcribe nada"
+            if not text or not str(text).strip():
+                failure2 = getattr(t, "last_transcription_failure", None)
+                if failure2 is not None:
+                    msg2 = getattr(failure2, "message", str(failure2))
+                    return _make_response("error", error=msg2)
+                return _make_response("error", error="Transcription returned empty text")
+            resp_data = {"recording": False, "text": text}
+            if metadata:
+                resp_data["metadata"] = metadata
+            return _make_response("ok", resp_data)
         else:
             failure = getattr(t, "last_transcription_failure", None)
             if failure is not None:
@@ -145,14 +163,20 @@ def _handle_save_config(cmd):
 
 
 def _handle_get_history(cmd):
-    """Read transcription history from transcriptions_log.jsonl."""
+    """Read transcription history from transcriptions_log.jsonl — path resuelta via FileManager para ser consistente con lib.rs."""
     try:
         from backend.config_manager import ConfigManager
+        from backend.file_manager import FileManager
         config = ConfigManager()
-        transcriptions_path = config.get("transcriptions_path", "./transcriptions")
-        log_file = os.path.join(transcriptions_path, "transcriptions_log.jsonl")
+        fm = FileManager(config)
+        log_file = os.path.join(fm.transcriptions_path, "transcriptions_log.jsonl")
         if not os.path.exists(log_file):
-            return _make_response("ok", [])
+            # Fallback: intentar también con cwd relativo por compatibilidad
+            alt = os.path.join(config.get("transcriptions_path", "./transcriptions"), "transcriptions_log.jsonl")
+            if os.path.exists(alt):
+                log_file = alt
+            else:
+                return _make_response("ok", [])
         entries = []
         with open(log_file, "r", encoding="utf-8") as f:
             for line in f:

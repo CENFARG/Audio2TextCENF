@@ -12,21 +12,26 @@ class FileManager:
     def __init__(self, config_manager):
         self.config = config_manager
 
-        # Obtener directorio base del ejecutable/script
-        # Si está compilado con PyInstaller, usar el directorio del .exe
-        # Si es desarrollo, usar el directorio del script
+        # Obtener directorio base — consistente con src-tauri/src/lib.rs repo_root
+        # lib.rs resuelve repo_root como parent de CARGO_MANIFEST_DIR y lo pasa como cwd al sidecar.
+        # Para mantener un único source of truth, probamos candidatos en orden de confiabilidad.
         if getattr(sys, 'frozen', False):
-            # Ejecutándose como .exe compilado
-            self.base_dir = os.path.dirname(sys.executable)
+            exe_dir = os.path.dirname(sys.executable)
+            cwd = os.getcwd()
+            # Candidatos: cwd (lo que lib.rs pasa), exe_dir, y padres — primero que contenga marcadores de repo
+            candidates = [cwd, exe_dir, os.path.dirname(exe_dir), os.path.dirname(os.path.dirname(exe_dir))]
+            self.base_dir = cwd
+            for cand in candidates:
+                if os.path.exists(os.path.join(cand, "config.json")) or os.path.exists(os.path.join(cand, "backend")) or os.path.exists(os.path.join(cand, "src-tauri")):
+                    self.base_dir = cand
+                    break
         else:
-            # Ejecutándose como script Python
-            self.base_dir = os.path.dirname(os.path.abspath(__file__))
-            # Ir al directorio raíz del proyecto (desde backend/ hasta raíz)
-            self.base_dir = os.path.dirname(self.base_dir)
+            # Desarrollo: repo root es parent de backend/
+            self.base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
         # Convertir paths relativos a absolutos
-        audio_path_rel = self.config.get("audio_path")
-        transcriptions_path_rel = self.config.get("transcriptions_path")
+        audio_path_rel = self.config.get("audio_path") or "./audio"
+        transcriptions_path_rel = self.config.get("transcriptions_path") or "./transcriptions"
 
         if os.path.isabs(audio_path_rel):
             self.audio_path = audio_path_rel

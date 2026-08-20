@@ -448,27 +448,16 @@ class Transcriber:
             self.logger.debug(f"Error en _handle_modifier_hotkey: {e}")
 
     def _refresh_priority_cache(self):
-        """Refresh cached process list for priority apps (30s TTL, non-blocking)."""
+        """Refresh cached process list for priority apps (5s TTL)."""
         now = time.time()
-        if now - self._cache_time < 30:
+        if now - self._cache_time < 5:
             return
-
-        def _do_refresh():
-            try:
-                apps = {
-                    p.info['name'].lower()
-                    for p in psutil.process_iter(['pid', 'name'])
-                    if p.info.get('name')
-                }
-                self._cached_priority_apps = apps
-                self._cache_time = time.time()
-            except Exception:
-                pass
-
-        try:
-            threading.Thread(target=_do_refresh, daemon=True).start()
-        except Exception:
-            pass
+        self._cached_priority_apps = {
+            p.info['name'].lower()
+            for p in psutil.process_iter(['pid', 'name'])
+            if p.info.get('name')
+        }
+        self._cache_time = now
 
     def start_recording(self):
         if self.is_recording: return
@@ -647,15 +636,7 @@ class Transcriber:
             self.input_stream = None
 
         if not self.audio_data:
-            msg = self.localization_manager.get_string("no_audio_captured")
-            self._set_transcription_failure("audio_too_short", msg)
-            self.update_status(msg, "red")
-            self._push_overlay_event("ready")
-            try:
-                if self.transcription_callback:
-                    self.transcription_callback({"error": msg, "text": ""})
-            except Exception:
-                pass
+            self.update_status(self.localization_manager.get_string("no_audio_captured"), "red")
             self._stopping.clear()
             return
         
@@ -674,19 +655,17 @@ class Transcriber:
                 audio_snapshot = list(self.audio_data)
             if not audio_snapshot:
                 msg = self.localization_manager.get_string("no_audio_captured")
-                self._set_transcription_failure("audio_too_short", msg)
+                self._set_transcription_failure("audio_empty", msg)
                 self.update_status(msg, "red")
-                self._push_overlay_event("ready")
                 try:
-                    if self.transcription_callback:
-                        self.transcription_callback({"error": msg, "text": ""})
+                    self.transcription_callback({"error": msg, "text": ""})
                 except Exception:
                     pass
                 return
             # Combine audio data chunks
             full_audio = np.concatenate(audio_snapshot, axis=0)
             duration = len(full_audio) / self.freq
-
+            
             if duration < MIN_AUDIO_DURATION:
                 msg = self.localization_manager.get_string("audio_too_short", min_duration=1.5)
                 self._set_transcription_failure("audio_too_short", msg)
@@ -694,8 +673,7 @@ class Transcriber:
                 self.logger.warning("Audio demasiado corto (< 1.5s).")
                 self._push_overlay_event("ready")
                 try:
-                    if self.transcription_callback:
-                        self.transcription_callback({"error": msg, "text": ""})
+                    self.transcription_callback({"error": msg, "text": ""})
                 except Exception:
                     pass
                 return
@@ -722,21 +700,47 @@ class Transcriber:
             self.logger.info(f"Iniciando transcripción con {service_name}.")
             transcription = self.transcribe(temp_path, operation_id=operation.operation_id)
             
-            if transcription:
+            if transcription and str(transcription).strip():
                 operation.event("response", transcription)
                 operation.event("callback", transcription)
-                self.transcription_callback(build_operation_envelope(operation.operation_id, transcription))
-                self.file_manager.save_transcription_entry({
-                    "text": transcription, "duration": duration,
-                    "language": self.config_manager.get("default_language"), "audio_file": audio_file_path or ""
-                })
+                # Callback SIEMPRE que haya texto, independiente de save_logs/save_audio
+                # Incluir metadata liviana si existe para que el sidecar la reenvíe al frontend
+                try:
+                    metadata = None
+                    try:
+                        fallback_name = os.path.basename(temp_path) if temp_path else "recording.wav"
+                        metadata = self.metadata_generator.generate_metadata(transcription, fallback_name) if hasattr(self, "metadata_generator") else None
+                    except Exception:
+                        metadata = None
+                    envelope = build_operation_envelope(operation.operation_id, transcription)
+                    # Enriquecer envelope con metadata opcional
+                    if metadata:
+                        envelope["metadata"] = metadata
+                    self.transcription_callback(envelope)
+                except Exception as cb_e:
+                    self.logger.error(f"transcription_callback failed: {cb_e}")
+                # Persistir historial — no debe bloquear el callback; si save_logs:false, el file_manager hace return, pero el callback ya se hizo
+                try:
+                    self.file_manager.save_transcription_entry({
+                        "text": transcription, "duration": duration,
+                        "language": self.config_manager.get("default_language"), "audio_file": audio_file_path or ""
+                    })
+                except Exception as save_e:
+                    self.logger.warning(f"save_transcription_entry failed: {save_e}")
                 self.sound_manager.sound_success()
                 self.update_status(self.localization_manager.get_string("transcription_completed"), "green")
                 # Actualizar overlay (vía cola)
                 self._push_overlay_event("ready", 0, 0)
             else:
                 operation.finish("failed")
-                self.update_status(self.localization_manager.get_string("transcription_failed"), "red")
+                # Propagar fallo para que el sidecar pueda reportarlo en vez de timeout silencioso
+                err_msg = self.localization_manager.get_string("transcription_failed")
+                self._set_transcription_failure("transcription_empty", err_msg)
+                try:
+                    self.transcription_callback({"error": err_msg, "text": ""})
+                except Exception:
+                    pass
+                self.update_status(err_msg, "red")
                 # Actualizar overlay (vía cola)
                 self._push_overlay_event("error", 0, 0)
             
