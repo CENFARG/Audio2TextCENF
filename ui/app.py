@@ -439,7 +439,7 @@ class App(ctk.CTk):
         blocks_frame.grid(row=2, column=0, padx=10, pady=10, sticky="ew")
         blocks_frame.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(blocks_frame, text="Bloques de Procesamiento (v0.11.0)", font=DesignSystem.TYPOGRAPHY["heading_medium"]).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(blocks_frame, text="Bloques de Procesamiento", font=DesignSystem.TYPOGRAPHY["heading_medium"]).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
         # Task Extractor Block
         self.block_task_enabled_var = tk.BooleanVar(value=self.config_manager.get("blocks", {}).get("task_extractor_enabled", True))
@@ -462,7 +462,7 @@ class App(ctk.CTk):
         vocab_frame.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
         vocab_frame.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(vocab_frame, text="Correcciones de Vocabulario (v0.11.0)", font=DesignSystem.TYPOGRAPHY["heading_medium"]).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(vocab_frame, text="Correcciones de Vocabulario", font=DesignSystem.TYPOGRAPHY["heading_medium"]).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
         # Descripción
         desc_label = ctk.CTkLabel(vocab_frame, text="Palabras que el modelo entiende mal (ej: CENF → zenf, cemp, cemf)", font=DesignSystem.TYPOGRAPHY["body_small"])
