@@ -132,9 +132,9 @@ class App(ctk.CTk):
         # Título dinámico con versión desde config (no depende de lang files)
         _version = self.config_manager.get("app_version", "0.0.0")
         self.title(f"Audio2Text CENF v{_version}")
-        # Ventana comprimida a lo ancho (que aún muestren todas las pestañas) y 15% más alta que ancha
-        self.geometry("590x680")
-        self.minsize(540, 620)
+        # Ventana cuadrada por defecto (mismo ancho que alto)
+        self.geometry("590x590")
+        self.minsize(540, 540)
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # Cargar geometry guardada v0.14.0
