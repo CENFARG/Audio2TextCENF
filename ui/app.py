@@ -1578,10 +1578,29 @@ class App(ctk.CTk):
             bulk_state = {"order": [], "vars": {}, "last_idx": [-1], "select_all_var": select_all_var}
 
             def _is_shift_pressed() -> bool:
+                # HC-03 FIX: ctypes.windll solo Windows — fallback keyboard/Tk sin crash en Linux/macOS
                 try:
                     import ctypes
+                    # windll no existe fuera de Windows -> AttributeError
                     return (ctypes.windll.user32.GetKeyState(0x10) & 0x8000) != 0
-                except Exception:
+                except Exception as e:
+                    # Fallback 1: keyboard.is_pressed si disponible
+                    try:
+                        import keyboard as _kb
+                        if _kb.is_pressed('shift'):
+                            return True
+                        # si no está presionado, igual no es error — retornar False sin warning
+                        # pero si ctypes falló por plataforma, loguear una vez
+                        if not getattr(_is_shift_pressed, "_warned", False):
+                            self.logger.warning(f"Shift fallback activo (ctypes no disponible: {e}) — keyboard.is_pressed usado")
+                            _is_shift_pressed._warned = True
+                        return False
+                    except Exception:
+                        pass
+                    # Fallback 2: Tk Shift tracking vía event.state no disponible aquí (sin event), retornar False
+                    if not getattr(_is_shift_pressed, "_warned", False):
+                        self.logger.warning(f"Shift ctypes fallback sin keyboard (Linux/macOS): {e} — rango Shift deshabilitado, usar 'Seleccionar todos'")
+                        _is_shift_pressed._warned = True
                     return False
 
             def _update_bulk_button():
