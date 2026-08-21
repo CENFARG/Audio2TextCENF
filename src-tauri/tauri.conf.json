@@ -4,9 +4,9 @@
   "version": "0.17.0",
   "identifier": "com.cenf.audio2text",
   "build": {
-    "beforeDevCommand": "npm --prefix src run dev",
+    "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:5173",
-    "beforeBuildCommand": "npm --prefix src run build",
+    "beforeBuildCommand": "npm run build",
     "frontendDist": "../src/dist"
   },
   "app": {
