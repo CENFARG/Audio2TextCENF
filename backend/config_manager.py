@@ -4,12 +4,29 @@ import json
 import logging
 from .localization_manager import LocalizationManager
 
+# Optional keyring support — graceful fallback if not installed
+try:
+    import keyring as _keyring
+    _KEYRING_AVAILABLE = True
+except ImportError:
+    _keyring = None
+    _KEYRING_AVAILABLE = False
+
+_KEYRING_SERVICE = "audio2text-cenf"
+_KEYRING_USER = "groq_api_key"
+
+
 class ConfigManager:
-    """Gestor de configuración de la aplicación para la v0.8.0"""
+    """Gestor de configuración de la aplicación para la v0.15.7"""
 
     def __init__(self, config_file="config.json"):
         self.logger = logging.getLogger(self.__class__.__name__)
         self.config_file = config_file
+        if not _KEYRING_AVAILABLE:
+            self.logger.warning(
+                "python-keyring no instalado — usando env GROQ_API_KEY / config.json. "
+                "Instalá con: pip install keyring"
+            )
         self.default_config = {
             "app_version": "0.15.7",
             "audio_path": "./audio",
@@ -26,8 +43,9 @@ class ConfigManager:
             "max_recording_time": 1200,  # FIX: default 20 min (antes 5 min)
             "max_transcription_age_days": 30,  # Días antes de limpiar transcripciones antiguas
             "auto_cleanup_enabled": True,      # Limpieza automática de archivos antiguos
-            "groq_api_key": "JDYlGSgLcSgkLwUNLTk8CxQEBD0cHi11GQE7KidwFBwSOhc5LmwpHQkIH2d6D3kMBxkKCAoKHBI=", # Encoded user-provided key
-            "gift_key_encoded": "JDYlGSgLcSgkLwUNLTk8CxQEBD0cHi11GQE7KidwFBwSOhc5LmwpHQkIH2d6D3kMBxkKCAoKHBI=", # Encoded user-provided key
+            # HC-01 FIX: placeholder vacío — key real via GROQ_API_KEY env o keyring, nunca hardcodeada
+            "groq_api_key": "",
+            "gift_key_encoded": "",  # DEPRECATED: removido por seguridad, mantener clave vacía para compat
             "audio_priority_apps": ["zoom.exe", "teams.exe", "meet.exe", "skype.exe"],
             "show_transcription_panel": True,  # FIX: panel visible por defecto
             "auto_paste_text": True,  # FIX: auto-pegar habilitado por defecto (pedido del usuario)
@@ -81,14 +99,31 @@ class ConfigManager:
         # Ensure we don't overwrite the hardcoded version in memory
         config["app_version"] = self.default_config["app_version"]
         
-        # Decode sensitive keys (Always do this, even for defaults)
+        # Decode sensitive keys (Always do this, even for defaults) — compat con configs viejas obfuscadas
         for key in ["groq_api_key", "nvidia_api_key"]:
             if config.get(key):
                 original_value = config[key]
                 decoded_value = self._decode_gift_key(config[key])
+                # Si decodificación produjo valor válido, usarlo; si no, mantener original (ya podría ser plain)
+                # _decode_gift_key ya maneja el caso plain retornando original
                 config[key] = decoded_value
                 self.logger.debug(f"Decoded {key}: {original_value[:20]}... -> {decoded_value[:20]}...")
         
+        # También decodificar gift_key_encoded si existe (compatibilidad con instalaciones viejas)
+        if config.get("gift_key_encoded"):
+            try:
+                decoded_gift = self._decode_gift_key(config["gift_key_encoded"])
+                if decoded_gift and decoded_gift.startswith("gsk_"):
+                    # Migrar gift key a groq_api_key si este está vacío
+                    if not config.get("groq_api_key"):
+                        config["groq_api_key"] = decoded_gift
+                        needs_save = True
+                    self.logger.warning("gift_key_encoded está DEPRECATED — migrando a groq_api_key y limpiar gift_key_encoded")
+                # Limpiar gift_key_encoded en memoria para no exponerla
+                # No guardar gift_key_encoded en config salva (ver save_config)
+            except Exception:
+                pass
+
         self.config = config
         
         # Force save if it was plain text to obfuscate it immediately
@@ -102,6 +137,9 @@ class ConfigManager:
         """Guardar configuración en archivo."""
         try:
             config_to_save = self.config.copy()
+            # HC-01: nunca persistir gift_key_encoded con valor real — limpiar
+            if config_to_save.get("gift_key_encoded"):
+                config_to_save["gift_key_encoded"] = ""
             
             # Encode sensitive keys before saving
             for key in ["groq_api_key", "nvidia_api_key"]:
@@ -135,23 +173,98 @@ class ConfigManager:
         self.save_config()
         self.logger.info(f"Idioma cambiado de '{old_lang}' a '{lang_code}'")
 
-    def get_groq_api_key_from_env(self):
-        # 1. Check Env Var
-        api_key = os.getenv("GROQ_API_KEY")
-        if api_key: return api_key
+    # ── HC-01: keyring helpers ──────────────────────────────────────────
+    def _get_keyring_api_key(self):
+        """Intentar leer GROQ_API_KEY desde OS keyring. Retorna None si no disponible."""
+        if not _KEYRING_AVAILABLE or _keyring is None:
+            return None
+        try:
+            val = _keyring.get_password(_KEYRING_SERVICE, _KEYRING_USER)
+            if val:
+                self.logger.debug("GROQ_API_KEY leída desde keyring")
+            return val
+        except Exception as e:
+            self.logger.warning(f"Error leyendo keyring: {e}")
+            return None
 
-        # 2. Check internal config (runtime setting)
+    def _set_keyring_api_key(self, api_key: str) -> bool:
+        """Guardar GROQ_API_KEY en OS keyring. Retorna True si éxito."""
+        if not _KEYRING_AVAILABLE or _keyring is None:
+            self.logger.warning("keyring no disponible — no se guardó en vault OS")
+            return False
+        try:
+            _keyring.set_password(_KEYRING_SERVICE, _KEYRING_USER, api_key)
+            self.logger.info("GROQ_API_KEY guardada en keyring OS vault")
+            return True
+        except Exception as e:
+            self.logger.warning(f"Error guardando en keyring: {e}")
+            return False
+
+    def _delete_keyring_api_key(self) -> bool:
+        if not _KEYRING_AVAILABLE or _keyring is None:
+            return False
+        try:
+            _keyring.delete_password(_KEYRING_SERVICE, _KEYRING_USER)
+            return True
+        except Exception:
+            return False
+
+    def get_groq_api_key(self):
+        """
+        Fuente primaria de GROQ_API_KEY con prioridad:
+        1. GROQ_API_KEY env var
+        2. OS keyring (si python-keyring instalado)
+        3. config.json groq_api_key (runtime, decoded)
+        4. gift_key_encoded decoded (deprecated, compat)
+        """
+        # 1. Env var — prioridad máxima, ideal para CI/docker
+        api_key = os.getenv("GROQ_API_KEY")
+        if api_key:
+            return api_key.strip()
+
+        # 2. OS keyring vault
+        rk = self._get_keyring_api_key()
+        if rk:
+            return rk.strip()
+
+        # 3. Config runtime (decoded en load_config)
         api_key = self.config.get("groq_api_key")
         if api_key:
-             return api_key
+            return api_key.strip()
 
-        # 3. Check for Encoded Gift Key (Optional)
+        # 4. Gift key deprecated (compat)
         encoded_gift = self.config.get("gift_key_encoded")
         if encoded_gift:
-            return self._decode_gift_key(encoded_gift)
-        
-        self.logger.warning("GROQ_API_KEY no encontrada en variables de entorno ni en configuración.")
+            try:
+                decoded = self._decode_gift_key(encoded_gift)
+                if decoded and decoded.startswith("gsk_"):
+                    return decoded.strip()
+            except Exception:
+                pass
+
+        self.logger.warning("GROQ_API_KEY no encontrada en env / keyring / config. Configurala en Configuración o via GROQ_API_KEY.")
         return None
+
+    def get_groq_api_key_from_env(self):
+        """Compat: alias a get_groq_api_key() para código existente."""
+        return self.get_groq_api_key()
+
+    def set_groq_api_key(self, api_key: str, use_keyring: bool = True):
+        """
+        Guardar GROQ_API_KEY. Si use_keyring y keyring disponible, guarda en vault;
+        siempre guarda en config como fallback (ofuscada al persistir).
+        """
+        api_key = (api_key or "").strip()
+        if use_keyring and api_key:
+            if self._set_keyring_api_key(api_key):
+                # También guardar en config para fallback si keyring falla luego
+                self.config["groq_api_key"] = api_key
+                self.save_config()
+                return True
+        # Fallback: solo config
+        self.config["groq_api_key"] = api_key
+        self.save_config()
+        return True
 
     def _encode_key(self, key):
         """Ofusca una clave (Base64 + XOR simple)."""
