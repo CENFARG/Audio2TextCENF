@@ -1,9 +1,14 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { APIClient } from '$lib/infrastructure/api-client';
 
   const api = new APIClient();
   let expanded = $state<string | null>(null);
   let saving = $state(false);
+  let status = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  let statusMessage = $state('');
+  let isLoaded = $state(false);
+  let debounceTimeout: ReturnType<typeof setTimeout> | undefined;
   let settings: Record<string, unknown> = $state({
     provider: 'mock', groq_api_key: '', nvidia_api_key: '',
     groq_model: 'whisper-large-v3', fw_model: 'base', fw_device: 'auto',
@@ -18,18 +23,109 @@
 
   function toggle(id: string) { expanded = expanded === id ? null : id; }
 
+  onMount(async () => {
+    try {
+      const loaded = await api.getSettings() as Record<string, unknown>;
+      // api.getSettings now returns data.config ?? data, so loaded may be the config dict directly
+      // Normalize: if loaded has 'config' key, use it, otherwise loaded itself is config
+      const cfg: Record<string, unknown> = (loaded as any)?.providers ? loaded as Record<string, unknown> : (loaded as Record<string, unknown>) ?? {};
+      const providers = (cfg.providers ?? (cfg as any)?.config?.providers) as Record<string, unknown> | undefined;
+      const primary = (providers?.primary ?? (cfg as any).primary ?? (cfg as any)?.config?.providers?.primary) as string | undefined;
+      if (primary) {
+        settings.provider = primary;
+      } else if ((cfg as any)?.providers?.primary) {
+        settings.provider = (cfg as any).providers.primary;
+      }
+      // Handle secrets masking: if cfg contains masked values, keep input empty and show placeholder
+      // No need to set real value; leave groq_api_key empty so UI shows placeholder ••••
+      // Also handle groq model mapping if present
+      const groqModel = (cfg.providers as Record<string, unknown> | undefined)?.groq ?? (cfg as Record<string, unknown>).groq;
+      if (providers && (providers as Record<string, unknown>).groq && typeof (providers as Record<string, unknown>).groq === 'object') {
+        const g = (providers as Record<string, unknown>).groq as Record<string, unknown>;
+        if (g.model) settings.groq_model = g.model as string;
+      } else if ((cfg as any)?.providers?.groq?.model) {
+        settings.groq_model = (cfg as any).providers.groq.model;
+      }
+    } catch (e) {
+      console.warn("[SettingsView] load failed", e);
+      status = 'error';
+      statusMessage = `Error cargando ajustes`;
+    } finally {
+      isLoaded = true;
+    }
+  });
+
   async function save() {
+    if (!isLoaded) return;
     saving = true;
-    try { await api.updateSettings(settings); } finally { saving = false; }
+    status = 'saving';
+    statusMessage = '';
+    try {
+      const secrets: Record<string, string> = {};
+      const groqKey = String(settings.groq_api_key ?? '').trim();
+      const nvidiaKey = String(settings.nvidia_api_key ?? '').trim();
+      if (groqKey && groqKey !== '***' && groqKey !== '••••' && groqKey.length > 0) {
+        secrets.groq_api_key = groqKey;
+      }
+      if (nvidiaKey && nvidiaKey !== '***' && nvidiaKey !== '••••' && nvidiaKey.length > 0) {
+        secrets.nvidia_api_key = nvidiaKey;
+      }
+      const providers: Record<string, unknown> = { primary: settings.provider as string };
+      // Map groq_model -> providers.groq.model
+      if (settings.groq_model) {
+        providers.groq = { model: settings.groq_model as string };
+      }
+      if (settings.fw_model || settings.fw_device) {
+        const fw: Record<string, unknown> = {};
+        if (settings.fw_model) fw.model = settings.fw_model;
+        if (settings.fw_device) fw.device = settings.fw_device;
+        // merge with existing groq provider? keep separate
+        // Use faster_whisper key as in factory
+        (providers as Record<string, unknown>).faster_whisper = fw;
+      }
+      const config: Record<string, unknown> = { providers };
+      if (Object.keys(secrets).length > 0) {
+        (config as Record<string, unknown>).secrets = secrets;
+      }
+      await api.saveSettings({ config });
+      status = 'saved';
+      statusMessage = 'Guardado ✓';
+      setTimeout(() => { if (status === 'saved') { status = 'idle'; statusMessage = ''; } }, 2000);
+    } catch (e) {
+      status = 'error';
+      statusMessage = `Error: ${e}`;
+      console.warn("[SettingsView] save failed", e);
+    } finally {
+      saving = false;
+    }
   }
 
-  $effect(() => { void settings; /* auto-save on change after 400ms */ });
+  // Debounce for text inputs (provider/api keys)
+  $effect(() => {
+    void settings.provider;
+    void settings.groq_api_key;
+    void settings.nvidia_api_key;
+    void settings.groq_model;
+    if (!isLoaded) return;
+    clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(() => { save(); }, 400);
+  });
+
+  function handleProviderChange() {
+    // immediate save on provider select
+    clearTimeout(debounceTimeout);
+    save();
+  }
 </script>
 
 <div class="settings-view">
   <div class="settings-header">
     <h2>Ajustes</h2>
-    {#if saving}<span class="saving-badge">Guardando...</span>{/if}
+    {#if saving || status === 'saving'}<span class="saving-badge">Guardando...</span>
+    {:else if status === 'saved'}<span class="saving-badge">Guardado ✓</span>
+    {:else if status === 'error'}<span class="error-badge">{statusMessage}</span>
+    {/if}
+    {#if settings.provider === 'mock'}<span class="mock-badge">Mock siempre disponible — no necesita API key</span>{/if}
   </div>
 
   <section class="panel-section">
@@ -39,15 +135,20 @@
     </button>
     {#if expanded === 'provider'}
     <div class="panel-body">
-      <label>Proveedor principal <select bind:value={settings.provider} onchange={save}>
+      <label>Proveedor principal <select bind:value={settings.provider} onchange={handleProviderChange}>
         <option value="groq">Groq Cloud</option>
         <option value="faster_whisper">Faster Whisper (local)</option>
         <option value="nvidia">NVIDIA Riva</option>
         <option value="mock">Mock (testing)</option>
       </select></label>
-      <label>Groq API Key <input type="password" bind:value={settings.groq_api_key} onchange={save} /></label>
+      {#if settings.provider === 'mock'}
+        <div class="mock-info">Mock siempre disponible — no necesita API key</div>
+      {:else if settings.provider === 'groq' && !String(settings.groq_api_key ?? '').trim()}
+        <div class="warning-info">Groq no configurado — pega gsk_... para activar</div>
+      {/if}
+      <label>Groq API Key <input type="password" bind:value={settings.groq_api_key} placeholder="••••" onchange={save} /></label>
       <label>Groq Model <input bind:value={settings.groq_model} onchange={save} /></label>
-      <label>NVIDIA API Key <input type="password" bind:value={settings.nvidia_api_key} onchange={save} /></label>
+      <label>NVIDIA API Key <input type="password" bind:value={settings.nvidia_api_key} placeholder="••••" onchange={save} /></label>
       <label>FW Model <select bind:value={settings.fw_model} onchange={save}>
         <option>tiny</option><option>base</option><option>small</option><option>medium</option><option>large-v3</option>
       </select></label>
@@ -166,6 +267,7 @@
     align-items: baseline;
     gap: var(--dt-spacing-md);
     margin-bottom: var(--dt-spacing-md);
+    flex-wrap: wrap;
   }
   .settings-header h2 {
     margin: 0;
@@ -175,6 +277,31 @@
   .saving-badge {
     font-size: var(--dt-font-size-xs);
     color: var(--dt-color-status-success);
+  }
+  .error-badge {
+    font-size: var(--dt-font-size-xs);
+    color: var(--dt-color-status-error, #ff6b6b);
+  }
+  .mock-badge {
+    font-size: var(--dt-font-size-xs);
+    background: var(--dt-color-bg-tertiary);
+    color: var(--dt-color-text-secondary);
+    padding: 2px 8px;
+    border-radius: var(--dt-radius-sm);
+  }
+  .mock-info {
+    font-size: var(--dt-font-size-sm);
+    color: var(--dt-color-status-success, #4ade80);
+    background: var(--dt-color-bg-tertiary);
+    padding: var(--dt-spacing-sm);
+    border-radius: var(--dt-radius-sm);
+  }
+  .warning-info {
+    font-size: var(--dt-font-size-sm);
+    color: var(--dt-color-status-warning, #facc15);
+    background: var(--dt-color-bg-tertiary);
+    padding: var(--dt-spacing-sm);
+    border-radius: var(--dt-radius-sm);
   }
   .panel-section {
     background: var(--dt-color-bg-secondary);

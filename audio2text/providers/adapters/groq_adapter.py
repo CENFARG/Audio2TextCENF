@@ -1,15 +1,21 @@
 """@File: audio2text/providers/adapters/groq_adapter.py
 @Description: Groq transcription adapter — wraps Groq Cloud Whisper API.
-@Version: 0.16.0
+@Version: 0.17.0
 @Author: CENF Development Team
 @License: Apache-2.0
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from audio2text.domain.transcription import TranscriptionResult
+
+logger = logging.getLogger(__name__)
+
+# Singleton for fallback secret adapter (avoid new empty instance each call)
+_singleton_secret_adapter = None
 
 
 class GroqProvider:
@@ -48,11 +54,65 @@ class GroqProvider:
     @staticmethod
     def _get_api_key(key_name: str) -> str | None:
         """Retrieve API key from SecretManager, returning None on any failure."""
+        # Primary: try registry secrets (Single Owner)
         try:
-            from core_infrastructure.secrets import InMemorySecretAdapter
+            from audio2text.infrastructure import get_registry
             import asyncio
-            secret_mgr = InMemorySecretAdapter()
-            return asyncio.run(secret_mgr.get_secret(key_name))
+
+            # Try registry path
+            try:
+                secrets = get_registry().get_secrets()
+                # Handle both running loop and not
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+                if loop and loop.is_running():
+                    # Running loop — offload to thread pool to avoid asyncio.run() error
+                    import concurrent.futures
+
+                    def _run_in_thread() -> str | None:
+                        return asyncio.run(secrets.get_secret(key_name))
+
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        fut = pool.submit(_run_in_thread)
+                        try:
+                            return fut.result(timeout=2)
+                        except Exception:
+                            return None
+                else:
+                    return asyncio.run(secrets.get_secret(key_name))
+            except Exception:
+                pass
+        except Exception:
+            pass
+        # Fallback: singleton InMemorySecretAdapter (not new empty each time without state)
+        try:
+            from core_infrastructure.secrets import InMemorySecretAdapter  # type: ignore
+            import asyncio
+
+            global _singleton_secret_adapter
+            if _singleton_secret_adapter is None:
+                _singleton_secret_adapter = InMemorySecretAdapter()
+            mgr = _singleton_secret_adapter
+            try:
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                loop = None
+            if loop and loop.is_running():
+                import concurrent.futures
+
+                def _run_fallback() -> str | None:
+                    return asyncio.run(mgr.get_secret(key_name))  # type: ignore[attr-defined]
+
+                with concurrent.futures.ThreadPoolExecutor() as pool:
+                    fut = pool.submit(_run_fallback)
+                    try:
+                        return fut.result(timeout=2)
+                    except Exception:
+                        return None
+            else:
+                return asyncio.run(mgr.get_secret(key_name))  # type: ignore[attr-defined]
         except Exception:
             return None
 
@@ -64,14 +124,17 @@ class GroqProvider:
             api_key = self._get_api_key(self._api_key_secret_key)
 
             if not api_key:
+                logger.warning("Groq API key not found (key: %s) — Groq no configurado — pega gsk_... para activar", self._api_key_secret_key)
                 self._is_available = False
                 return
 
             self._client = groq_sdk.Client(api_key=api_key, base_url=self._base_url)
             self._is_available = True
         except ImportError:
+            logger.warning("groq SDK not installed — Groq provider unavailable")
             self._is_available = False
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to init Groq client: %s", exc)
             self._is_available = False
 
     # ------------------------------------------------------------------
@@ -140,11 +203,66 @@ class GroqProvider:
         """
         issues: list[str] = []
 
-        from core_infrastructure.secrets import InMemorySecretAdapter
+        # Try registry first, fallback to singleton
+        api_key: str | None = None
+        try:
+            from audio2text.infrastructure import get_registry
+            import asyncio
 
-        import asyncio
-        secret_mgr = InMemorySecretAdapter()
-        api_key = asyncio.run(secret_mgr.get_secret(self._api_key_secret_key))
+            try:
+                secrets = get_registry().get_secrets()
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+                if loop and loop.is_running():
+                    import concurrent.futures
+
+                    def _run() -> str | None:
+                        return asyncio.run(secrets.get_secret(self._api_key_secret_key))
+
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        fut = pool.submit(_run)
+                        try:
+                            api_key = fut.result(timeout=2)
+                        except Exception:
+                            api_key = None
+                else:
+                    api_key = asyncio.run(secrets.get_secret(self._api_key_secret_key))
+            except Exception:
+                api_key = None
+        except Exception:
+            api_key = None
+
+        if api_key is None:
+            # fallback singleton
+            try:
+                from core_infrastructure.secrets import InMemorySecretAdapter
+                import asyncio
+
+                global _singleton_secret_adapter
+                if _singleton_secret_adapter is None:
+                    _singleton_secret_adapter = InMemorySecretAdapter()
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    loop = None
+                if loop and loop.is_running():
+                    import concurrent.futures
+
+                    def _run2() -> str | None:
+                        return asyncio.run(_singleton_secret_adapter.get_secret(self._api_key_secret_key))  # type: ignore
+
+                    with concurrent.futures.ThreadPoolExecutor() as pool:
+                        fut = pool.submit(_run2)
+                        try:
+                            api_key = fut.result(timeout=2)
+                        except Exception:
+                            api_key = None
+                else:
+                    api_key = asyncio.run(_singleton_secret_adapter.get_secret(self._api_key_secret_key))  # type: ignore
+            except Exception:
+                api_key = None
 
         if not api_key:
             issues.append(

@@ -2,7 +2,7 @@
 @Description: FastAPI dependency injection — uses ManagerRegistry from bootstrap.
     All services are resolved from the bootstrapped registry instead of
     direct imports. Single import site for core_infrastructure via infrastructure/.
-@Version: 0.16.0
+@Version: 0.17.0
 @Author: CENF Development Team
 @License: Apache-2.0
 """
@@ -61,12 +61,45 @@ def get_localization():
 
 
 def get_provider():
-    """Return a TranscriptionProvider from factory (delegates to DependencyManager M13)."""
+    """Return a TranscriptionProvider from factory (delegates to DependencyManager M13).
+
+    Single Owner: if primary provider is not available, fallback to mock
+    so offline/mock always works (mock sin conexión).
+    """
     from audio2text.providers.factory import TranscriptionProviderFactory
 
     config = get_config()
-    primary = config.get_string("providers.primary", "groq")
-    return TranscriptionProviderFactory.create(primary, {})
+    try:
+        primary = config.get_string("providers.primary", "groq")
+    except Exception:
+        primary = "groq"
+
+    try:
+        provider = TranscriptionProviderFactory.create(primary, {})
+    except Exception as exc:
+        logger.warning("Failed to create provider %s: %s, falling back to mock", primary, exc)
+        try:
+            provider = TranscriptionProviderFactory.create("mock", {})
+        except Exception:
+            from audio2text.providers.adapters.mock_adapter import MockProvider
+
+            return MockProvider({})
+
+    # If primary is not mock and provider is not available, fallback to mock
+    try:
+        if not getattr(provider, "is_available", True) and primary != "mock":
+            logger.warning("Provider %s not available, falling back to mock", primary)
+            provider = TranscriptionProviderFactory.create("mock", {})
+    except Exception as exc:
+        logger.warning("Fallback to mock failed: %s", exc)
+        try:
+            provider = TranscriptionProviderFactory.create("mock", {})
+        except Exception:
+            from audio2text.providers.adapters.mock_adapter import MockProvider
+
+            return MockProvider({})
+
+    return provider
 
 
 def get_transcription_service():
