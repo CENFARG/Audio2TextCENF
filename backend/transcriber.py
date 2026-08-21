@@ -537,9 +537,9 @@ class Transcriber:
         # Actualizar overlay (vía cola)
         self._push_overlay_event("processing", 0, 0)
 
-        # FIX: esperar a que el loop termine (evita cerrar el stream a mitad de read)
+        # Perf quick win: 0.08s cubre 1 read de 1024 frames @16kHz (~64ms) + margen
         if getattr(self, 'recording_thread', None) and self.recording_thread.is_alive():
-            self.recording_thread.join(timeout=0.5)
+            self.recording_thread.join(timeout=0.08)
 
         if self.input_stream:
             try:

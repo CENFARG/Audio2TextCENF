@@ -1297,9 +1297,8 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         pyperclip.copy(text)
         if self.config_manager.get("auto_paste_text"):
             self.logger.info("Auto-pegando transcripcion.")
-            import time
-            time.sleep(0.1)
-            pyautogui.hotkey('ctrl', 'v')
+            # Perf quick win: non-blocking paste — no time.sleep en main thread
+            self.after(100, lambda: pyautogui.hotkey('ctrl', 'v'))
 
     def display_transcription(self, text):
         """Mostrar transcripción con protección contra duplicados"""
