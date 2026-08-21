@@ -208,7 +208,13 @@ class CustomVocabulary:
 
     def export_to_file(self, file_path: str) -> bool:
         """
-        Exportar el vocabulario actual a un archivo de texto (líneas con →).
+        Exportar el vocabulario actual de forma DETERMINÍSTICA.
+
+        - .txt / .md : líneas  incorrecta=correcta  (sin espacios, con =)
+                       respeta el caso exacto tal como lo escribió el usuario
+        - .json      : objeto JSON  {incorrecta: correcta}
+
+        Determinista: no infiere, no usa IA, case-sensitive exacto.
 
         Args:
             file_path: Ruta de destino
@@ -219,9 +225,16 @@ class CustomVocabulary:
         try:
             path = Path(file_path)
             path.parent.mkdir(parents=True, exist_ok=True)
-            lines = [f"{k} → {v}" for k, v in self.corrections.items()]
-            path.write_text("\n".join(lines), encoding='utf-8')
-            logger.info(f"Export: {len(lines)} correcciones exportadas a {file_path}")
+            ext = path.suffix.lower()
+            if ext == ".json":
+                # JSON determinista: objeto directo, ensure_ascii=False, indent=2
+                import json as _json
+                path.write_text(_json.dumps(self.corrections, ensure_ascii=False, indent=2), encoding='utf-8')
+            else:
+                # TXT/MD: formato  incorrecta=correcta  sin espacios
+                lines = [f"{k}={v}" for k, v in self.corrections.items()]
+                path.write_text("\n".join(lines), encoding='utf-8')
+            logger.info(f"Export: {len(self.corrections)} correcciones exportadas a {file_path} ({ext or 'txt'})")
             return True
         except Exception as e:
             logger.error(f"Export: error {e}")

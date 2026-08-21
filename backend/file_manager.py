@@ -237,6 +237,26 @@ class FileManager:
             print(f"Error al mantener límite de archivos: {e}")
             return 0
 
+    def _get_wav_duration(self, filepath: str) -> float:
+        """Obtener duración en segundos de un WAV sin cargar todo el audio en memoria."""
+        try:
+            import soundfile as sf
+            info = sf.info(filepath)
+            if info.samplerate and info.frames:
+                return info.frames / float(info.samplerate)
+        except Exception:
+            pass
+        try:
+            import wave
+            with wave.open(filepath, 'rb') as wf:
+                frames = wf.getnframes()
+                rate = wf.getframerate()
+                if rate:
+                    return frames / float(rate)
+        except Exception:
+            pass
+        return 0.0
+
     def get_audio_files_list(self, limit=None, offset=0):
         """
         Obtener lista de archivos de audio con paginación.
@@ -246,7 +266,7 @@ class FileManager:
             offset: Número de archivos a saltar (para paginación)
 
         Returns:
-            list: Lista de archivos (nombre, filepath, mtime)
+            list: Lista de archivos (nombre, filepath, mtime, duration)
         """
         try:
             audio_files = [f for f in os.listdir(self.audio_path) if f.endswith('.wav')]
@@ -258,7 +278,8 @@ class FileManager:
                 files_with_metadata.append({
                     "name": filename,
                     "path": filepath,
-                    "mtime": os.path.getmtime(filepath)
+                    "mtime": os.path.getmtime(filepath),
+                    "duration": self._get_wav_duration(filepath)
                 })
 
             # Ordenar por fecha de modificación (más recientes primero)

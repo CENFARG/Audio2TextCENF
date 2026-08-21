@@ -179,9 +179,8 @@ class App(ctk.CTk):
         self.last_transcription_time = 0
         self.last_transcription_text = ""
 
-        # --- Tutorial ---
-        from ui.tutorial import TutorialManager
-        self.tutorial_manager = TutorialManager(self)
+        # --- Tutorial ELIMINADO (requisito v0.15.1): no mostrar instructivo al iniciar ---
+        self.tutorial_manager = None
 
         # Crear overlay de grabación - REACTIVADO
         from ui.recording_overlay import RecordingOverlay
@@ -213,9 +212,7 @@ class App(ctk.CTk):
         self.update_file_info()
         self.after(1000, self._check_api_key)
         
-        # Iniciar tutorial si corresponde (después de que la UI cargue)
-        if self.tutorial_manager.should_start():
-            self.after(1500, self.tutorial_manager.start)
+        # Tutorial deshabilitado — no iniciar
 
     def create_widgets(self):
         self.logger.debug("Creando widgets de la interfaz de usuario.")
@@ -444,7 +441,7 @@ class App(ctk.CTk):
         api_entry = ctk.CTkEntry(main_conf_frame, textvariable=self.api_key_var, show="*", placeholder_text=self.localization_manager.get_string("api_key_placeholder"))
         api_entry.grid(row=1, column=1, padx=5, sticky="ew")
         api_entry.bind("<FocusOut>", lambda e: self.save_config()) # Autosave on focus out
-        verify_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("verify_button"), width=70, command=self._check_api_key)
+        verify_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("verify_button"), width=70, command=lambda: self._check_api_key(show_popup=True))
         verify_btn.grid(row=1, column=2, padx=(0,10))
 
         # ASR Provider Selection (solo Groq — Gemini ELIMINADO por completo de la
@@ -779,6 +776,26 @@ class App(ctk.CTk):
         # Obtener set de archivos actuales
         current_files = {f["name"] for f in files_list}
 
+        # Detectar eliminados: estaban cargados pero ya no están en disco -> full reload
+        removed = self.loaded_history_files - current_files
+        if removed:
+            self.logger.debug(f"Detectados {len(removed)} archivos eliminados, haciendo full reload")
+            for widget in self.history_scroll_frame.winfo_children():
+                widget.destroy()
+            self.loaded_history_files.clear()
+            self._history_pending = []
+            self._history_pending_pos = 0
+            if not files_list:
+                ctk.CTkLabel(self.history_scroll_frame, text=self.localization_manager.get_string("no_audio_files")).pack(pady=20)
+                self.loaded_history_files = set()
+                return
+            # Recargar todo
+            self._history_pending = files_list
+            self._history_pending_pos = 0
+            self._process_history_batch(batch_size=20)
+            self.loaded_history_files = current_files
+            return
+
         # Encontrar archivos nuevos (que no están cargados)
         new_files = [f for f in files_list if f["name"] not in self.loaded_history_files]
 
@@ -789,6 +806,10 @@ class App(ctk.CTk):
             self._history_pending_pos = 0
             self._process_history_batch(batch_size=20)
             self.logger.debug(f"Agregados {len(new_files)} archivos nuevos al historial (por lotes)")
+
+        # Si no hay archivos y no se hizo reload, mostrar vacío
+        if not files_list and not self.history_scroll_frame.winfo_children():
+            ctk.CTkLabel(self.history_scroll_frame, text=self.localization_manager.get_string("no_audio_files")).pack(pady=20)
 
         # Actualizar archivos conocidos
         self.loaded_history_files = current_files
@@ -807,7 +828,7 @@ class App(ctk.CTk):
         end = min(pos + batch_size, len(pending))
         for file_info in pending[pos:end]:
             try:
-                self._create_history_item(file_info["name"], file_info["path"])
+                self._create_history_item(file_info["name"], file_info["path"], file_info.get("duration", 0))
                 self.loaded_history_files.add(file_info["name"])
             except Exception as e:
                 self.logger.error(f"Error creando item de historial: {e}")
@@ -821,7 +842,21 @@ class App(ctk.CTk):
             self._history_pending = []
             self._history_pending_pos = 0
 
-    def _create_history_item(self, filename, full_path):
+    def _format_duration(self, seconds: float) -> str:
+        """Formatear duración en formato humano: 42s, 2m 35s, 1h 5m 20s"""
+        try:
+            s = int(round(seconds))
+            if s < 60:
+                return f"{s}s"
+            m, sec = divmod(s, 60)
+            if m < 60:
+                return f"{m}m {sec:02d}s"
+            h, m = divmod(m, 60)
+            return f"{h}h {m}m {sec:02d}s"
+        except Exception:
+            return "—"
+
+    def _create_history_item(self, filename, full_path, duration: float = 0):
         """Crear item de historial con emoji personalizable, play button y menú contextual"""
         import os
         from datetime import datetime
@@ -865,8 +900,16 @@ class App(ctk.CTk):
             else:
                 size_str = f"{file_size / (1024 * 1024):.1f} MB"
 
+            # Calcular duración si no vino (fallback)
+            if not duration:
+                try:
+                    duration = self.file_manager._get_wav_duration(full_path)
+                except Exception:
+                    duration = 0
+            duration_str = self._format_duration(duration) if duration else "—"
+
             # Tooltip con información completa y transcripción
-            tooltip_text = f"📁 {filename}\n📅 {file_mtime.strftime('%d/%m/%Y %H:%M:%S')}\n💾 {size_str}\n📍 {full_path}"
+            tooltip_text = f"📁 {filename}\n📅 {file_mtime.strftime('%d/%m/%Y %H:%M:%S')}\n⏱️ {duration_str}\n💾 {size_str}\n📍 {full_path}"
 
             # Agregar transcripción si está disponible en el cache
             if filename in self.transcriptions_cache:
@@ -1269,9 +1312,9 @@ class App(ctk.CTk):
         
         self.logger.debug("Pestaña 'Actualizaciones' creada.")
 
-    def _check_api_key(self):
-        # FIX v0.15.0: solo Groq (Gemini quitado del selector por benchmark 5-87s)
-        self.logger.info("Verificando claves API...")
+    def _check_api_key(self, show_popup: bool = False):
+        """Verificar API Key. Si show_popup=False (auto-check), solo actualiza dot y status sin modal."""
+        self.logger.info(f"Verificando claves API (popup={show_popup})...")
 
         groq_key = self.api_key_var.get()
         if groq_key:
@@ -1286,11 +1329,14 @@ class App(ctk.CTk):
                 self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["error"])
                 self._api_key_last_valid = False
                 self.update_status("❌ API Key de Groq inválida — ver Información para configurarla", "red")
-                self._show_api_key_error_hint(str(e))
+                if show_popup:
+                    self._show_api_key_error_hint(str(e))
         else:
             self.api_key_status_label.configure(text="●", text_color="grey")
             self._api_key_last_valid = None
             self.update_status("⚠️ Sin API Key — configurala en Configuración", "orange")
+            if show_popup:
+                self._show_api_key_error_hint("Sin API Key configurada")
 
     def _on_api_dot_click(self):
         """Click en el dot de estado — si está en rojo, llevar a Información."""
@@ -1299,9 +1345,9 @@ class App(ctk.CTk):
                 self.main_frame.set(self.localization_manager.get_string("tab_info"))
                 self.update_status("ℹ️ Ver Información para configurar tu API Key de Groq", "orange")
             else:
-                self._check_api_key()
+                self._check_api_key(show_popup=True)
         except Exception:
-            self._check_api_key()
+            self._check_api_key(show_popup=True)
 
     def _show_api_key_error_hint(self, error_detail: str = ""):
         """Mostrar hint y ofrecer navegar a Información cuando la API Key falla."""
@@ -1458,7 +1504,7 @@ class App(ctk.CTk):
                 self.update_status(f"✅ {count} correcciones importadas de {os.path.basename(file_path)}", "green")
                 self._refresh_vocab_list()
             else:
-                self.update_status("No se importó ninguna corrección (revisá el formato: 'incorrecta → correcta' por línea)", "orange")
+                self.update_status("No se importó ninguna corrección (revisá el formato: 'incorrecta=correcta' por línea o JSON)", "orange")
         except Exception as e:
             self.logger.error(f"Error importando vocabulario: {e}")
             self.update_status(f"Error importando vocabulario: {e}", "red")
@@ -1474,7 +1520,7 @@ class App(ctk.CTk):
             file_path = filedialog.asksaveasfilename(
                 title="Exportar vocabulario",
                 defaultextension=".txt",
-                filetypes=[("Texto", "*.txt"), ("Markdown", "*.md"), ("Todos", "*.*")]
+                filetypes=[("Texto", "*.txt"), ("Markdown", "*.md"), ("JSON", "*.json"), ("Todos", "*.*")]
             )
             if not file_path:
                 return
@@ -1582,16 +1628,15 @@ class App(ctk.CTk):
             self.update_status("Error al eliminar corrección", "red")
 
     def _edit_vocab_correction(self, incorrect: str, current_correct: str, on_edited=None):
-        """Editar una corrección existente (cambiar la palabra correcta)."""
+        """Editar una corrección existente — permite cambiar TANTO la palabra incorrecta como la correcta."""
         try:
             if not hasattr(self.transcriber, 'custom_vocab'):
                 self.update_status("CustomVocabulary no disponible", "red")
                 return
 
-            # Ventana de edición (también al frente)
             edit_window = ctk.CTkToplevel(self)
             edit_window.title("Editar Corrección")
-            edit_window.geometry("420x180")
+            edit_window.geometry("460x220")
             edit_window.transient(self)
             edit_window.lift()
             edit_window.attributes('-topmost', True)
@@ -1599,37 +1644,47 @@ class App(ctk.CTk):
             edit_window.grab_set()
             edit_window.resizable(False, False)
 
-            ctk.CTkLabel(edit_window, text=f"Palabra incorrecta: '{incorrect}'", font=DesignSystem.TYPOGRAPHY["body_bold"]).pack(pady=(15, 5), padx=15, anchor="w")
+            ctk.CTkLabel(edit_window, text="Palabra incorrecta (lo que el modelo entiende mal):", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(padx=15, pady=(10, 2), anchor="w")
+            new_incorrect_var = tk.StringVar(value=incorrect)
+            incorrect_entry = ctk.CTkEntry(edit_window, textvariable=new_incorrect_var)
+            incorrect_entry.pack(padx=15, pady=2, fill="x")
 
-            ctk.CTkLabel(edit_window, text="Nueva palabra correcta:", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(padx=15, anchor="w")
+            ctk.CTkLabel(edit_window, text="Palabra correcta (como debe escribirse):", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(padx=15, pady=(8, 2), anchor="w")
             new_correct_var = tk.StringVar(value=current_correct)
-            entry = ctk.CTkEntry(edit_window, textvariable=new_correct_var)
-            entry.pack(padx=15, pady=5, fill="x")
+            correct_entry = ctk.CTkEntry(edit_window, textvariable=new_correct_var)
+            correct_entry.pack(padx=15, pady=2, fill="x")
 
             def save_edit():
-                new_value = new_correct_var.get().strip()
-                if not new_value:
-                    self.update_status("La palabra correcta no puede estar vacía", "orange")
+                new_incorrect = new_incorrect_var.get().strip()
+                new_correct = new_correct_var.get().strip()
+                if not new_incorrect or not new_correct:
+                    self.update_status("Ambas palabras deben tener contenido", "orange")
                     return
-                if new_value == current_correct:
+                if new_incorrect == incorrect and new_correct == current_correct:
                     edit_window.destroy()
                     return
-                # Reemplazar la clave manteniendo la posición (eliminar + agregar con el nuevo valor)
-                self.transcriber.custom_vocab.corrections[incorrect] = new_value
+                # Si cambió la clave incorrecta, eliminar la vieja
+                if new_incorrect != incorrect:
+                    # Buscar y eliminar la clave vieja (case-insensitive)
+                    for key in list(self.transcriber.custom_vocab.corrections.keys()):
+                        if key.lower() == incorrect.lower():
+                            del self.transcriber.custom_vocab.corrections[key]
+                            break
+                self.transcriber.custom_vocab.corrections[new_incorrect] = new_correct
                 self.transcriber.custom_vocab._save_vocab()
-                self.update_status(f"Corrección actualizada: {incorrect} → {new_value}", "green")
+                self.update_status(f"Corrección actualizada: {new_incorrect}={new_correct}", "green")
                 if on_edited:
                     on_edited()
                 self._refresh_vocab_list()
                 edit_window.destroy()
 
             btn_frame = ctk.CTkFrame(edit_window, fg_color="transparent")
-            btn_frame.pack(pady=10)
+            btn_frame.pack(pady=12)
             ctk.CTkButton(btn_frame, text="Guardar", width=100, fg_color="#10B981", hover_color="#059669", command=save_edit).pack(side="left", padx=5)
             ctk.CTkButton(btn_frame, text="Cancelar", width=100, command=edit_window.destroy).pack(side="left", padx=5)
 
-            entry.focus_set()
-            entry.select_range(0, 'end')
+            incorrect_entry.focus_set()
+            incorrect_entry.select_range(0, 'end')
 
         except Exception as e:
             self.logger.error(f"Error editando corrección: {e}")
@@ -1648,9 +1703,9 @@ class App(ctk.CTk):
                 if not corrections:
                     ctk.CTkLabel(self.vocab_list_frame, text="No hay correcciones configuradas", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(pady=5)
                 else:
-                    # FIX: mostrar TODAS las correcciones, no solo las primeras 5
+                    # Mostrar TODAS las correcciones en formato incorrecta=correcta (sin espacios)
                     for incorrect, correct in corrections.items():
-                        item = ctk.CTkLabel(self.vocab_list_frame, text=f"{incorrect} → {correct}", font=DesignSystem.TYPOGRAPHY["body_small"])
+                        item = ctk.CTkLabel(self.vocab_list_frame, text=f"{incorrect}={correct}", font=DesignSystem.TYPOGRAPHY["body_small"])
                         item.pack(anchor="w", padx=10, pady=1)
 
         except Exception as e:
@@ -1878,23 +1933,47 @@ class App(ctk.CTk):
 
     def clear_audio_with_feedback(self):
         self.logger.info("Intentando limpiar archivos de audio.")
-        if self.file_manager.clear_audio_files(): 
+        if self.file_manager.clear_audio_files():
             self.update_status(self.localization_manager.get_string("audio_deleted"), "green")
             self.logger.info("Archivos de audio eliminados exitosamente.")
-        else: 
+            # Sincronizar historial: limpiar UI y estado
+            self._sync_history_after_clear()
+        else:
             self.update_status(self.localization_manager.get_string("error_deleting_audio"), "red")
             self.logger.error("Error al eliminar archivos de audio.")
         self.update_file_info()
 
     def clear_logs_with_feedback(self):
         self.logger.info("Intentando limpiar archivos de transcripciones.")
-        if self.file_manager.clear_transcriptions(): 
+        if self.file_manager.clear_transcriptions():
             self.update_status(self.localization_manager.get_string("transcriptions_deleted"), "green")
             self.logger.info("Archivos de transcripciones eliminados exitosamente.")
-        else: 
+            # Limpiar cache de transcripciones y refrescar tooltips
+            self.transcriptions_cache = {}
+            self._transcriptions_cache_mtime = 0
+            # Si también hay audios, refrescar historial para actualizar tooltips
+            self.refresh_history_list(full_reload=True)
+        else:
             self.update_status(self.localization_manager.get_string("error_deleting_transcriptions"), "red")
             self.logger.error("Error al eliminar archivos de transcripciones.")
         self.update_file_info()
+
+    def _sync_history_after_clear(self):
+        """Sincronizar pestaña Historial después de limpiar audios: vaciar lista y mostrar estado vacío."""
+        try:
+            for widget in self.history_scroll_frame.winfo_children():
+                widget.destroy()
+            self.loaded_history_files = set()
+            self.transcriptions_cache = {}
+            self._transcriptions_cache_mtime = 0
+            self._history_pending = []
+            self._history_pending_pos = 0
+            # Mostrar mensaje vacío
+            ctk.CTkLabel(self.history_scroll_frame, text=self.localization_manager.get_string("no_audio_files")).pack(pady=20)
+            self.last_history_file_count = 0
+            self.last_history_mtime = 0
+        except Exception as e:
+            self.logger.error(f"Error sincronizando historial tras clear: {e}")
 
     def on_closing(self):
         self.logger.info("Cerrando aplicación por completo.")
