@@ -5,6 +5,8 @@ import soundfile as sf
 import numpy as np
 import keyboard
 import time
+import uuid
+import hashlib
 import psutil
 import threading
 from groq import Groq
@@ -45,6 +47,11 @@ class Transcriber:
         self.recording_lock = threading.Lock()
         # FIX Bug F: lock dedicado para audio_data (compartido entre _record_loop y process_recording)
         self.audio_lock = threading.Lock()
+        # v0.15.8 blindaje anti-duplicación: single-owner
+        self.process_lock = threading.Lock()
+        self.current_recording_id = None
+        self.last_audio_hash = None
+        self.last_process_time = 0.0
         self.stop_event = threading.Event()
         self.last_key_event_time = 0
         self.debounce_time = 0.2
@@ -276,6 +283,10 @@ class Transcriber:
     
     def _hook_hotkey(self):
         try:
+            # v0.15.8: no desenganchar durante grabación — evita race que duplica hotkey events
+            if getattr(self, 'is_recording', False):
+                self.logger.info("_hook_hotkey deferido: grabación en curso, no se hace unhook")
+                return
             keyboard.unhook_all()
 
             # Detectar si el hotkey tiene modificadores (contiene "+")
@@ -301,6 +312,10 @@ class Transcriber:
     def update_hotkey(self, new_hotkey):
         self.logger.info(f"Actualizando hotkey a: {new_hotkey}")
         self.hotkey = new_hotkey
+        # v0.15.8: diferir re-hook si hay grabación activa
+        if getattr(self, 'is_recording', False):
+            self.logger.info("update_hotkey deferido: grabación en curso")
+            return
         self._hook_hotkey()
 
     def handle_key_event(self, event):
@@ -346,6 +361,14 @@ class Transcriber:
         Handler para hotkeys con modificadores en modo hold.
         Usa keyboard.hook() para detectar KEY_DOWN y KEY_UP de modificadores.
         """
+        # v0.15.8: debounce unificado — también para path add_hotkey/hook (antes solo toggle)
+        # Debounce en KEY_DOWN; KEY_UP no se debouncea para hold responsivo
+        if event.event_type == keyboard.KEY_DOWN:
+            _now = time.time()
+            if (_now - self.last_key_event_time) < self.debounce_time:
+                return
+            # actualizamos last_key_event_time dentro del lock más abajo para ser precisos,
+            # pero hacemos check temprano para no parsear innecesario
         # Verificar si este evento corresponde a nuestro hotkey
         try:
             # Parsear el hotkey actual
@@ -370,6 +393,11 @@ class Transcriber:
             if modifiers_match and key_match:
                 with self.recording_lock:
                     if event.event_type == keyboard.KEY_DOWN:
+                        # v0.15.8: debounce unificado — registrar timestamp al consumir KEY_DOWN
+                        _now2 = time.time()
+                        if (_now2 - self.last_key_event_time) < self.debounce_time:
+                            return
+                        self.last_key_event_time = _now2
                         if not self.is_recording:
                             self.start_recording()
                     elif event.event_type == keyboard.KEY_UP:
@@ -384,6 +412,8 @@ class Transcriber:
             self.update_status(self.localization_manager.get_string("priority_app_in_use"), "orange")
             return
 
+        # v0.15.8 single-owner: asignar recording_id al inicio (owner)
+        self.current_recording_id = str(uuid.uuid4())
         self.is_recording = True
         # FIX Bug F: reset de audio_data bajo lock (evita correr contra process_recording)
         with self.audio_lock:
@@ -552,21 +582,63 @@ class Transcriber:
         if not self.audio_data:
             self.update_status(self.localization_manager.get_string("no_audio_captured"), "red")
             return
-        
-        threading.Thread(target=self.process_recording, daemon=True).start()
 
-    def process_recording(self):
-        self.logger.info("Iniciando procesamiento de grabación.")
+        # v0.15.8 single-owner: snapshot + recording_id ANTES de spawnear thread (sin tocar _record_loop)
+        recording_id = self.current_recording_id
+        with self.audio_lock:
+            audio_snapshot = list(self.audio_data)
+        if not audio_snapshot:
+            self.update_status(self.localization_manager.get_string("no_audio_captured"), "red")
+            return
+        threading.Thread(target=self.process_recording, args=(recording_id, audio_snapshot), daemon=True).start()
+
+    def process_recording(self, recording_id=None, audio_snapshot=None):
+        # v0.15.8 single-owner + hash dedup + process_lock
+        # Discard stale recording_id (ya no es el current owner)
+        if recording_id is not None and self.current_recording_id is not None and recording_id != self.current_recording_id:
+            self.logger.warning(f"process_recording descartado: stale recording_id {recording_id} != current {self.current_recording_id}")
+            return
+        # process_lock: solo uno a la vez; si ya hay uno en curso, descarta duplicado
+        if not self.process_lock.acquire(blocking=False):
+            self.logger.warning("process_recording ya en curso, descartando duplicado (process_lock)")
+            return
+        # hash dedup: si mismo audio <2s, descarta
+        _snapshot_for_hash = audio_snapshot
+        if _snapshot_for_hash is None:
+            with self.audio_lock:
+                _snapshot_for_hash = list(self.audio_data)
+        _audio_hash = None
+        try:
+            if _snapshot_for_hash:
+                _concat = np.concatenate(_snapshot_for_hash, axis=0) if len(_snapshot_for_hash) > 0 else None
+                if _concat is not None and len(_concat) > 0:
+                    _audio_hash = hashlib.sha1(_concat.tobytes()).hexdigest()
+                    _now = time.time()
+                    if _audio_hash == self.last_audio_hash and (_now - self.last_process_time) < 2.0:
+                        self.logger.warning(f"process_recording descartado por hash duplicado { _audio_hash[:8]} <2s")
+                        self.process_lock.release()
+                        return
+        except Exception as _e:
+            self.logger.debug(f"hash dedup error (non-blocking): {_e}")
+
+        self.logger.info(f"Iniciando procesamiento de grabación (id={recording_id}).")
         temp_path = None
         try:
-            # FIX Bug F: tomar snapshot bajo lock para no correr contra un reset de audio_data
-            with self.audio_lock:
-                audio_snapshot = list(self.audio_data)
-            if not audio_snapshot:
+            # Usar snapshot pasado o tomar uno nuevo
+            if audio_snapshot is not None:
+                _snap = audio_snapshot
+            else:
+                with self.audio_lock:
+                    _snap = list(self.audio_data)
+            if not _snap:
                 self.update_status(self.localization_manager.get_string("no_audio_captured"), "red")
                 return
+            # guarda hash/tiempo para dedup futuro (solo si no fue descartado)
+            if _audio_hash is not None:
+                self.last_audio_hash = _audio_hash
+                self.last_process_time = time.time()
             # Combine audio data chunks
-            full_audio = np.concatenate(audio_snapshot, axis=0)
+            full_audio = np.concatenate(_snap, axis=0)
             duration = len(full_audio) / self.freq
             
             if duration < MIN_AUDIO_DURATION:
@@ -618,7 +690,17 @@ class Transcriber:
             self.update_status(f'{self.localization_manager.get_string("processing_error")} {e}', "red")
             self.logger.critical(f"Error crítico durante el procesamiento: {e}", exc_info=True)
         finally:
-            if temp_path and os.path.exists(temp_path): os.unlink(temp_path)
+            if temp_path and os.path.exists(temp_path):
+                try:
+                    os.unlink(temp_path)
+                except Exception:
+                    pass
+            # v0.15.8: liberar process_lock si fue adquirido
+            try:
+                if self.process_lock.locked():
+                    self.process_lock.release()
+            except Exception:
+                pass
 
     def _call_groq_api(self, wav_path, prompt=None):
         """Llamar a la API de Groq con un único archivo WAV.

@@ -18,7 +18,7 @@ _KEYRING_USER = "groq_api_key"
 
 
 class ConfigManager:
-    """Gestor de configuración de la aplicación para la v0.15.7"""
+    """Gestor de configuración de la aplicación para la v0.15.8"""
 
     def __init__(self, config_file="config.json"):
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -29,7 +29,7 @@ class ConfigManager:
                 "Instalá con: pip install keyring"
             )
         self.default_config = {
-            "app_version": "0.15.7",
+            "app_version": "0.15.8",
             "audio_path": "./audio",
             "transcriptions_path": "./transcriptions",
             "save_audio": True,

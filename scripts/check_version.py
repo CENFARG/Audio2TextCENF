@@ -1,9 +1,9 @@
 """
 check_version.py — HC-05 single-source version validator
 
-Fuenta canónica: pyproject.toml [project] version = "0.15.7"
+Fuenta canónica: pyproject.toml [project] version = "0.15.8"
 
-Valida que estas 5 fuentes estén en 0.15.7:
+Valida que estas 5 fuentes estén en 0.15.8:
   1. pyproject.toml
   2. backend/config_manager.py (default_config app_version)
   3. lang/es.json + lang/en.json (app_title contiene version)
@@ -12,7 +12,7 @@ Valida que estas 5 fuentes estén en 0.15.7:
 
 Uso:
   python scripts/check_version.py        # usa EXPECTED = pyproject version (canónica)
-  python scripts/check_version.py 0.15.7 # fuerza expected
+  python scripts/check_version.py 0.15.8 # fuerza expected
 
 Exit code: 0 si todas PASS, 1 si alguna FAIL.
 """
@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-EXPECTED_FALLBACK = "0.15.7"
+EXPECTED_FALLBACK = "0.15.8"
 
 
 def _read_pyproject_version() -> str | None:
@@ -72,14 +72,14 @@ def _read_version_info(path: Path) -> dict:
         text = path.read_text(encoding="utf-8")
         m = re.search(r"filevers\s*=\s*\(([^)]+)\)", text)
         if m:
-            # e.g. 0, 15, 7, 0 -> 0.15.7
+            # e.g. 0, 15, 8, 0 -> 0.15.8
             parts = [p.strip() for p in m.group(1).split(",")]
             if len(parts) >= 3:
                 result["filevers"] = ".".join(parts[:3])
         m = re.search(r"StringStruct\(u'FileVersion',\s*u'([^']+)'\)", text)
         if m:
             fv = m.group(1).strip()
-            # 0.15.7.0 -> 0.15.7
+            # 0.15.8.0 -> 0.15.8
             result["FileVersion"] = ".".join(fv.split(".")[:3])
         m = re.search(r"StringStruct\(u'ProductVersion',\s*u'([^']+)'\)", text)
         if m:

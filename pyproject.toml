@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "audio2text-cenf"
-version = "0.15.7"
+version = "0.15.8"
 description = "Aplicación de transcripción de audio en tiempo real usando IA"
 readme = "README.md"
 requires-python = ">=3.8"

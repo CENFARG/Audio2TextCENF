@@ -187,9 +187,10 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         self.currently_playing = None  # (file_path, button)
         self.playing_threads = {}  # file_path -> stop_event
 
-        # Para evitar llamadas duplicadas a display_transcription
+        # Para evitar llamadas duplicadas a display_transcription (v0.15.8: hash guard)
         self.last_transcription_time = 0
         self.last_transcription_text = ""
+        self.last_transcription_hash = None
 
         # --- Tutorial ELIMINADO (requisito v0.15.1): no mostrar instructivo al iniciar ---
         self.tutorial_manager = None
@@ -1301,18 +1302,45 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             # Perf quick win: non-blocking paste — no time.sleep en main thread
             self.after(100, lambda: pyautogui.hotkey('ctrl', 'v'))
 
-    def display_transcription(self, text):
-        """Mostrar transcripción con protección contra duplicados"""
+    def display_transcription(self, text, recording_id=None, audio_hash=None):
+        """Mostrar transcripción con protección contra duplicados — v0.15.8 blindaje
+
+        Mantiene guard 1s original + blindaje hash/recording_id.
+        Si recording_id o audio_hash vienen, se usan; sino se deriva hash del texto.
+        Texto idéntico con mismo hash se descarta aunque haya pasado >1s (hasta 10s).
+        """
         import time
+        import hashlib
         current_time = time.time()
 
-        # Evitar duplicados: mismo texto dentro de 1 segundo
+        # Guard 1s original
         if text == self.last_transcription_text and (current_time - self.last_transcription_time) < 1.0:
-            self.logger.warning("Detectada transcripción duplicada, ignorando...")
+            self.logger.warning("Detectada transcripción duplicada (guard 1s), ignorando...")
             return
+
+        # v0.15.8 hash guard: calcula hash si no viene
+        try:
+            text_hash = audio_hash or hashlib.sha1(text.encode("utf-8")).hexdigest() if text else None
+        except Exception:
+            text_hash = None
+        # Si recording_id viene y es igual al último procesado, es duplicado de owner
+        # (guardamos last_recording_id si exists)
+        if recording_id is not None and hasattr(self, 'last_transcription_recording_id'):
+            if recording_id == getattr(self, 'last_transcription_recording_id', None) and text == self.last_transcription_text:
+                self.logger.warning(f"Detectada transcripción duplicada por recording_id {recording_id}, ignorando...")
+                return
+        # Hash guard: texto idéntico con hash igual -> descarta aunque pase 1s (ventana 10s)
+        if text == self.last_transcription_text and text_hash is not None and text_hash == self.last_transcription_hash:
+            # descarta aunque haya pasado 1s; ventana extendida 10s para no bloquear indefinido
+            if (current_time - self.last_transcription_time) < 10.0:
+                self.logger.warning("Detectada transcripción duplicada por hash (aunque >1s), ignorando...")
+                return
 
         self.last_transcription_time = current_time
         self.last_transcription_text = text
+        self.last_transcription_hash = text_hash
+        if recording_id is not None:
+            self.last_transcription_recording_id = recording_id
 
         self.after(0, self._safe_display_transcription_on_main_thread, text)
 
