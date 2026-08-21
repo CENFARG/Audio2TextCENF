@@ -14,6 +14,7 @@ import pyautogui
 import threading
 import keyboard
 from groq import Groq
+import re
 import logging
 import json
 from datetime import datetime
@@ -1376,16 +1377,43 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             self.logger.warning(f"No se pudo guardar geometry: {e}")
 
     def _load_window_geometry(self):
-        """Cargar tamaño y posición de la ventana guardada"""
+        """Cargar tamaño y posición de la ventana guardada — QA robusta 590x590"""
+        _DEFAULT_GEOMETRY = "590x590"
+        _FULL_DEFAULT = "590x590+200+100"
+        _GEO_RE = re.compile(r"^\d+x\d+(\+\d+\+\d+)?$")
+        _MINSIZE_W, _MINSIZE_H = 540, 540
         try:
             saved_geometry = self.config_manager.get("window_geometry")
-            if saved_geometry:
-                self.geometry(saved_geometry)
-                self.logger.debug(f"Geometry restaurada: {saved_geometry}")
+            # Validación: existe, es string no vacío y matchea regex
+            if not saved_geometry or not isinstance(saved_geometry, str) or not _GEO_RE.match(saved_geometry.strip()):
+                self.logger.warning(f"window_geometry inválida o vacía '{saved_geometry}' — fallback a {_DEFAULT_GEOMETRY}")
+                self.geometry(_DEFAULT_GEOMETRY)
+                self.logger.info(f"Geometry aplicada (fallback inválida): {_DEFAULT_GEOMETRY}")
+                return
+            saved_geometry = saved_geometry.strip()
+            # Validación tamaño mínimo: parsear WxH
+            try:
+                wh_part = saved_geometry.split("+")[0]
+                w_str, h_str = wh_part.split("x")
+                w, h = int(w_str), int(h_str)
+                if w < _MINSIZE_W or h < _MINSIZE_H:
+                    self.logger.warning(f"window_geometry muy pequeña '{saved_geometry}' (<{_MINSIZE_W}x{_MINSIZE_H}) — fallback a {_DEFAULT_GEOMETRY}")
+                    self.geometry(_DEFAULT_GEOMETRY)
+                    self.logger.info(f"Geometry aplicada (fallback minsize): {_DEFAULT_GEOMETRY}")
+                    return
+            except Exception as parse_e:
+                self.logger.warning(f"Error parseando geometry '{saved_geometry}': {parse_e} — fallback a {_DEFAULT_GEOMETRY}")
+                self.geometry(_DEFAULT_GEOMETRY)
+                self.logger.info(f"Geometry aplicada (fallback parse): {_DEFAULT_GEOMETRY}")
+                return
+            # OK — aplicar guardada
+            self.geometry(saved_geometry)
+            self.logger.info(f"Geometry aplicada: {saved_geometry}")
+            self.logger.debug(f"Geometry restaurada: {saved_geometry}")
         except Exception as e:
-            self.logger.warning(f"No se pudo restaurar geometry: {e}")
-            # Usar geometry por defecto
-            self.geometry("650x550")
+            self.logger.warning(f"No se pudo restaurar geometry: {e} — fallback a {_DEFAULT_GEOMETRY}")
+            self.geometry(_DEFAULT_GEOMETRY)
+            self.logger.info(f"Geometry aplicada (fallback exception): {_DEFAULT_GEOMETRY}")
 
     def _on_window_resize(self, event):
         """Manejar evento de redimensionado de ventana"""

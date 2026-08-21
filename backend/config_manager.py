@@ -1,6 +1,7 @@
 # C:\Users\gonza\Dropbox\DOC. RECA\06-Software\Audio2Text\audio2text_v0.8.1\backend\config_manager.py
 import os
 import json
+import re
 import logging
 from .localization_manager import LocalizationManager
 
@@ -99,6 +100,53 @@ class ConfigManager:
 
         # Ensure we don't overwrite the hardcoded version in memory
         config["app_version"] = self.default_config["app_version"]
+
+        # QA: geometry validation + migration — robust 590x590 cuadrado
+        # Fresh install: si no hay config_file, default 590x590+200+100 ya está en config (default_config).
+        # Validación: window_geometry debe matchear ^\d+x\d+(\+\d+\+\d+)?$ sino se resetea a default.
+        # Migración one-shot para usuarios existentes: si el valor guardado es legacy conocido
+        # (650x550*, 1536x793*, 160x160*, 800x600*, etc.) y aún no está marcado como migrado,
+        # se actualiza a 590x590+200+100 y se marca _geometry_migrated=True para no repetir.
+        # Esto NO pisa custom resize válido del usuario (ej: 700x800+100+100) porque solo migra
+        # prefijos legacy conocidos, no cualquier valor distinto de 590x590. Tras la primera
+        # migración, el flag evita re-migrar aunque el usuario luego customice.
+        _GEOMETRY_DEFAULT = self.default_config["window_geometry"]
+        _GEOMETRY_PATTERN = re.compile(r"^\d+x\d+(\+\d+\+\d+)?$")
+        _LEGACY_PREFIXES = ("650x550", "1536x793", "160x160", "800x600", "1024x768", "1280x720")
+        saved_geo = loaded_config.get("window_geometry") if isinstance(loaded_config, dict) else None
+        current_geo = config.get("window_geometry", "")
+        # 1) Validación de formato — si no matchea regex, reset a default
+        if not isinstance(current_geo, str) or not current_geo.strip() or not _GEOMETRY_PATTERN.match(current_geo.strip()):
+            self.logger.warning(f"window_geometry inválida '{current_geo}' — reseteando a default {_GEOMETRY_DEFAULT}")
+            config["window_geometry"] = _GEOMETRY_DEFAULT
+            needs_save = True
+        else:
+            current_geo = current_geo.strip()
+            config["window_geometry"] = current_geo
+            # 2) Migración legacy one-shot: solo si el valor original en disco era legacy
+            #    y el flag _geometry_migrated no existe. Usamos saved_geo (lo que vino del archivo)
+            #    para decidir, no current_geo normalizado, para respetar custom del usuario.
+            if isinstance(loaded_config, dict):
+                already_migrated = config.get("_geometry_migrated") is True or loaded_config.get("_geometry_migrated") is True
+            else:
+                already_migrated = config.get("_geometry_migrated") is True
+            is_legacy = any(str(saved_geo).strip().startswith(p) for p in _LEGACY_PREFIXES) if isinstance(saved_geo, str) and saved_geo.strip() else False
+            # Para no pisar custom, NO usamos "not startswith 590x590" genérico — solo legacy list.
+            if is_legacy and not already_migrated:
+                self.logger.info(f"QA migration: window_geometry legacy '{saved_geo}' -> {_GEOMETRY_DEFAULT} (one-shot)")
+                config["window_geometry"] = _GEOMETRY_DEFAULT
+                config["_geometry_migrated"] = True
+                needs_save = True
+            elif current_geo.startswith("590x590") and not already_migrated and os.path.exists(self.config_file):
+                # Ya está en 590x590 pero sin flag — sellar migración para que futuros customs no se re-migren
+                config["_geometry_migrated"] = True
+                needs_save = True
+            # Si el archivo tenía geometry vacía/missing y ya validamos arriba, marcamos migrado para no re-evaluar
+            elif not saved_geo and not already_migrated:
+                # Archivo existente sin key — normalizar a default y sellar
+                if os.path.exists(self.config_file):
+                    config["_geometry_migrated"] = True
+                    needs_save = True
         
         # Decode sensitive keys (Always do this, even for defaults) — compat con configs viejas obfuscadas
         for key in ["groq_api_key", "nvidia_api_key"]:
