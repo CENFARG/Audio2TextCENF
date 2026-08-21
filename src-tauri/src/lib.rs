@@ -12,8 +12,52 @@ use std::process::{Child, Command};
 use tauri::Emitter;
 use tauri::Listener;
 use tauri::Manager;
+use tauri_plugin_global_shortcut::GlobalShortcutExt;
 
 static BACKEND: Mutex<Option<Child>> = Mutex::new(None);
+
+/// Single Owner HotkeyState — single source of truth for global hotkey binding.
+/// Managed via Tauri state, Mutex-protected, init from defaults.yaml or F9.
+pub struct HotkeyState {
+    pub current: Mutex<String>,
+}
+
+fn load_initial_hotkey() -> String {
+    // Try multiple candidate paths for defaults.yaml
+    let candidates = [
+        "audio2text/config/defaults.yaml",
+        "audio2text\\config\\defaults.yaml",
+        "../audio2text/config/defaults.yaml",
+        "config/defaults.yaml",
+        "./audio2text/config/defaults.yaml",
+    ];
+    for path in candidates {
+        if let Ok(content) = std::fs::read_to_string(path) {
+            for line in content.lines() {
+                let trimmed = line.trim();
+                // look for record_toggle: value
+                if trimmed.starts_with("record_toggle") {
+                    if let Some(colon) = trimmed.find(':') {
+                        let raw = trimmed[colon + 1..].trim().trim_matches('"').trim_matches('\'').trim();
+                        if !raw.is_empty() {
+                            // Normalize: parse to validate, if ok return canonical F9 if f9 else keep original
+                            let candidate = raw.trim().to_string();
+                            if hotkeys::parse_shortcut_string(&candidate).is_ok() {
+                                // Canonicalize single F9 case to uppercase
+                                if candidate.to_lowercase() == "f9" {
+                                    return "F9".to_string();
+                                }
+                                // For other combos like Ctrl+Shift+R keep as-is but ensure parse works
+                                return candidate;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    "F9".to_string()
+}
 
 // Single Owner State Machine — single sidecar: audio2text/main.py (FastAPI 8765).
 // DEBT: raw Command spawn is kept for now. Ideal is tauri_plugin_shell::ShellExt::sidecar("audio2text")
@@ -22,17 +66,54 @@ static BACKEND: Mutex<Option<Child>> = Mutex::new(None);
 // Invariant: never spawn backend/sidecar_entry.py — that path is dead code.
 
 #[tauri::command]
-fn toggle_recording() -> String {
-    // Single Owner: every toggle generates an operation_id so the frontend can
-    // correlate F9 -> overlay tick -> displayed text!="" without races.
+fn toggle_recording(app: tauri::AppHandle, overlay: tauri::State<Arc<OverlayState>>) -> String {
     let op = uuid::Uuid::new_v4().to_string();
+    if overlay.is_active() {
+        overlay.stop();
+        let _ = app.emit("recording:stopped", serde_json::json!({ "operation_id": op }));
+        // Single Owner: stop backend if running — non-blocking, ignore errors
+        if let Ok(mut guard) = BACKEND.lock() {
+            if let Some(mut child) = guard.take() {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+        log::info!("toggle_recording -> stopped (op {})", op);
+    } else {
+        // Ensure backend is running (idempotent)
+        let should_spawn = BACKEND.lock().map(|g| g.is_none()).unwrap_or(true);
+        if should_spawn {
+            if let Ok(mut guard) = BACKEND.lock() {
+                if guard.is_none() {
+                    match Command::new(".venv/Scripts/python.exe").arg("audio2text/main.py").spawn() {
+                        Ok(child) => {
+                            *guard = Some(child);
+                            log::info!("toggle_recording -> backend spawned");
+                        }
+                        Err(e) => log::warn!("toggle_recording -> backend spawn failed: {}", e),
+                    }
+                }
+            }
+        }
+        let _is_new = overlay.start();
+        let _ = app.emit("recording:started", serde_json::json!({ "operation_id": op }));
+        log::info!("toggle_recording -> started (op {})", op);
+        // Note: show_overlay/start_timer handled by recording:started listener (is_new guard)
+    }
     format!(r#"{{"status":"ok","operation_id":"{}"}}"#, op)
 }
 
 #[tauri::command]
-fn start_backend() -> Result<String, String> {
+fn start_backend(app: tauri::AppHandle, overlay: tauri::State<Arc<OverlayState>>) -> Result<String, String> {
     let mut guard = BACKEND.lock().map_err(|e| e.to_string())?;
     if guard.is_some() {
+        // Already running — ensure overlay is active and emit
+        let is_new = overlay.start();
+        let _ = app.emit("recording:started", serde_json::json!({ "operation_id": uuid::Uuid::new_v4().to_string() }));
+        if is_new {
+            // Listener also handles show_overlay/start_timer, but emit is sufficient
+            log::info!("start_backend: already running, emitted recording:started (is_new={})", is_new);
+        }
         return Ok(r#"{"status":"already_running"}"#.into());
     }
     let operation_id = uuid::Uuid::new_v4().to_string();
@@ -41,17 +122,30 @@ fn start_backend() -> Result<String, String> {
         .spawn()
         .map_err(|e| format!("Failed to start backend: {}", e))?;
     *guard = Some(child);
+    drop(guard);
+    let is_new = overlay.start();
+    let _ = app.emit("recording:started", serde_json::json!({ "operation_id": operation_id }));
+    if is_new {
+        // Timer will be started by listener; log for observability
+        log::info!("start_backend: started backend + emitted recording:started (is_new true)");
+    }
     Ok(format!(r#"{{"status":"started","operation_id":"{}"}}"#, operation_id))
 }
 
 #[tauri::command]
-fn stop_backend() -> Result<String, String> {
+fn stop_backend(app: tauri::AppHandle, overlay: tauri::State<Arc<OverlayState>>) -> Result<String, String> {
     let mut guard = BACKEND.lock().map_err(|e| e.to_string())?;
     if let Some(mut child) = guard.take() {
         child.kill().map_err(|e| format!("Failed to stop: {}", e))?;
         child.wait().ok();
+        drop(guard);
+        overlay.stop();
+        let _ = app.emit("recording:stopped", serde_json::json!({ "operation_id": uuid::Uuid::new_v4().to_string() }));
         Ok(r#"{"status":"stopped"}"#.into())
     } else {
+        drop(guard);
+        overlay.stop();
+        let _ = app.emit("recording:stopped", serde_json::json!({ "operation_id": uuid::Uuid::new_v4().to_string() }));
         Ok(r#"{"status":"not_running"}"#.into())
     }
 }
@@ -64,13 +158,66 @@ fn get_backend_status() -> String {
 }
 
 #[tauri::command]
-fn get_hotkeys() -> String {
-    r#"{"record":"F9","cancel":"Escape"}"#.into()
+fn get_hotkeys(state: tauri::State<HotkeyState>) -> String {
+    let current = state.current.lock().map(|g| g.clone()).unwrap_or_else(|_| "F9".to_string());
+    format!(r#"{{"record":"{}","cancel":"Escape"}}"#, current)
 }
 
 #[tauri::command]
-fn set_hotkey(name: String, binding: String) -> String {
-    format!(r#"{{"{}":"{}"}}"#, name, binding)
+fn set_hotkey(app: tauri::AppHandle, state: tauri::State<HotkeyState>, name: String, binding: String) -> String {
+    if name != "record" {
+        // Only record is managed; return current for other names
+        let cur = state.current.lock().map(|g| g.clone()).unwrap_or_else(|_| "F9".to_string());
+        return format!(r#"{{"record":"{}","cancel":"Escape"}}"#, cur);
+    }
+    let old = state.current.lock().map(|g| g.clone()).unwrap_or_else(|_| "F9".to_string());
+    // Validate binding
+    if hotkeys::parse_shortcut_string(&binding).is_err() {
+        log::warn!("set_hotkey: invalid binding '{}', fallback to F9", binding);
+        if let Ok(mut guard) = state.current.lock() {
+            *guard = "F9".to_string();
+        }
+        let _ = app.emit("hotkey:error", serde_json::json!({ "error": "Formato inválido, fallback F9", "binding": binding, "fallback": "F9" }));
+        // Try to re-register F9 non-fatal
+        let _ = hotkeys::register_global_hotkey(&app, "F9", move |a| {
+            let _ = a.emit("hotkey:toggle_recording", ());
+        });
+        return r#"{"record":"F9","error":"invalid_format","fallback":"F9"}"#.into();
+    }
+
+    // Try to unregister old binding (ignore errors)
+    if let Ok((mods, code)) = hotkeys::parse_shortcut_string(&old) {
+        let shortcut = tauri_plugin_global_shortcut::Shortcut::new(Some(mods), code);
+        let _ = app.global_shortcut().unregister(shortcut);
+    }
+
+    // Try to register new binding
+    let binding_clone = binding.clone();
+    let register_result = hotkeys::register_global_hotkey(&app, &binding, move |a| {
+        let _ = a.emit("hotkey:toggle_recording", ());
+    });
+
+    match register_result {
+        Ok(()) => {
+            if let Ok(mut guard) = state.current.lock() {
+                *guard = binding_clone.clone();
+            }
+            let _ = app.emit("hotkey:changed", serde_json::json!({ "record": binding_clone }));
+            log::info!("set_hotkey: changed '{}' -> '{}'", old, binding_clone);
+            format!(r#"{{"record":"{}"}}"#, binding_clone)
+        }
+        Err(e) => {
+            let msg = e.to_string();
+            // Non-fatal: keep old, emit error, return Ok payload with error
+            log::warn!("set_hotkey: failed to register '{}' (keeping '{}'): {}", binding, old, msg);
+            let _ = app.emit("hotkey:error", serde_json::json!({ "error": msg, "binding": binding, "current": old }));
+            // Try to restore old registration
+            let _ = hotkeys::register_global_hotkey(&app, &old, move |a| {
+                let _ = a.emit("hotkey:toggle_recording", ());
+            });
+            format!(r#"{{"record":"{}","error":"{}"}}"#, old, msg)
+        }
+    }
 }
 
 #[tauri::command]
@@ -84,6 +231,10 @@ pub fn run() {
     env_logger::init();
 
     let overlay_state = Arc::new(OverlayState::new());
+    let initial_hotkey = load_initial_hotkey();
+    let hotkey_state = HotkeyState {
+        current: Mutex::new(initial_hotkey.clone()),
+    };
 
     tauri::Builder::default()
         // Single-instance guard: focus existing window if second instance launched
@@ -96,6 +247,7 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .manage(overlay_state.clone())
+        .manage(hotkey_state)
         .setup(move |app| {
             log::info!("Audio2Text Tauri v2 started");
 
@@ -104,16 +256,24 @@ pub fn run() {
                 log::error!("Failed to create overlay: {}", e);
             }
 
-            // Register default global hotkey: F9 for recording toggle
+            // Register default global hotkey from HotkeyState (single owner, not hardcode)
+            let state_binding = app
+                .state::<HotkeyState>()
+                .current
+                .lock()
+                .map(|g| g.clone())
+                .unwrap_or_else(|_| initial_hotkey.clone());
             if let Err(e) = hotkeys::register_global_hotkey(
                 app.handle(),
-                "F9",
+                &state_binding,
                 move |app| {
                     let _ = app.emit("hotkey:toggle_recording", ());
                 },
             ) {
-                log::error!("Failed to register hotkey: {}", e);
-                let _ = app.emit("hotkey:error", serde_json::json!({ "error": e }));
+                log::error!("Failed to register hotkey '{}': {}", state_binding, e);
+                let _ = app.emit("hotkey:error", serde_json::json!({ "error": e, "binding": state_binding }));
+            } else {
+                log::info!("Hotkey '{}' registered (single owner)", state_binding);
             }
 
             // Create system tray

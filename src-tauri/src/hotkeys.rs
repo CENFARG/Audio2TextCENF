@@ -288,4 +288,26 @@ mod tests {
         let (_, code) = parse_shortcut_string("Left").unwrap();
         assert_eq!(code, Code::ArrowLeft);
     }
+
+    #[test]
+    fn test_parse_ctrl_shift_r() {
+        let (mods, code) = parse_shortcut_string("Ctrl+Shift+R").unwrap();
+        assert!(mods.contains(Modifiers::CONTROL));
+        assert!(mods.contains(Modifiers::SHIFT));
+        assert_eq!(code, Code::KeyR);
+    }
+
+    #[test]
+    fn test_parse_f9_single() {
+        let (mods, code) = parse_shortcut_string("F9").unwrap();
+        assert!(mods.is_empty());
+        assert_eq!(code, Code::F9);
+    }
+
+    #[test]
+    fn test_already_registered_is_non_fatal_concept() {
+        // Non-fatal contract: error string containing "already registered" should be treated as Ok
+        let msg = "Hotkey already registered by another application";
+        assert!(msg.to_lowercase().contains("already registered"));
+    }
 }

@@ -10,5 +10,10 @@ export default defineConfig({
   plugins: [tailwindcss(), svelte()],
   resolve: { alias: { $lib: path.resolve(__dirname, 'lib') } },
   server: { port: 5173, strictPort: true },
-  build: { target: 'esnext' },
+  build: {
+    target: 'esnext',
+    rollupOptions: {
+      external: [/^@tauri-apps\/.*/],
+    },
+  },
 });

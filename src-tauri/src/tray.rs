@@ -51,7 +51,7 @@ pub fn create_system_tray(app: &tauri::App) -> Result<(), String> {
         .build()
         .map_err(|e| e.to_string())?;
 
-    let start_stop_clone = start_stop.clone();
+    let _start_stop_clone = start_stop.clone();
 
     let _tray = TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())

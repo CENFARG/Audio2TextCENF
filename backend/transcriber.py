@@ -332,7 +332,23 @@ class Transcriber:
         """
         return self.utf8_validator.validate_transcription(text)
 
+    def _is_tauri_env(self) -> bool:
+        """Detect if running under Tauri — single owner hotkeys managed by Rust."""
+        # Any TAURI* env var indicates Tauri runtime
+        if any(k.startswith("TAURI") for k in os.environ):
+            return True
+        if os.environ.get("IS_TAURI") == "1":
+            return True
+        return False
+
     def hotkey_listener(self):
+        if self._is_tauri_env():
+            self.logger.info("Skipping keyboard hook under Tauri — hotkeys managed by Rust single owner")
+            # Keep thread alive but without hook; drain as no-op
+            while self.ejecutando:
+                time.sleep(1)
+            self.logger.info("Hilo de escucha de hotkey finalizado (Tauri mode).")
+            return
         self.logger.info(f"Escuchando hotkey: {self.hotkey}")
         # Initial hook
         self._hook_hotkey()
@@ -344,6 +360,9 @@ class Transcriber:
         self.logger.info("Hilo de escucha de hotkey finalizado.")
     
     def _hook_hotkey(self):
+        if self._is_tauri_env():
+            self.logger.info("Skipping keyboard hook under Tauri")
+            return
         try:
             keyboard.unhook_all()
 

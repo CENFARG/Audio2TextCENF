@@ -21,6 +21,11 @@
     hotkey: 'Ctrl+Shift+R', language: 'es_ES',
   });
 
+  // Single Owner Hotkey — view only, not owner
+  let hotkeyInput = $state("F9");
+  let hotkeyStatus = $state("");
+  let hotkeyError = $state("");
+
   function toggle(id: string) { expanded = expanded === id ? null : id; }
 
   onMount(async () => {
@@ -52,6 +57,19 @@
       statusMessage = `Error cargando ajustes`;
     } finally {
       isLoaded = true;
+    }
+    // Hydrate hotkey from Rust single owner (not from HTTP config)
+    try {
+      const mod: any = await import("@tauri-apps/api/core");
+      const hk = await mod.invoke("get_hotkeys");
+      const parsed = typeof hk === 'string' ? JSON.parse(hk) : hk;
+      hotkeyInput = parsed?.record ?? "F9";
+    } catch {
+      // Non-Tauri env — keep default
+      try {
+        const h = String(settings.hotkey ?? '').trim();
+        if (h) hotkeyInput = h;
+      } catch {}
     }
   });
 
@@ -97,6 +115,65 @@
       console.warn("[SettingsView] save failed", e);
     } finally {
       saving = false;
+    }
+    // Single Owner: also persist hotkey via Rust registry (non-blocking, show status)
+    try {
+      const trimmed = String(hotkeyInput ?? '').trim();
+      if (trimmed) {
+        const mod: any = await import("@tauri-apps/api/core");
+        const res = await mod.invoke("set_hotkey", { name: "record", binding: trimmed });
+        const parsed = typeof res === 'string' ? JSON.parse(res) : res;
+        if (parsed?.error) {
+          hotkeyError = String(parsed.error);
+          if (String(parsed.error).includes("invalid") || String(parsed.error).includes("Formato")) {
+            hotkeyError = "Formato inválido, fallback F9";
+          }
+          hotkeyStatus = "";
+          // reflect fallback if backend fell back
+          if (parsed.record) hotkeyInput = parsed.record;
+        } else {
+          hotkeyStatus = "Guardado ✓";
+          hotkeyError = "";
+          if (parsed?.record) hotkeyInput = parsed.record;
+          setTimeout(() => { hotkeyStatus = ""; }, 2000);
+        }
+      }
+    } catch (e) {
+      hotkeyError = String(e);
+      // If parse failed frontend, show fallback message
+      if (String(e).toLowerCase().includes("invalid") || String(e).toLowerCase().includes("parse")) {
+        hotkeyError = "Formato inválido, fallback F9";
+      }
+    }
+  }
+
+  async function handleHotkeyChange() {
+    hotkeyError = "";
+    hotkeyStatus = "";
+    const val = String(hotkeyInput ?? '').trim();
+    if (!val) {
+      hotkeyError = "Formato inválido, fallback F9";
+      return;
+    }
+    try {
+      const mod: any = await import("@tauri-apps/api/core");
+      const res = await mod.invoke("set_hotkey", { name: "record", binding: val });
+      const parsed = typeof res === 'string' ? JSON.parse(res) : res;
+      if (parsed?.error) {
+        hotkeyError = String(parsed.error).includes("invalid") ? "Formato inválido, fallback F9" : String(parsed.error);
+        if (parsed.record) hotkeyInput = parsed.record;
+      } else {
+        hotkeyStatus = "Guardado ✓";
+        if (parsed?.record) hotkeyInput = parsed.record;
+        setTimeout(() => hotkeyStatus = "", 1500);
+      }
+    } catch (e) {
+      const msg = String(e);
+      if (msg.toLowerCase().includes("invalid") || msg.toLowerCase().includes("unknown")) {
+        hotkeyError = "Formato inválido, fallback F9";
+      } else {
+        hotkeyError = msg;
+      }
     }
   }
 
@@ -237,7 +314,17 @@
     </button>
     {#if expanded === 'hotkey'}
     <div class="panel-body">
-      <label>Atajo de grabación <input bind:value={settings.hotkey} onchange={save} placeholder="Ctrl+Shift+R" /></label>
+      <label>Atajo de grabación
+        <input bind:value={hotkeyInput} onchange={handleHotkeyChange} placeholder="Ctrl+Shift+R" />
+      </label>
+      <div class="hotkey-status-row">
+        <span class="hotkey-badge">Hotkey actual: {hotkeyInput}</span>
+        {#if hotkeyStatus}<span class="saving-badge">{hotkeyStatus}</span>{/if}
+      </div>
+      {#if hotkeyError}
+        <div class="error-banner">{hotkeyError}</div>
+      {/if}
+      <p class="hint">Ejemplos: F9, Ctrl+Shift+R, Alt+F12, Ctrl+Space. Si el formato es inválido se usa F9.</p>
     </div>
     {/if}
   </section>
@@ -355,5 +442,25 @@
   .hint {
     font-size: var(--dt-font-size-sm);
     color: var(--dt-color-text-muted);
+  }
+  .hotkey-status-row {
+    display: flex;
+    align-items: center;
+    gap: var(--dt-spacing-sm);
+  }
+  .hotkey-badge {
+    font-size: var(--dt-font-size-xs);
+    background: var(--dt-color-bg-tertiary);
+    color: var(--dt-color-text-secondary);
+    padding: 2px 8px;
+    border-radius: var(--dt-radius-sm);
+  }
+  .error-banner {
+    font-size: var(--dt-font-size-sm);
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, 0.12);
+    border: 1px solid rgba(255, 107, 107, 0.3);
+    padding: var(--dt-spacing-sm);
+    border-radius: var(--dt-radius-sm);
   }
 </style>
