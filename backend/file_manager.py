@@ -16,10 +16,21 @@ class FileManager:
         # Si está compilado con PyInstaller, usar el directorio del .exe
         # Si es desarrollo, usar el directorio del script
         if getattr(sys, 'frozen', False):
-            # Ejecutándose como .exe compilado
-            # IMPORTANTE v0.14.0: Usar cwd en lugar de exe dir para tener rutas consistentes
-            # Esto permite que dist/audio y audio sean el mismo directorio
-            self.base_dir = os.getcwd()
+            # HC-04 FIX: usar sys.executable dir en frozen para que WorkingDir del acceso directo no desvíe paths
+            # Fallback a cwd si executable no existe (tests con mock)
+            try:
+                exe = getattr(sys, 'executable', None)
+                if exe and os.path.exists(os.path.dirname(exe) if os.path.dirname(exe) else exe):
+                    # os.path.dirname('') -> '' para exe sin dir, fallback a cwd
+                    exe_dir = os.path.dirname(exe)
+                    self.base_dir = exe_dir if exe_dir else os.getcwd()
+                else:
+                    # sys.frozen mock sin executable real (tests) -> cwd
+                    self.base_dir = os.path.dirname(sys.executable) if exe else os.getcwd()
+                    if not self.base_dir:
+                        self.base_dir = os.getcwd()
+            except Exception:
+                self.base_dir = os.getcwd()
         else:
             # Ejecutándose como script Python
             self.base_dir = os.path.dirname(os.path.abspath(__file__))
