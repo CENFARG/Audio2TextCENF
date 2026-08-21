@@ -218,6 +218,26 @@ def mock_audio_data():
 
 
 @pytest.fixture
+def secret_manager():
+    """In-memory secret manager with get/set API (test helper).
+
+    Mirrors cenf_core.secrets.manager.SecretManager contract used by
+    GroqProvider.validate_config when no key is stored.
+    """
+    class _MemSecretManager:
+        def __init__(self):
+            self._store: dict[str, str] = {}
+
+        def set(self, key: str, value: str) -> None:
+            self._store[key] = value
+
+        def get(self, key: str, default: str | None = None) -> str | None:
+            return self._store.get(key, default)
+
+    return _MemSecretManager()
+
+
+@pytest.fixture
 def mock_hotkey_combination():
     """Create a mock hotkey combination.
 

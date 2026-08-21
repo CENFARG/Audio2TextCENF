@@ -82,12 +82,17 @@ class TestGroqProvider:
         # Store an invalid-format key
         secret_manager.set("groq_api_key", "invalid_key_format")
 
-        # Mock cenf_core.secrets.manager.SecretManager to return our test SM
+        # Reset module singleton so the patched adapter is used
+        import audio2text.providers.groq_provider as gp
+
+        gp._singleton_secret_adapter = None
+
+        # Mock the real secret adapter used by GroqProvider._get_api_key
         with patch(
-            "cenf_core.secrets.manager.SecretManager",
+            "core_infrastructure.secrets.InMemorySecretAdapter",
             autospec=True,
         ) as mock_sm_cls:
-            mock_sm_cls.return_value.get.side_effect = secret_manager.get
+            mock_sm_cls.return_value.get_secret.side_effect = secret_manager.get
 
             provider = GroqProvider({})
             issues = provider.validate_config()
@@ -104,11 +109,16 @@ class TestGroqProvider:
         # Store a valid-format key
         secret_manager.set("groq_api_key", "gsk_test_key_12345")
 
+        # Reset module singleton so the patched adapter is used
+        import audio2text.providers.groq_provider as gp
+
+        gp._singleton_secret_adapter = None
+
         with patch(
-            "cenf_core.secrets.manager.SecretManager",
+            "core_infrastructure.secrets.InMemorySecretAdapter",
             autospec=True,
         ) as mock_sm_cls:
-            mock_sm_cls.return_value.get.side_effect = secret_manager.get
+            mock_sm_cls.return_value.get_secret.side_effect = secret_manager.get
 
             provider = GroqProvider({})
             issues = provider.validate_config()

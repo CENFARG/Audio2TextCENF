@@ -1,6 +1,7 @@
-// @ts-ignore - @tauri-apps/api provided by Tauri runtime, may be absent in browser tsc
 import { listen } from "@tauri-apps/api/event";
-import { startRecording as invokeStart, stopRecording as invokeStop } from "../commands";
+import { APIClient } from "../infrastructure/api-client";
+
+const api = new APIClient();
 
 let isRecording = $state(false);
 let elapsedSeconds = $state(0);
@@ -38,29 +39,21 @@ async function ensureHotkeyListener(): Promise<void> {
   if (_hotkeyListenerReady) return;
   _hotkeyListenerReady = true;
   try {
-    // Single Owner bridge: hotkey:toggle_recording -> toggle via backend (single owner)
+    // Single Owner bridge: hotkey:toggle_recording -> start/stop via FastAPI (single owner)
     _hotkeyUnlisten = await listen("hotkey:toggle_recording", async () => {
       try {
-        // Prefer toggle_recording single owner command
-        const mod: any = await import("@tauri-apps/api/core");
-        await mod.invoke("toggle_recording");
-      } catch {
-        // Fallback: emulate toggle via start/stop wrappers
-        try {
-          if (isRecording) await invokeStop();
-          else await invokeStart();
-        } catch {}
+        if (isRecording) await stopRecording();
+        else await startRecording();
+      } catch (e) {
+        console.error("[recording] hotkey handler error", e);
       }
     });
     _trayUnlisten = await listen("tray:toggle_recording", async () => {
       try {
-        const mod: any = await import("@tauri-apps/api/core");
-        await mod.invoke("toggle_recording");
-      } catch {
-        try {
-          if (isRecording) await invokeStop();
-          else await invokeStart();
-        } catch {}
+        if (isRecording) await stopRecording();
+        else await startRecording();
+      } catch (e) {
+        console.error("[recording] tray handler error", e);
       }
     });
     _hotkeyErrorUnlisten = await listen("hotkey:error", (e: any) => {
@@ -107,8 +100,8 @@ export async function startRecording(): Promise<void> {
   try {
     await ensureTickListener();
     await ensureHotkeyListener();
-    const response = await invokeStart();
-    if (response.status === "ok" || response.status === "already_running" || response.status === "started") {
+    const response = await api.startRecording();
+    if (response.status === "recording" || response.session_id || response.status === "ok") {
       isRecording = true;
       status = "recording";
       elapsedSeconds = 0;
@@ -124,28 +117,24 @@ export async function startRecording(): Promise<void> {
 export async function stopRecording(): Promise<void> {
   status = "processing";
   try {
-    const response = await invokeStop();
-    if (response.status === "ok" || response.status === "stopped" || response.status === "not_running") {
+    const response = await api.stopRecording();
+    // FastAPI /transcribe/stop returns {session_id, status, text, transcription?}
+    const textVal =
+      (typeof response.text === "string" ? response.text : null) ??
+      (typeof response.transcription === "string" ? (response.transcription as string) : null) ??
+      (response.data && typeof (response.data as Record<string, unknown>).text === "string"
+        ? ((response.data as Record<string, unknown>).text as string)
+        : null);
+    if (typeof textVal === "string" && textVal.trim().length > 0) {
+      currentText = textVal;
       status = "idle";
-      if (response.data && typeof response.data === "object") {
-        const data = response.data as Record<string, unknown>;
-        const textVal =
-          (typeof data.text === "string" ? data.text : null) ??
-          (typeof data.transcription === "string" ? (data.transcription as string) : null) ??
-          (data.data && typeof (data.data as Record<string, unknown>).text === "string"
-            ? ((data.data as Record<string, unknown>).text as string)
-            : null);
-        if (typeof textVal === "string" && textVal.trim().length > 0) {
-          currentText = textVal;
-        } else if (typeof textVal === "string" && textVal.length === 0) {
-          currentText = "";
-        }
-      }
-    } else {
+    } else if (response.error) {
       status = "error";
-      if (response.error) {
-        console.error("stopRecording error:", response.error);
-      }
+      console.error("stopRecording error:", response.error);
+    } else {
+      // Empty text — treat as error (Single Owner: never ok with "")
+      status = "error";
+      console.warn("stopRecording returned empty text", response);
     }
     isRecording = false;
   } catch (e) {

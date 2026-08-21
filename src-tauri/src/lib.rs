@@ -69,36 +69,18 @@ fn load_initial_hotkey() -> String {
 fn toggle_recording(app: tauri::AppHandle, overlay: tauri::State<Arc<OverlayState>>) -> String {
     let op = uuid::Uuid::new_v4().to_string();
     if overlay.is_active() {
+        // Stop: hide overlay + emit stopped; frontend calls POST /transcribe/stop for text
         overlay.stop();
         let _ = app.emit("recording:stopped", serde_json::json!({ "operation_id": op }));
-        // Single Owner: stop backend if running — non-blocking, ignore errors
-        if let Ok(mut guard) = BACKEND.lock() {
-            if let Some(mut child) = guard.take() {
-                let _ = child.kill();
-                let _ = child.wait();
-            }
-        }
         log::info!("toggle_recording -> stopped (op {})", op);
     } else {
-        // Ensure backend is running (idempotent)
-        let should_spawn = BACKEND.lock().map(|g| g.is_none()).unwrap_or(true);
-        if should_spawn {
-            if let Ok(mut guard) = BACKEND.lock() {
-                if guard.is_none() {
-                    match Command::new(".venv/Scripts/python.exe").arg("audio2text/main.py").spawn() {
-                        Ok(child) => {
-                            *guard = Some(child);
-                            log::info!("toggle_recording -> backend spawned");
-                        }
-                        Err(e) => log::warn!("toggle_recording -> backend spawn failed: {}", e),
-                    }
-                }
-            }
+        // Start: ensure backend is up (spawned at startup, idempotent), show overlay + emit started
+        if !ensure_backend_running() {
+            log::warn!("toggle_recording: backend not available, still showing overlay");
         }
         let _is_new = overlay.start();
         let _ = app.emit("recording:started", serde_json::json!({ "operation_id": op }));
         log::info!("toggle_recording -> started (op {})", op);
-        // Note: show_overlay/start_timer handled by recording:started listener (is_new guard)
     }
     format!(r#"{{"status":"ok","operation_id":"{}"}}"#, op)
 }
@@ -111,43 +93,81 @@ fn start_backend(app: tauri::AppHandle, overlay: tauri::State<Arc<OverlayState>>
         let is_new = overlay.start();
         let _ = app.emit("recording:started", serde_json::json!({ "operation_id": uuid::Uuid::new_v4().to_string() }));
         if is_new {
-            // Listener also handles show_overlay/start_timer, but emit is sufficient
             log::info!("start_backend: already running, emitted recording:started (is_new={})", is_new);
         }
         return Ok(r#"{"status":"already_running"}"#.into());
     }
     let operation_id = uuid::Uuid::new_v4().to_string();
-    let child = Command::new(".venv/Scripts/python.exe")
-        .arg("audio2text/main.py")
-        .spawn()
-        .map_err(|e| format!("Failed to start backend: {}", e))?;
+    let child = spawn_backend()?;
     *guard = Some(child);
     drop(guard);
     let is_new = overlay.start();
     let _ = app.emit("recording:started", serde_json::json!({ "operation_id": operation_id }));
     if is_new {
-        // Timer will be started by listener; log for observability
         log::info!("start_backend: started backend + emitted recording:started (is_new true)");
     }
     Ok(format!(r#"{{"status":"started","operation_id":"{}"}}"#, operation_id))
 }
 
+/// Spawn the FastAPI sidecar (audio2text/main.py) with robust CWD resolution.
+/// Never kill on stop — the backend is the session owner for settings + capture.
+fn spawn_backend() -> Result<std::process::Child, String> {
+    // Resolve repo root from CARGO_MANIFEST_DIR (src-tauri) => repo root = parent
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").map(std::path::PathBuf::from);
+    let repo_root: std::path::PathBuf = match manifest_dir {
+        Ok(dir) => dir.parent().unwrap_or(&dir).to_path_buf(),
+        Err(_) => std::env::current_dir().map_err(|e| e.to_string())?,
+    };
+    let python = repo_root.join(".venv").join("Scripts").join("python.exe");
+    let main_py = repo_root.join("audio2text").join("main.py");
+    if !python.exists() {
+        return Err(format!("Python venv not found at {}", python.display()));
+    }
+    if !main_py.exists() {
+        return Err(format!("backend entry not found at {}", main_py.display()));
+    }
+    log::info!("spawn_backend: python={} main={}", python.display(), main_py.display());
+    Command::new(&python)
+        .arg(&main_py)
+        .current_dir(&repo_root)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map_err(|e| format!("Failed to start backend: {}", e))
+}
+
+/// Spawn the backend once at app startup (Single Owner: session begins with backend up).
+fn ensure_backend_running() -> bool {
+    let should_spawn = BACKEND.lock().map(|g| g.is_none()).unwrap_or(true);
+    if !should_spawn {
+        return true;
+    }
+    match spawn_backend() {
+        Ok(child) => {
+            if let Ok(mut guard) = BACKEND.lock() {
+                if guard.is_none() {
+                    *guard = Some(child);
+                    log::info!("ensure_backend_running: backend spawned at startup");
+                    return true;
+                }
+            }
+            false
+        }
+        Err(e) => {
+            log::warn!("ensure_backend_running: spawn failed: {}", e);
+            false
+        }
+    }
+}
+
 #[tauri::command]
 fn stop_backend(app: tauri::AppHandle, overlay: tauri::State<Arc<OverlayState>>) -> Result<String, String> {
-    let mut guard = BACKEND.lock().map_err(|e| e.to_string())?;
-    if let Some(mut child) = guard.take() {
-        child.kill().map_err(|e| format!("Failed to stop: {}", e))?;
-        child.wait().ok();
-        drop(guard);
-        overlay.stop();
-        let _ = app.emit("recording:stopped", serde_json::json!({ "operation_id": uuid::Uuid::new_v4().to_string() }));
-        Ok(r#"{"status":"stopped"}"#.into())
-    } else {
-        drop(guard);
-        overlay.stop();
-        let _ = app.emit("recording:stopped", serde_json::json!({ "operation_id": uuid::Uuid::new_v4().to_string() }));
-        Ok(r#"{"status":"not_running"}"#.into())
-    }
+    // Single Owner: NEVER kill the backend process — it owns settings + capture session.
+    // Stopping just hides overlay + emits recording:stopped. The frontend calls
+    // POST /transcribe/stop to get the transcription text (via recording.svelte.ts).
+    overlay.stop();
+    let _ = app.emit("recording:stopped", serde_json::json!({ "operation_id": uuid::Uuid::new_v4().to_string() }));
+    Ok(r#"{"status":"stopped"}"#.into())
 }
 
 #[tauri::command]
@@ -250,6 +270,10 @@ pub fn run() {
         .manage(hotkey_state)
         .setup(move |app| {
             log::info!("Audio2Text Tauri v2 started");
+
+            // Single Owner: spawn FastAPI backend FIRST so settings/capture are live from t=0.
+            // Non-fatal: app still opens if python venv missing (UI shows errors).
+            ensure_backend_running();
 
             // Create overlay window (hidden by default)
             if let Err(e) = create_overlay_window(app) {

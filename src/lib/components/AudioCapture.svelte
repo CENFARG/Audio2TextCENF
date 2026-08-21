@@ -1,41 +1,27 @@
 <script lang="ts">
-  import { APIClient } from '$lib/infrastructure/api-client';
-  import { transcriptionState } from '$lib/state/transcription.svelte';
+  import { getRecordingState, startRecording, stopRecording } from '$lib/stores/recording.svelte';
 
-  const api = new APIClient();
+  // Single Owner: recording state + capture live in recording.svelte.ts + FastAPI.
+  // This button is a view: toggles the same path as F9/tray.
 
-  // Single Owner: timer is owned by Rust OverlayState + recording.svelte.ts via overlay:tick.
-  // No setInterval here — this component only toggles capture via APIClient.
+  let rec = $derived(getRecordingState());
 
   async function toggleRecording() {
-    if (transcriptionState.recordingStatus === 'idle') {
-      try {
-        await api.startRecording();
-        transcriptionState.recordingStatus = 'recording';
-
-        const stream = api.connectStream();
-        stream.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          if (data.type === 'partial') {
-            transcriptionState.text += data.text;
-          }
-        };
-      } catch {
-        transcriptionState.recordingStatus = 'idle';
-      }
+    if (rec.isRecording) {
+      await stopRecording();
     } else {
-      transcriptionState.recordingStatus = 'processing';
-      try {
-        await api.stopRecording();
-      } finally {
-        transcriptionState.recordingStatus = 'idle';
-      }
+      await startRecording();
     }
   }
 </script>
 
-<button class="record-btn" class:recording={transcriptionState.recordingStatus === 'recording'} onclick={toggleRecording}>
-  <span class="mic-icon">{transcriptionState.recordingStatus === 'recording' ? '⏹' : '🎤'}</span>
+<button
+  class="record-btn"
+  class:recording={rec.isRecording}
+  onclick={toggleRecording}
+  title={rec.isRecording ? 'Detener grabación' : 'Comenzar grabación'}
+>
+  <span class="mic-icon">{rec.isRecording ? '⏹' : '🎤'}</span>
 </button>
 
 <style>

@@ -73,6 +73,37 @@ export class APIClient {
     return this.saveSettings(patch);
   }
 
+  /** Start real audio capture via FastAPI AudioCaptureService. */
+  async startRecording(): Promise<Record<string, unknown>> {
+    try {
+      const r = await fetch(`${this.base}/transcribe/start`, { method: "POST" });
+      if (!r.ok) {
+        console.warn("[api-client] startRecording failed", r.status);
+        return {};
+      }
+      return await r.json().catch(() => ({}));
+    } catch (e) {
+      console.warn("[api-client] startRecording error", e);
+      return {};
+    }
+  }
+
+  /** Stop capture, transcribe via FastAPI, return {text, ...}. */
+  async stopRecording(): Promise<Record<string, unknown>> {
+    try {
+      const r = await fetch(`${this.base}/transcribe/stop`, { method: "POST" });
+      if (!r.ok) {
+        const detail = await r.json().catch(() => ({}));
+        console.warn("[api-client] stopRecording failed", r.status, detail);
+        return { error: detail };
+      }
+      return await r.json().catch(() => ({}));
+    } catch (e) {
+      console.warn("[api-client] stopRecording error", e);
+      return { error: String(e) };
+    }
+  }
+
   async checkUpdate(): Promise<Record<string, unknown>> {
     try { const r = await fetch(`${this.base}/update/check`); return r.ok ? await r.json() : {}; } catch { return {}; }
   }
