@@ -1,4 +1,4 @@
-# Build script para Audio2Text v0.14.0 - (Unificado)
+# Build script para Audio2Text v0.15.7 - (Unificado) | HC-05: pyproject.toml es fuente canónica
 import subprocess
 import sys
 import os
@@ -9,6 +9,30 @@ from datetime import datetime
 APP_VERSION = "0.15.7"
 VARIANT = ""
 APP_NAME = f"Audio2Text_CENF_v{APP_VERSION}"
+
+# ── HC-05 version single-source check (fail fast if sources diverge) ──
+try:
+    import importlib.util as _ilu
+    _check_path = Path(__file__).parent / "check_version.py"
+    if _check_path.exists():
+        _spec = _ilu.spec_from_file_location("check_version", _check_path)
+        _mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)  # type: ignore
+        if hasattr(_mod, "check_all"):
+            _ok = _mod.check_all(verbose=True)
+            if not _ok:
+                print("[!] Version check FAILED — aborting build. Ejecuta: python scripts/check_version.py")
+                sys.exit(1)
+            else:
+                print(f"[✓] Version check PASS — canonical pyproject.toml = {APP_VERSION}")
+        else:
+            print("[!] check_version.py missing check_all — skipping version gate")
+    else:
+        print(f"[!] check_version.py not found at {_check_path} — skipping version gate")
+except SystemExit:
+    raise
+except Exception as _e:
+    print(f"[!] Version check error (continuing with warning): {_e}")
 
 # Rutas - estamos en scripts/, el proyecto está un nivel arriba
 current_dir = Path(__file__).parent.parent
