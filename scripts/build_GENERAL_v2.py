@@ -64,7 +64,7 @@ print(f"[*] Organizando artefactos en:")
 print(f"   Logs:  {logs_dir}")
 print(f"   Specs: {specs_dir}\n")
 
-# Comando PyInstaller
+# Comando PyInstaller — base sin datas (se agregan condicionalmente abajo)
 command = [
     sys.executable, "-m", "PyInstaller",
     "--onefile",
@@ -78,11 +78,41 @@ command = [
     f"--distpath={dist_dir}",
     f"--workpath={build_dir}",
     f"--specpath={specs_dir}",  # Guardar spec en carpeta organizada
-    "--add-data", f"{current_dir / 'lang'};lang",
-    "--add-data", f"{current_dir / 'config' / 'config.json'};.",
-    "--add-data", f"{ICON_PATH};.",
-    "--add-data", f"{LOGO_PATH};.",
-    "--add-data", f"{current_dir / 'templates' / 'info_template.html'};.",
+]
+
+# ── Fix v0.15.7: datas solo si el archivo existe (config/config.json está gitignored) ──
+def _add_data(src: Path, dst: str):
+    if src.exists():
+        command.extend(["--add-data", f"{src};{dst}"])
+        print(f"[+] datas: {src.relative_to(current_dir)} -> {dst}")
+    else:
+        print(f"[!] datas skip (no existe): {src} -> {dst}")
+
+# lang es directorio — requerido
+_add_data(current_dir / "lang", "lang")
+# config: preferir config/config.json si existe, sino fallback a config.json en root, sino omitir
+_config_src = current_dir / "config" / "config.json"
+if not _config_src.exists():
+    _fallback = current_dir / "config.json"
+    if _fallback.exists():
+        print(f"[!] config/config.json no existe — usando fallback { _fallback.relative_to(current_dir) }")
+        _config_src = _fallback
+    else:
+        _example = current_dir / "config.json.example"
+        if _example.exists():
+            print(f"[!] config/config.json y config.json no existen — usando {_example.relative_to(current_dir)}")
+            _config_src = _example
+        else:
+            _config_src = None  # type: ignore
+            print("[!] Ningún config.json encontrado — omitiendo datas de config")
+if _config_src is not None:
+    _add_data(_config_src, ".")
+_add_data(ICON_PATH, ".")
+_add_data(LOGO_PATH, ".")
+_add_data(current_dir / "templates" / "info_template.html", ".")
+
+# hidden-imports / excludes siguen a continuación — se agregan al command existente
+command.extend([
     "--hidden-import", "tkinter",
     "--hidden-import", "customtkinter",
     "--hidden-import", "sounddevice",
@@ -110,7 +140,7 @@ command = [
     "--exclude-module", "flet",
     "--exclude-module", "flet_view",
     str(main_script_path)
-]
+])
 
 # Ejecutar directamente
 result = subprocess.run(
