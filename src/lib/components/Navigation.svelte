@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { defaultTabs, type TabConfig } from './navigation/tabs';
+  import { defaultTabs, type TabConfig } from '$lib/navigation/tabs';
 
   let { currentView = $bindable() } = $props<{ currentView: string }>();
   let activeSubTab = $state('');
