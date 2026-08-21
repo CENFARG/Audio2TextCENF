@@ -971,6 +971,8 @@ class App(ctk.CTk):
             self.logger.error(f"Error obteniendo metadata de {filename}: {e}")
             display_name = f"🎤 {filename}"
             tooltip_text = f"📁 {filename}\n📍 {full_path}"
+            duration = 0
+            duration_str = "—"
 
         # Info Frame (con tooltip)
         info_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
@@ -986,6 +988,18 @@ class App(ctk.CTk):
         # Action Button Frame
         action_frame = ctk.CTkFrame(item_frame, fg_color="transparent")
         action_frame.pack(side="right", padx=5)
+
+        # Duración visible en la lista (a la izquierda del emoji)
+        duration_label = ctk.CTkLabel(
+            action_frame,
+            text=f"⏱️ {duration_str}",
+            font=ctk.CTkFont(size=11),
+            text_color="#94A3B8",
+            width=62,
+            anchor="e"
+        )
+        duration_label.pack(side="left", padx=(0, 4))
+        self._bind_tooltip(duration_label, f"Duración: {duration_str}")
 
         # Emoji Picker Button (NUEVO v0.13.0)
         emoji_btn = ctk.CTkButton(
