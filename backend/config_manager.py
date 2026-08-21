@@ -55,7 +55,8 @@ class ConfigManager:
             "asr_provider": "groq",   # Servicio de transcripción: "groq" o "nvidia"
             "nvidia_enabled": False,  # Habilitar NVIDIA Riva ASR
             "nvidia_api_key": "",     # API key de NVIDIA (se ofuscará al guardar)
-            "nvidia_mode": "cloud"    # Modo NVIDIA: "cloud" (API) o "local" (Docker)
+            "nvidia_mode": "cloud",   # Modo NVIDIA: "cloud" (API) o "local" (Docker)
+            "window_geometry": "590x590+200+100",  # FIX v0.15.7: default cuadrado — pisa config vieja si no existe
             # FIX v0.15.0: faster-whisper ERRADICADO (modelo local) — solo API cloud
         }
         # Cargar configuración ANTES de inicializar localization_manager
