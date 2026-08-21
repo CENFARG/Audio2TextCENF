@@ -132,8 +132,9 @@ class App(ctk.CTk):
         # Título dinámico con versión desde config (no depende de lang files)
         _version = self.config_manager.get("app_version", "0.0.0")
         self.title(f"Audio2Text CENF v{_version}")
-        self.geometry("650x550")  # Aumentado para mejor visibilidad de configuración
-        self.minsize(500, 450)  # Mínimo aumentado
+        # Ventana comprimida a lo ancho (que aún muestren todas las pestañas) y 15% más alta que ancha
+        self.geometry("590x680")
+        self.minsize(540, 620)
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # Cargar geometry guardada v0.14.0
@@ -1548,75 +1549,138 @@ class App(ctk.CTk):
             self.update_status(f"Error exportando vocabulario: {e}", "red")
 
     def _show_vocab_corrections(self):
-        """Mostrar ventana para ver/editar/eliminar correcciones de vocabulario."""
+        """Mostrar ventana para ver/editar/eliminar correcciones — con selección múltiple bulk."""
         try:
             if not hasattr(self.transcriber, 'custom_vocab'):
                 self.update_status("CustomVocabulary no disponible", "red")
                 return
 
-            # Crear ventana de correcciones
             vocab_window = ctk.CTkToplevel(self)
             vocab_window.title("Correcciones de Vocabulario")
-            vocab_window.geometry("620x520")
-
-            # FIX bug 4: la ventana debe quedar SIEMPRE por delante de la app.
-            # transient() la vincula a la ventana padre y lift() la trae al frente.
+            vocab_window.geometry("680x540")
             vocab_window.transient(self)
             vocab_window.lift()
             vocab_window.attributes('-topmost', True)
             vocab_window.after(100, lambda: vocab_window.attributes('-topmost', False))
-            vocab_window.grab_set()  # Modal: bloquea la ventana principal mientras está abierta
+            vocab_window.grab_set()
 
-            # Frame principal
             main_frame = ctk.CTkScrollableFrame(vocab_window)
             main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
-            # Título
             ctk.CTkLabel(main_frame, text="Correcciones de Vocabulario Personalizado", font=DesignSystem.TYPOGRAPHY["heading_medium"]).pack(pady=10)
-
-            # Instrucciones
             ctk.CTkLabel(main_frame, text="Palabras que el modelo entiende mal y su corrección:", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(pady=5)
 
-            # Contenedor de la lista (se recarga entero al agregar/editar/eliminar)
+            # Barra de acciones bulk
+            bulk_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+            bulk_frame.pack(fill="x", padx=5, pady=(5, 8))
+
+            select_all_var = tk.BooleanVar(value=False)
+            bulk_state = {"order": [], "vars": {}, "last_idx": [-1], "select_all_var": select_all_var}
+
+            def _is_shift_pressed() -> bool:
+                try:
+                    import ctypes
+                    return (ctypes.windll.user32.GetKeyState(0x10) & 0x8000) != 0
+                except Exception:
+                    return False
+
+            def _update_bulk_button():
+                cnt = sum(1 for v in bulk_state["vars"].values() if v.get())
+                if cnt:
+                    delete_bulk_btn.configure(state="normal", text=f"🗑️ Eliminar seleccionados ({cnt})")
+                else:
+                    delete_bulk_btn.configure(state="disabled", text="🗑️ Eliminar seleccionados")
+                # Sincronizar "Seleccionar todos"
+                total = len(bulk_state["order"])
+                if total and cnt == total:
+                    select_all_var.set(True)
+                elif cnt == 0:
+                    select_all_var.set(False)
+
+            def _on_select_all():
+                val = select_all_var.get()
+                for v in bulk_state["vars"].values():
+                    v.set(val)
+                bulk_state["last_idx"][0] = -1
+                _update_bulk_button()
+
+            def _on_checkbox(idx: int):
+                # Manejar Shift+rango
+                if _is_shift_pressed() and bulk_state["last_idx"][0] != -1:
+                    last = bulk_state["last_idx"][0]
+                    lo, hi = (last, idx) if last < idx else (idx, last)
+                    # El nuevo valor es el del checkbox cliqueado
+                    key_clicked = bulk_state["order"][idx]
+                    new_val = bulk_state["vars"][key_clicked].get()
+                    for j in range(lo, hi + 1):
+                        k = bulk_state["order"][j]
+                        bulk_state["vars"][k].set(new_val)
+                bulk_state["last_idx"][0] = idx
+                _update_bulk_button()
+
+            select_all_cb = ctk.CTkCheckBox(bulk_frame, text="Seleccionar todos", variable=select_all_var, command=_on_select_all)
+            select_all_cb.pack(side="left", padx=5)
+
+            delete_bulk_btn = ctk.CTkButton(bulk_frame, text="🗑️ Eliminar seleccionados", width=200, fg_color="#EF4444", hover_color="#DC2626", state="disabled")
+            delete_bulk_btn.pack(side="right", padx=5)
+
+            def _delete_selected():
+                selected = [k for k, v in bulk_state["vars"].items() if v.get()]
+                if not selected:
+                    return
+                if not messagebox.askyesno("Confirmar eliminación", f"¿Eliminar {len(selected)} correcciones seleccionadas?\n\n" + ", ".join(selected[:10]) + (f"\n...y {len(selected)-10} más" if len(selected) > 10 else ""), parent=vocab_window):
+                    return
+                for key in selected:
+                    self.transcriber.custom_vocab.remove_correction(key)
+                self.update_status(f"🗑️ {len(selected)} correcciones eliminadas", "green")
+                self._refresh_vocab_list()
+                reload_list()
+
+            delete_bulk_btn.configure(command=_delete_selected)
+
+            hint = ctk.CTkLabel(bulk_frame, text="Tip: Shift+clic para rango", font=ctk.CTkFont(size=10), text_color="#94A3B8")
+            hint.pack(side="left", padx=12)
+
             list_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
             list_frame.pack(fill="both", expand=True, padx=5, pady=5)
 
             def reload_list():
-                """Recargar la lista de correcciones (refresco inmediato)."""
                 for widget in list_frame.winfo_children():
                     widget.destroy()
+                bulk_state["order"] = []
+                bulk_state["vars"] = {}
+                bulk_state["last_idx"][0] = -1
 
                 corrections = self.transcriber.custom_vocab.get_corrections()
                 if not corrections:
                     ctk.CTkLabel(list_frame, text="No hay correcciones configuradas").pack(pady=20)
+                    _update_bulk_button()
                 else:
-                    for incorrect, correct in corrections.items():
+                    for idx, (incorrect, correct) in enumerate(corrections.items()):
                         row_frame = ctk.CTkFrame(list_frame)
                         row_frame.pack(fill="x", pady=2, padx=5)
 
-                        # Incorrecta
-                        ctk.CTkLabel(row_frame, text=incorrect, font=DesignSystem.TYPOGRAPHY["body_bold"]).pack(side="left", padx=10)
+                        var = tk.BooleanVar(value=False)
+                        bulk_state["order"].append(incorrect)
+                        bulk_state["vars"][incorrect] = var
 
-                        # Flecha
-                        ctk.CTkLabel(row_frame, text="→", font=DesignSystem.TYPOGRAPHY["heading_large"]).pack(side="left", padx=10)
+                        cb = ctk.CTkCheckBox(row_frame, text="", variable=var, width=20, command=lambda i=idx: _on_checkbox(i))
+                        cb.pack(side="left", padx=(8, 2))
 
-                        # Correcta
-                        ctk.CTkLabel(row_frame, text=correct, font=DesignSystem.TYPOGRAPHY["body_bold"], text_color="#10B981").pack(side="left", padx=10)
+                        ctk.CTkLabel(row_frame, text=incorrect, font=DesignSystem.TYPOGRAPHY["body_bold"]).pack(side="left", padx=6)
+                        ctk.CTkLabel(row_frame, text="→", font=DesignSystem.TYPOGRAPHY["heading_large"]).pack(side="left", padx=6)
+                        ctk.CTkLabel(row_frame, text=correct, font=DesignSystem.TYPOGRAPHY["body_bold"], text_color="#10B981").pack(side="left", padx=6)
 
-                        # FIX bug 5: botón EDITAR (nuevo) + ELIMINAR, ambos con refresh inmediato
                         edit_btn = ctk.CTkButton(row_frame, text="✏️ Editar", width=70, fg_color="#2563EB", hover_color="#1D4ED8",
                                                  command=lambda inc=incorrect, cor=correct: self._edit_vocab_correction(inc, cor, reload_list))
                         edit_btn.pack(side="right", padx=2)
-
                         delete_btn = ctk.CTkButton(row_frame, text="🗑️", width=30, fg_color="#EF4444", hover_color="#DC2626",
                                                 command=lambda inc=incorrect: self._delete_vocab_correction(inc, reload_list))
                         delete_btn.pack(side="right", padx=5)
+                    _update_bulk_button()
 
             reload_list()
-
-            # Botón cerrar
             ctk.CTkButton(main_frame, text="Cerrar", command=vocab_window.destroy, width=100).pack(pady=10)
-
             self.logger.info("Ventana de correcciones mostrada")
 
         except Exception as e:

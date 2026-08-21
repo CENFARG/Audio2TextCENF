@@ -11,7 +11,7 @@ class ConfigManager:
         self.logger = logging.getLogger(self.__class__.__name__)
         self.config_file = config_file
         self.default_config = {
-            "app_version": "0.15.0",  # FIX: versión real (estaba hardcodeada 0.13.0)
+            "app_version": "0.15.7",
             "audio_path": "./audio",
             "transcriptions_path": "./transcriptions",
             "save_audio": True,
