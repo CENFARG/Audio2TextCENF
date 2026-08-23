@@ -1,9 +1,9 @@
 """
 check_version.py — HC-05 single-source version validator
 
-Fuenta canónica: pyproject.toml [project] version = "0.15.8"
+Fuenta canónica: pyproject.toml [project] version = "0.15.9"
 
-Valida que estas 5 fuentes estén en 0.15.8:
+Valida que estas 5 fuentes estén en 0.15.9:
   1. pyproject.toml
   2. backend/config_manager.py (default_config app_version)
   3. lang/es.json + lang/en.json (app_title contiene version)
@@ -12,7 +12,7 @@ Valida que estas 5 fuentes estén en 0.15.8:
 
 Uso:
   python scripts/check_version.py        # usa EXPECTED = pyproject version (canónica)
-  python scripts/check_version.py 0.15.8 # fuerza expected
+  python scripts/check_version.py 0.15.9 # fuerza expected
 
 Exit code: 0 si todas PASS, 1 si alguna FAIL.
 """
@@ -22,7 +22,7 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
-EXPECTED_FALLBACK = "0.15.8"
+EXPECTED_FALLBACK = "0.15.9"
 
 
 def _read_pyproject_version() -> str | None:
@@ -72,14 +72,14 @@ def _read_version_info(path: Path) -> dict:
         text = path.read_text(encoding="utf-8")
         m = re.search(r"filevers\s*=\s*\(([^)]+)\)", text)
         if m:
-            # e.g. 0, 15, 8, 0 -> 0.15.8
+            # e.g. 0, 15, 9, 0 -> 0.15.9
             parts = [p.strip() for p in m.group(1).split(",")]
             if len(parts) >= 3:
                 result["filevers"] = ".".join(parts[:3])
         m = re.search(r"StringStruct\(u'FileVersion',\s*u'([^']+)'\)", text)
         if m:
             fv = m.group(1).strip()
-            # 0.15.8.0 -> 0.15.8
+            # 0.15.9.0 -> 0.15.9
             result["FileVersion"] = ".".join(fv.split(".")[:3])
         m = re.search(r"StringStruct\(u'ProductVersion',\s*u'([^']+)'\)", text)
         if m:
@@ -113,12 +113,14 @@ def check_all(expected: str | None = None, verbose: bool = True) -> bool:
 
     all_ok = True
 
-    # 1. pyproject.toml (canónica)
+    # 1. pyproject.toml (canonica PEP440 sin v.)
     v = canonical
-    ok = (v == expected)
+    no_v_prefix = not (v or "").lstrip().startswith("v")
+    ok = (v == expected) and no_v_prefix
     status = "PASS" if ok else "FAIL"
     if verbose:
-        print(f"[{status}] pyproject.toml: {v!r} (expected {expected!r})")
+        extra = "" if no_v_prefix else " (has v prefix - should be canonical without v)"
+        print(f"[{status}] pyproject.toml: {v!r} (expected {expected!r}){extra}")
     all_ok = all_ok and ok
 
     # 2. backend/config_manager.py
@@ -129,14 +131,20 @@ def check_all(expected: str | None = None, verbose: bool = True) -> bool:
         print(f"[{status}] backend/config_manager.py (app_version): {v!r} (expected {expected!r})")
     all_ok = all_ok and ok
 
-    # 3. lang files
+    # 3. lang files (display v.{expected} required)
     for lang in ["es.json", "en.json"]:
         p = PROJECT_ROOT / "lang" / lang
         v = _read_lang_version(p)
-        ok = (v == expected)
+        try:
+            raw_title = json.loads(p.read_text(encoding="utf-8")).get("app_title", "")
+        except Exception:
+            raw_title = ""
+        has_display = f"v.{expected}" in raw_title
+        ok = (v == expected) and has_display
         status = "PASS" if ok else "FAIL"
         if verbose:
-            print(f"[{status}] lang/{lang} (app_title): {v!r} (expected {expected!r})")
+            extra = "" if has_display else " (missing display v.{})".format(expected)
+            print(f"[{status}] lang/{lang} (app_title): {v!r} (expected {expected!r}){extra} raw={raw_title!r}")
         all_ok = all_ok and ok
 
     # 4. config version_info files

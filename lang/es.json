@@ -1,5 +1,5 @@
 {
-  "app_title": "Audio2Text CENF 0.15.8",
+  "app_title": "Audio2Text CENF v.0.15.9",
   "tab_main": "Principal",
   "tab_settings": "Configuración",
   "tab_info": "Información",
@@ -59,7 +59,7 @@
   "save_success_message": "Configuración guardada. Algunos cambios pueden requerir un reinicio.",
   "save_error_message": "Error al guardar configuración.",
   "info_tab_title": "Información",
-  "info_text_simplified": "Audio2Text CENF - v{version}\n\nServicios de Transcripción:\n• Groq Cloud (Whisper Large v3) - Reconocimiento de voz por API\n\nAPI Key:\n• Groq: console.groq.com/keys (Gratis)\n\nConfigura tu API Key en Configuración.\n\nUso:\n- Configura tu Hotkey (Default F9).\n- Presiona para grabar, suelta o presiona de nuevo para terminar.\n- La transcripción se copia al portapapeles automáticamente.\n\nConfiguraciones:\n- Servicio de transcripción: Groq Cloud (API)\n- Rutas de guardado de audio/texto.\n- Idioma (ES/EN).\n- Modo (Mantener/Alternar).\n- Correcciones de vocabulario.\n\n⚠️ DISCLAIMER DE USO:\nEsta herramienta utiliza servicios de terceros (Groq) para procesar el audio. No comparta información confidencial, secretos comerciales o datos sensibles si no está autorizado. El usuario es responsable del contenido procesado.",
+  "info_text_simplified": "Audio2Text CENF - v.{version}\n\nServicios de Transcripción:\n• Groq Cloud (Whisper Large v3) - Reconocimiento de voz por API\n\nAPI Key:\n• Groq: console.groq.com/keys (Gratis)\n\nConfigura tu API Key en Configuración.\n\nUso:\n- Configura tu Hotkey (Default F9).\n- Presiona para grabar, suelta o presiona de nuevo para terminar.\n- La transcripción se copia al portapapeles automáticamente.\n\nConfiguraciones:\n- Servicio de transcripción: Groq Cloud (API)\n- Rutas de guardado de audio/texto.\n- Idioma (ES/EN).\n- Modo (Mantener/Alternar).\n- Correcciones de vocabulario.\n\n⚠️ DISCLAIMER DE USO:\nEsta herramienta utiliza servicios de terceros (Groq) para procesar el audio. No comparta información confidencial, secretos comerciales o datos sensibles si no está autorizado. El usuario es responsable del contenido procesado.",
   "recording_hotkey_title": "Grabando Hotkey",
   "recording_hotkey_prompt": "Grabando... Presiona una tecla.",
   "confirm_delete_title": "Confirmar eliminación",

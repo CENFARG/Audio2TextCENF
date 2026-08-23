@@ -142,7 +142,7 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         self.localization_manager = self.config_manager.localization_manager # Usa la instancia de localization_manager de config_manager
         # Título dinámico con versión desde config (no depende de lang files)
         _version = self.config_manager.get("app_version", "0.0.0")
-        self.title(f"Audio2Text CENF v{_version}")
+        self.title(f"Audio2Text CENF v.{_version}")
         # Ventana cuadrada por defecto (mismo ancho que alto)
         self.geometry("590x590")
         self.minsize(540, 540)
@@ -1509,7 +1509,7 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         image = Image.new('RGB', (64, 64), DesignSystem.COLORS["background"])
         draw = ImageDraw.Draw(image); draw.ellipse((10, 10, 54, 54), fill=DesignSystem.COLORS["primary"])
         menu = (item(self.localization_manager.get_string("tray_menu_show"), self.show_window), item(self.localization_manager.get_string("tray_menu_exit"), self.quit_application))
-        self.tray_icon = pystray.Icon("audio2text", image, f"Audio2Text CENF {self.config_manager.get('app_version')}", menu); self.tray_icon.run_detached()
+        self.tray_icon = pystray.Icon("audio2text", image, f"Audio2Text CENF v.{self.config_manager.get('app_version')}", menu); self.tray_icon.run_detached()
         self.logger.info("Aplicación minimizada a la bandeja del sistema.")
 
     def show_window(self):

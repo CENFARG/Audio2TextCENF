@@ -1,5 +1,5 @@
 {
-  "app_title": "Audio2Text CENF 0.15.8",
+  "app_title": "Audio2Text CENF v.0.15.9",
   "tab_main": "Main",
   "tab_settings": "Settings",
   "tab_info": "Information",
@@ -37,7 +37,7 @@
   "save_success_message": "Settings saved. Some changes may require a restart.",
   "save_error_message": "Error saving settings.",
   "info_tab_title": "Information",
-  "info_text_simplified": "Audio2Text CENF - v{version}\n\nTranscription Services:\n• Groq Cloud (Whisper Large v3) - API speech-to-text\n\nAPI Key:\n• Groq: console.groq.com/keys (Free)\n\nSet your API Key in Settings.\n\nUsage:\n- Set your Hotkey (Default F9).\n- Press to record, release or press again to stop.\n- Transcription is auto-copied to clipboard.\n\nSettings:\n- Transcription service: Groq Cloud (API)\n- Save paths for audio/text.\n- Language (ES/EN).\n- Mode (Hold/Toggle).\n- Vocabulary corrections.\n\n⚠️ USAGE DISCLAIMER:\nThis tool uses third-party services (Groq) to process audio. Do not share confidential information, trade secrets, or sensitive data unless authorized. The user is responsible for the processed content.",
+  "info_text_simplified": "Audio2Text CENF - v.{version}\n\nTranscription Services:\n• Groq Cloud (Whisper Large v3) - API speech-to-text\n\nAPI Key:\n• Groq: console.groq.com/keys (Free)\n\nSet your API Key in Settings.\n\nUsage:\n- Set your Hotkey (Default F9).\n- Press to record, release or press again to stop.\n- Transcription is auto-copied to clipboard.\n\nSettings:\n- Transcription service: Groq Cloud (API)\n- Save paths for audio/text.\n- Language (ES/EN).\n- Mode (Hold/Toggle).\n- Vocabulary corrections.\n\n⚠️ USAGE DISCLAIMER:\nThis tool uses third-party services (Groq) to process audio. Do not share confidential information, trade secrets, or sensitive data unless authorized. The user is responsible for the processed content.",
   "recording_hotkey_title": "Recording Hotkey",
   "recording_hotkey_prompt": "Recording... Press a key.",
   "confirm_delete_title": "Confirm deletion",
