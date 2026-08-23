@@ -4,7 +4,8 @@ import threading
 class SoundManager:
     """Gestor de sonidos personalizados para la aplicación usando winsound"""
 
-    def __init__(self):
+    def __init__(self, config_manager=None):
+        self.config_manager = config_manager
         # Frecuencias en Hz para winsound.Beep
         self.frequencies = {
             "start": [(262, 100), (294, 100), (330, 100)],  # C4, D4, E4
@@ -13,8 +14,19 @@ class SoundManager:
             "success": [(523, 80), (659, 80), (784, 80)]    # C5, E5, G5
         }
 
+    def is_enabled(self) -> bool:
+        """Retorna True si el sonido está habilitado (default ON)."""
+        if self.config_manager is not None:
+            try:
+                return bool(self.config_manager.get("sound_enabled", True))
+            except Exception:
+                return True
+        return True
+
     def play_sound_sequence(self, sequence):
         """Reproducir secuencia de beeps en un thread separado"""
+        if not self.is_enabled():
+            return
         def _play():
             try:
                 for freq, duration in sequence:
@@ -27,18 +39,26 @@ class SoundManager:
 
     def sound_start_recording(self):
         """Sonido de inicio de grabación (ascendente)"""
+        if not self.is_enabled():
+            return
         self.play_sound_sequence(self.frequencies["start"])
 
     def sound_stop_recording(self):
         """Sonido de fin de grabación (descendente)"""
+        if not self.is_enabled():
+            return
         self.play_sound_sequence(self.frequencies["stop"])
 
     def sound_error(self):
         """Sonido de error (frecuencia baja y disonante)"""
+        if not self.is_enabled():
+            return
         self.play_sound_sequence(self.frequencies["error"])
 
     def sound_success(self):
         """Sonido de éxito (frecuencia alta y agradable)"""
+        if not self.is_enabled():
+            return
         self.play_sound_sequence(self.frequencies["success"])
 
     def close(self):

@@ -58,6 +58,7 @@ class ConfigManager:
             "nvidia_api_key": "",     # API key de NVIDIA (se ofuscará al guardar)
             "nvidia_mode": "cloud",   # Modo NVIDIA: "cloud" (API) o "local" (Docker)
             "window_geometry": "590x590+200+100",  # FIX v0.15.7: default cuadrado — pisa config vieja si no existe
+            "sound_enabled": True,  # FIX v0.15.8: sonido ON por defecto — switch omnipresente
             # FIX v0.15.0: faster-whisper ERRADICADO (modelo local) — solo API cloud
         }
         # Cargar configuración ANTES de inicializar localization_manager
@@ -94,6 +95,18 @@ class ConfigManager:
                 config["transcription_language"] = loaded_config.get("default_language", "es")
             # Si no, ya tiene el default "es"
             needs_save = True
+
+        # Migración sonido: si el archivo no tenía sound_enabled, default ON
+        if "sound_enabled" not in loaded_config:
+            # config ya tiene True del default_config; solo forzar persistencia
+            # si el archivo existe o si se creó fresh (save igual es idempotente)
+            # Para fresh install sin archivo, no necesitamos save — default ya en config
+            # Para archivo existente sin clave, sí necesitamos migrar a disco
+            if os.path.exists(self.config_file):
+                config["sound_enabled"] = True
+                needs_save = True
+            else:
+                config["sound_enabled"] = True
 
         # Forzar interfaz siempre en español (requisito v0.15.1)
         config["default_language"] = "es"

@@ -174,7 +174,7 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         except Exception as e:
             self.logger.warning(f"Error cargando icono: {e}")
 
-        self.sound_manager = SoundManager()
+        self.sound_manager = SoundManager(config_manager=self.config_manager)
         self.file_manager = FileManager(self.config_manager)
         self.metadata_manager = TranscriptionMetadata("transcription_metadata.json")
 
@@ -257,16 +257,15 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         self.logger.debug("Widgets de la interfaz de usuario creados.")
 
     def _create_omnipresent_lang_switch(self):
-        """Barra superior omnipresente con switch ES ⟷ EN para idioma de transcripción."""
+        """Barra superior omnipresente con switch ES ⟷ EN (izq) y sonido ON/OFF (der) visibles en todas las pestañas."""
         top_bar = ctk.CTkFrame(self, fg_color="transparent", height=28)
         top_bar.grid(row=0, column=0, padx=10, pady=(5, 0), sticky="ew")
         top_bar.grid_columnconfigure(0, weight=1)
 
-        # Idioma actual de transcripción
+        # — Izquierda: idioma de transcripción —
         current = self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es"))
         self._lang_switch_var = tk.StringVar(value=current)
 
-        # Label + SegmentedButton (ES / EN) — 1 clic para cambiar
         ctk.CTkLabel(top_bar, text="🌐 Transcripción:", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(side="left", padx=(5, 5))
 
         self._lang_switch = ctk.CTkSegmentedButton(
@@ -281,7 +280,6 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             selected_hover_color=DesignSystem.COLORS["primary_hover"],
         )
         self._lang_switch.pack(side="left")
-        # Seleccionar valor inicial correctamente (SegmentedButton usa el string exacto)
         self._lang_switch.set(current.upper())
 
         self._lang_switch_label = ctk.CTkLabel(
@@ -291,6 +289,21 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             text_color=DesignSystem.COLORS["text_secondary"],
         )
         self._lang_switch_label.pack(side="left", padx=(8, 0))
+
+        # — Derecha: sonido ON/OFF — espejo del switch de idioma —
+        sound_enabled = bool(self.config_manager.get("sound_enabled", True))
+        self._sound_switch_var = tk.BooleanVar(value=sound_enabled)
+        self._sound_switch = ctk.CTkSwitch(
+            top_bar,
+            text="🔊 Sonido" if sound_enabled else "🔇 Sonido",
+            variable=self._sound_switch_var,
+            command=self._on_sound_toggle,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            progress_color=DesignSystem.COLORS["primary"],
+            button_hover_color=DesignSystem.COLORS["primary_hover"],
+            width=36,
+        )
+        self._sound_switch.pack(side="right", padx=(5, 5))
 
     def _on_omnipresent_lang_change(self, value: str):
         """Callback del switch omnipresente — cambia idioma de transcripción y sincroniza config."""
@@ -313,6 +326,27 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
     def _update_lang_switch_label(self, lang: str):
         if hasattr(self, '_lang_switch_label'):
             self._lang_switch_label.configure(text="Español" if lang == "es" else "English")
+
+    def _on_sound_toggle(self):
+        """Callback del switch omnipresente de sonido — persiste y actualiza UI."""
+        enabled = bool(self._sound_switch_var.get())
+        self.config_manager.set("sound_enabled", enabled)
+        if hasattr(self, '_sound_switch'):
+            self._sound_switch.configure(text="🔊 Sonido" if enabled else "🔇 Sonido")
+        self.logger.info(f"Sonido {'ON' if enabled else 'OFF'} (omnipresente)")
+        self.update_status(f"{'🔊 Sonido ON' if enabled else '🔇 Sonido OFF'}", "green" if enabled else "white")
+        # Sincronizar CTkSwitch de Config tab si existe (futuro)
+        if hasattr(self, '_sound_config_switch_var'):
+            try:
+                self._sound_config_switch_var.set(enabled)
+                if hasattr(self, '_sound_config_switch'):
+                    self._sound_config_switch.configure(text="🔊 Sonido" if enabled else "🔇 Sonido")
+            except Exception:
+                pass
+
+    def _update_sound_switch_label(self, enabled: bool):
+        if hasattr(self, '_sound_switch'):
+            self._sound_switch.configure(text="🔊 Sonido" if enabled else "🔇 Sonido")
 
     def update_overlay(self, state, minutes=0, seconds=0):
         """Actualizar el overlay de grabación según el estado (Thread-safe)"""
