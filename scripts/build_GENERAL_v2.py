@@ -1,4 +1,4 @@
-# Build script para Audio2Text v.0.15.10 - (Unificado) | HC-05: pyproject.toml es fuente canónica
+# Build script para Audio2Text v.0.15.11 - (Unificado) | HC-05: pyproject.toml es fuente canónica
 import subprocess
 import sys
 import os
@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-APP_VERSION = "0.15.10"
+APP_VERSION = "0.15.11"
 VARIANT = ""
 APP_NAME = f"Audio2Text_CENF_v.{APP_VERSION}"
 
