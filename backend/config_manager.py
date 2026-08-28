@@ -41,7 +41,7 @@ class ConfigManager:
             "transcription_language": "es",  # Idioma de TRANSCRIPCIÓN (es/en, configurable por el usuario)
             "max_audio_files": 100,
             "max_log_entries": 1000,
-            "max_recording_time": 1200,  # FIX: default 20 min (antes 5 min)
+            "max_recording_time": 720,  # CAP TRANSITORIO A - reevaluar post B (12 min = 720s, evita pérdida 20min mientras B/C llegan)
             "max_transcription_age_days": 30,  # Días antes de limpiar transcripciones antiguas
             "auto_cleanup_enabled": True,      # Limpieza automática de archivos antiguos
             # HC-01 FIX: placeholder vacío — key real via GROQ_API_KEY env o keyring, nunca hardcodeada
@@ -59,6 +59,7 @@ class ConfigManager:
             "nvidia_mode": "cloud",   # Modo NVIDIA: "cloud" (API) o "local" (Docker)
             "window_geometry": "590x590+200+100",  # FIX v0.15.7: default cuadrado — pisa config vieja si no existe
             "sound_enabled": True,  # FIX v0.15.8: sonido ON por defecto — switch omnipresente
+            "groq_parallel_workers": 3,  # Slice B: pool Groq 3 workers (configurable 2-4), speedup 2.5x
             # FIX v0.15.0: faster-whisper ERRADICADO (modelo local) — solo API cloud
         }
         # Cargar configuración ANTES de inicializar localization_manager
@@ -186,9 +187,40 @@ class ConfigManager:
             except Exception:
                 pass
 
+        # CAP TRANSITORIO A - reevaluar post B: clamp max_recording_time a 12 min (720s)
+        _CAP_A = 720  # CAP TRANSITORIO A - reevaluar post B
+        _mrt = config.get("max_recording_time")
+        try:
+            _mrt_int = int(_mrt) if _mrt is not None else _CAP_A
+        except Exception:
+            _mrt_int = _CAP_A
+        if _mrt_int > _CAP_A or _mrt_int <= 0:
+            if _mrt_int > _CAP_A:
+                self.logger.warning(f"max_recording_time {_mrt_int} > CAP TRANSITORIO A ({_CAP_A}s) — clamping a {_CAP_A}s")
+            else:
+                self.logger.warning(f"max_recording_time inválido '{_mrt}' — usando CAP TRANSITORIO A {_CAP_A}s")
+            config["max_recording_time"] = _CAP_A
+            needs_save = True
+        elif _mrt_int != _mrt:
+            config["max_recording_time"] = _mrt_int
+
+        # Slice B: clamp groq_parallel_workers 2-4
+        _gpw = config.get("groq_parallel_workers", 3)
+        try:
+            _gpw_int = int(_gpw)
+        except Exception:
+            _gpw_int = 3
+        if _gpw_int < 2 or _gpw_int > 4:
+            self.logger.warning(f"groq_parallel_workers {_gpw_int} fuera de rango [2,4] — clamping")
+            _gpw_int = max(2, min(4, _gpw_int))
+            config["groq_parallel_workers"] = _gpw_int
+            needs_save = True
+        elif _gpw_int != _gpw:
+            config["groq_parallel_workers"] = _gpw_int
+
         self.config = config
         
-        # Force save if it was plain text to obfuscate it immediately
+        # Force save if it was plain text to obfuscate it inmediatamente
         if needs_save:
             self.logger.info("Detectada clave en texto plano. Ofuscando automáticamente...")
             self.save_config()
