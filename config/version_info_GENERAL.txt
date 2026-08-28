@@ -1,8 +1,8 @@
 # UTF-8
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(0, 15, 9, 0),
-    prodvers=(0, 15, 9, 0),
+    filevers=(0, 15, 10, 0),
+    prodvers=(0, 15, 10, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -17,12 +17,12 @@ VSVersionInfo(
         u'040904B0',
         [StringStruct(u'CompanyName', u'CENF - Centro de Excelencia en Negocios del Futuro'),
         StringStruct(u'FileDescription', u'Audio2Text - Transcripción de Audio en Tiempo Real con Metadatos y Hotkeys Extendidos'),
-        StringStruct(u'FileVersion', u'0.15.9.0'),
+        StringStruct(u'FileVersion', u'0.15.10.0'),
         StringStruct(u'InternalName', u'Audio2Text_GENERAL'),
         StringStruct(u'LegalCopyright', u'© 2026 CENF - Centro de Excelencia en Negocios del Futuro. Todos los derechos reservados.'),
-        StringStruct(u'OriginalFilename', u'Audio2Text_CENF_v.0.15.9_GENERAL.exe'),
-        StringStruct(u'ProductName', u'Audio2Text GENERAL v.0.15.9'),
-        StringStruct(u'ProductVersion', u'0.15.9.0')])
+        StringStruct(u'OriginalFilename', u'Audio2Text_CENF_v.0.15.10_GENERAL.exe'),
+        StringStruct(u'ProductName', u'Audio2Text GENERAL v.0.15.10'),
+        StringStruct(u'ProductVersion', u'0.15.10.0')])
       ]),
     VarFileInfo([VarStruct(u'Translation', [1033, 1200])])
   ]
