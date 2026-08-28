@@ -57,6 +57,14 @@ GROQ_PARALLEL_WORKERS_MIN = 2
 GROQ_PARALLEL_WORKERS_MAX = 4
 GROQ_PARALLEL_TIMEOUT_S = 30  # timeout por future
 
+# ── Slice C: streaming incremental ────────────────────────────────────
+# Durante grabación cada 25s snapshot + ThreadPoolExecutor 2 workers envía chunk a Groq,
+# guarda texto en streaming_ordered dict + .partial_stream.txt, log STREAM. Post-stop <6s.
+STREAM_INTERVAL_S = 25.0  # CAP TRANSITORIO A - reevaluar post B (match target 25s chunk)
+STREAM_WORKERS = 2  # pool separado para no competir con Slice B (3 workers post-stop)
+STREAM_PARTIAL_SUFFIX = ".partial_stream.txt"  # sufijo para archivo parcial streaming
+STREAM_TIMEOUT_S = 30  # timeout por chunk streaming
+
 class Transcriber:
     def __init__(self, config_manager, sound_manager, file_manager, update_status_callback, transcription_callback, localization_manager, overlay_callback=None):
         import queue as _queue
@@ -98,6 +106,16 @@ class Transcriber:
         self.ejecutando = True
         self.audio_data = [] # List to store numpy arrays
         self.freq = 16000
+
+        # ── Slice C streaming incremental ─────────────────────────────────
+        self.streaming_executor = None  # ThreadPoolExecutor 2 workers separado de Slice B
+        self.streaming_ordered = {}  # dict[int, str] ordenado por chunk index
+        self.streaming_lock = threading.Lock()  # lock para ordered dict + pending
+        self.streaming_pending = set()  # índices en vuelo
+        self.streaming_partial_path = None  # path .partial_stream.txt
+        self.streaming_recording_id = None
+        self._stream_next_trigger = 0.0  # wall time próximo snapshot
+        self._stream_total_est = 0  # total estimado para UI En vivo
         self.hotkey = self.config_manager.get("hotkey", "f12")
         self.record_mode = self.config_manager.get("record_mode", "toggle")
         self.audio_priority_apps = self.config_manager.get("audio_priority_apps", [])
@@ -501,6 +519,45 @@ class Transcriber:
         with self.audio_lock:
             self.audio_data = []
         self.stop_event.clear()
+        # ── Slice C streaming: reset estado + pool 2 workers separado ──
+        try:
+            # limpiar estado previo
+            with self.streaming_lock:
+                self.streaming_ordered = {}
+                self.streaming_pending = set()
+            if self.streaming_executor:
+                try:
+                    self.streaming_executor.shutdown(wait=False, cancel_futures=True)
+                except Exception:
+                    try:
+                        self.streaming_executor.shutdown(wait=False)
+                    except Exception:
+                        pass
+                self.streaming_executor = None
+            self.streaming_recording_id = self.current_recording_id
+            # partial_stream junto al temp dir, por recording_id
+            self.streaming_partial_path = os.path.join(tempfile.gettempdir(), f"audio2text_stream_{self.current_recording_id}{STREAM_PARTIAL_SUFFIX}")
+            # limpiar parcial previo si existe
+            try:
+                if self.streaming_partial_path and os.path.exists(self.streaming_partial_path):
+                    os.unlink(self.streaming_partial_path)
+            except Exception:
+                pass
+            # total estimado para UI En vivo (720->29)
+            try:
+                _mt = int(self.config_manager.get("max_recording_time", 720))
+            except Exception:
+                _mt = 720
+            self._stream_total_est = max(1, int((_mt + 24) // 25))  # ceil
+            self._stream_next_trigger = time.time() + STREAM_INTERVAL_S
+            # pool separado 2 workers — no compite con Slice B (3)
+            self.streaming_executor = ThreadPoolExecutor(max_workers=STREAM_WORKERS, thread_name_prefix="groq-stream")
+            try:
+                self.tlogger.info(f"STREAM init recording_id={self.current_recording_id} partial={self.streaming_partial_path} interval={STREAM_INTERVAL_S}s workers={STREAM_WORKERS} est_total={self._stream_total_est}")
+            except Exception:
+                pass
+        except Exception as _se:
+            self.logger.warning(f"Slice C stream init error: {_se}")
         self.sound_manager.sound_start_recording()
         self.update_status(self.localization_manager.get_string("status_recording"), "green")
         self.logger.info("Grabación iniciada.")
@@ -590,6 +647,22 @@ class Transcriber:
                     except Exception:
                         pass  # cola llena → se saltea un tick, nunca bloquea la captura
 
+                # ── Slice C streaming: cada 25s snapshot + submit sin bloquear grabación ──
+                try:
+                    if getattr(self, "streaming_executor", None) and now >= getattr(self, "_stream_next_trigger", float("inf")):
+                        # avanzar trigger antes de hacer trabajo para no retrigger si snapshot tarda
+                        self._stream_next_trigger = now + STREAM_INTERVAL_S
+                        # snapshot no bloqueante: copia lista bajo lock muy breve
+                        try:
+                            self._stream_snapshot_and_submit()
+                        except Exception as _se:
+                            try:
+                                self.tlogger.debug(f"STREAM snapshot error {_se}")
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+
             except Exception as e:
                 self.logger.error(f"Error en bucle de grabación: {e}")
                 try:
@@ -626,6 +699,345 @@ class Transcriber:
                     break
         except Exception as e:
             self.logger.warning(f"Error drenando audio: {e}")
+
+    # ── Slice C streaming helpers ──────────────────────────────────────
+    def _push_streaming_event(self, cur: int, total: int):
+        """En vivo Chunk cur/total — evento crítico para polling UI."""
+        try:
+            self.tlogger.debug(f"STREAM push En vivo Chunk {cur}/{total} q={self.timer_queue.qsize() if getattr(self, 'timer_queue', None) else -1}")
+        except Exception:
+            pass
+        self._queue_put(("streaming", int(cur), int(total)), critical=True)
+
+    def _stream_snapshot_and_submit(self):
+        """Snapshot audio_data (copia) y envía chunks sellados a Groq en background (pool 2).
+
+        - Copia lista bajo audio_lock brevísimo.
+        - Trozado con split_audio_on_silence(target 25s) — mismo que post-stop.
+        - Cada índice sellado (todos menos tail incompleto) no enviado aún se submitea al pool 2.
+        - Maneja 429/413/timeout sin bloquear grabación (log STREAM, no propaga).
+        """
+        # snapshot copia bajo lock (μs)
+        with self.audio_lock:
+            if not self.audio_data:
+                return
+            snap = list(self.audio_data)
+        if not snap:
+            return
+        try:
+            full = np.concatenate(snap, axis=0)
+        except Exception:
+            return
+        if len(full) == 0:
+            return
+        # split
+        try:
+            from .audio_chunker import split_audio_on_silence
+            chunks = split_audio_on_silence(full, self.freq, target_s=25.0, max_s=29.0)
+        except Exception as _e:
+            try:
+                self.tlogger.debug(f"STREAM split error {_e}")
+            except Exception:
+                pass
+            return
+        total = len(chunks)
+        if total == 0:
+            return
+        # total estimado para UI (ceil max_time/25)
+        est_total = getattr(self, "_stream_total_est", 0) or total
+        # decidir unsent: todos menos tail (último) salvo si total==1 (primer chunk sí se envía a los 25s)
+        unsent = []
+        with self.streaming_lock:
+            for idx in range(total):
+                if idx == total - 1 and getattr(self, "is_recording", False):
+                    if total == 1:
+                        pass  # primer chunk sí se envía pronto
+                    else:
+                        continue
+                if idx in self.streaming_ordered:
+                    continue
+                if idx in self.streaming_pending:
+                    continue
+                unsent.append(idx)
+                self.streaming_pending.add(idx)
+        if not unsent:
+            return
+        # executor debe existir
+        executor = getattr(self, "streaming_executor", None)
+        if executor is None:
+            with self.streaming_lock:
+                for idx in unsent:
+                    self.streaming_pending.discard(idx)
+            return
+        for idx in unsent:
+            try:
+                chunk = chunks[idx]
+            except Exception:
+                with self.streaming_lock:
+                    self.streaming_pending.discard(idx)
+                continue
+            try:
+                # submit no bloquea grabación
+                executor.submit(self._stream_transcribe_task, idx, chunk, total, est_total)
+            except Exception as _se:
+                with self.streaming_lock:
+                    self.streaming_pending.discard(idx)
+                try:
+                    self.tlogger.warning(f"STREAM submit fail idx={idx} err={_se}")
+                except Exception:
+                    pass
+
+    def _stream_transcribe_task(self, idx: int, chunk: np.ndarray, total_snapshot: int, est_total: int):
+        """Task en pool 2: un chunk -> Groq -> streaming_ordered + .partial_stream.txt + log STREAM."""
+        t0 = time.perf_counter()
+        worker = threading.current_thread().name
+        try:
+            chunk_dur = len(chunk) / self.freq if len(chunk) else 0
+            chunk_mb = len(chunk) * 4 / (1024 * 1024)  # float32
+        except Exception:
+            chunk_dur = 0
+            chunk_mb = 0
+        try:
+            self.tlogger.debug(f"STREAM START chunk={idx+1}/{total_snapshot} worker={worker} dur={chunk_dur:.1f}s size={chunk_mb:.2f}MB est_total={est_total}")
+        except Exception:
+            pass
+        text = ""
+        try:
+            # _groq_chunk_callback maneja circuit/429/413/timeout con backoff; si falla levanta y aquí no bloquea grabación
+            text = self._groq_chunk_callback(chunk, self.freq, prompt=None) or ""
+            text = text.strip()
+        except Exception as e:
+            kind = self._classify_groq_error(e)
+            try:
+                self.tlogger.warning(f"STREAM FAIL chunk={idx+1} err={kind} exc={e} worker={worker}")
+            except Exception:
+                pass
+            # 429/413/timeout no bloquean grabación, retornan vacío para reintento post-stop
+            text = ""
+        latency = max(0.01, time.perf_counter() - t0)
+        # guardar ordenado + checkpoint parcial_stream
+        with self.streaming_lock:
+            self.streaming_pending.discard(idx)
+            if text:
+                self.streaming_ordered[idx] = text
+                # checkpoint STREAM: reordena y escribe .partial_stream.txt atómico
+                try:
+                    if getattr(self, "streaming_partial_path", None):
+                        ordered = " ".join([self.streaming_ordered[k] for k in sorted(self.streaming_ordered) if self.streaming_ordered[k]])
+                        if ordered:
+                            d = os.path.dirname(self.streaming_partial_path) or "."
+                            try:
+                                os.makedirs(d, exist_ok=True)
+                            except Exception:
+                                pass
+                            tmp = self.streaming_partial_path + ".tmp"
+                            try:
+                                with open(tmp, "w", encoding="utf-8") as f:
+                                    f.write(ordered)
+                                    f.flush()
+                                    os.fsync(f.fileno())
+                                os.replace(tmp, self.streaming_partial_path)
+                            except Exception:
+                                # fallback directo
+                                try:
+                                    with open(self.streaming_partial_path, "w", encoding="utf-8") as f:
+                                        f.write(ordered)
+                                except Exception:
+                                    pass
+                            try:
+                                self.tlogger.info(f"STREAM CHECKPOINT chunk={idx+1} len={len(ordered)} path={self.streaming_partial_path} worker={worker} latency={latency:.3f}s")
+                            except Exception:
+                                pass
+                except Exception as _ce:
+                    try:
+                        self.tlogger.warning(f"STREAM checkpoint FAIL idx={idx} err={_ce}")
+                    except Exception:
+                        pass
+            else:
+                try:
+                    self.tlogger.info(f"STREAM EMPTY chunk={idx+1} worker={worker} latency={latency:.3f}s")
+                except Exception:
+                    pass
+            completed = len([v for v in self.streaming_ordered.values() if v])
+            display_total = est_total if est_total > total_snapshot else total_snapshot
+        # push UI En vivo (fuera del lock para no extender)
+        try:
+            self._push_streaming_event(completed, display_total)
+        except Exception:
+            pass
+        try:
+            self.tlogger.debug(f"STREAM END chunk={idx+1} completed={completed}/{display_total} latency={latency:.3f}s worker={worker} text_len={len(text)}")
+        except Exception:
+            pass
+
+    def _transcribe_with_streaming_merge(self, full_audio: np.ndarray, sr: int, streamed_ordered: dict, streamed_partial_path: str | None, temp_path: str | None) -> str | None:
+        """Slice C: reordena streaming_ordered + transcribe solo restantes (1-2 chunks) → post-stop <6s.
+
+        - Split idéntico a streaming (target 25s) para que índices coincidan.
+        - Reordena antes de join (orden preservado por índice).
+        - Remaining chunks se transcriben en ThreadPoolExecutor 2 workers con timeout 30s, sin bloquear.
+        - 429/413/timeout por chunk no bloquean merge (ese chunk queda vacío, sigue parcial).
+        - Checkpoint .partial_stream.txt ya actualizado durante streaming; aquí actualizamos .partial.txt si hay fallo.
+        - Retorna texto unido ordenado o None si sin texto (para lógica de process_recording).
+        """
+        import concurrent.futures
+        from .audio_chunker import split_audio_on_silence
+        chunks = split_audio_on_silence(full_audio, sr, target_s=25.0, max_s=29.0)
+        total = len(chunks)
+        if total == 0:
+            return ""
+        # ordenar copia de lo ya streameado
+        ordered: dict = {}
+        # streamed_ordered ya es copia pasada desde stop_recording, pero proteger igual
+        try:
+            for k, v in (streamed_ordered or {}).items():
+                if v and str(v).strip():
+                    ordered[int(k)] = str(v).strip()
+        except Exception:
+            ordered = {}
+        remaining = [i for i in range(total) if i not in ordered or not ordered[i]]
+        # si no hay streaming previo (corto) y remaining == total, fallback a transcribe normal fue elegido antes;
+        # aquí ya es streaming path con al menos algo
+        try:
+            self.tlogger.info(f"STREAM MERGE split total={total} ordered_prev={len(ordered)} remaining={len(remaining)} streamed_partial={streamed_partial_path}")
+        except Exception:
+            pass
+        # progresar UI: mostrar En vivo ya completo antes de post-stop, luego Chunk remaining
+        # si quedan 1-2, transcribe en paralelo 2 workers
+        if remaining:
+            # total estimado para progress
+            try:
+                max_t = int(self.config_manager.get("max_recording_time", 720))
+            except Exception:
+                max_t = 720
+            est_total = max(1, int((max_t + 24) // 25))
+            # thread-safe structures
+            m_lock = threading.Lock()
+            completed = len(ordered)
+            start_wall = time.perf_counter()
+            # helper por remaining
+            def _merge_task(idx0: int, chunk: np.ndarray) -> str:
+                t0 = time.perf_counter()
+                worker = threading.current_thread().name
+                try:
+                    self.tlogger.debug(f"STREAM MERGE TASK START chunk={idx0+1}/{total} worker={worker}")
+                except Exception:
+                    pass
+                part = ""
+                try:
+                    part = self._groq_chunk_callback(chunk, sr, prompt=None) or ""
+                    part = part.strip()
+                except Exception as e:
+                    kind = self._classify_groq_error(e)
+                    try:
+                        self.tlogger.warning(f"STREAM MERGE TASK FAIL chunk={idx0+1} err={kind} exc={e} worker={worker}")
+                    except Exception:
+                        pass
+                    part = ""
+                latency = max(0.01, time.perf_counter() - t0)
+                try:
+                    self.tlogger.debug(f"STREAM MERGE TASK END chunk={idx0+1} latency={latency:.3f}s worker={worker} len={len(part)}")
+                except Exception:
+                    pass
+                return part
+            # pool 2 workers separado — solo restantes
+            texts_map = {}
+            with ThreadPoolExecutor(max_workers=STREAM_WORKERS, thread_name_prefix="groq-stream-merge") as executor:
+                futures = {}
+                for idx0 in remaining:
+                    try:
+                        fut = executor.submit(_merge_task, idx0, chunks[idx0])
+                        futures[fut] = idx0
+                    except Exception as _se:
+                        try:
+                            self.tlogger.warning(f"STREAM MERGE submit fail idx={idx0} err={_se}")
+                        except Exception:
+                            pass
+                for fut in concurrent.futures.as_completed(futures):
+                    idx0 = futures[fut]
+                    try:
+                        part = fut.result(timeout=STREAM_TIMEOUT_S)
+                    except concurrent.futures.TimeoutError:
+                        try:
+                            self.tlogger.error(f"STREAM MERGE timeout chunk={idx0+1}")
+                        except Exception:
+                            pass
+                        part = ""
+                    except Exception:
+                        part = ""
+                    if part:
+                        part = part.strip()
+                    with m_lock:
+                        if part:
+                            ordered[idx0] = part
+                        # progress throughput real
+                        completed = len([v for v in ordered.values() if v])
+                        elapsed = time.perf_counter() - start_wall
+                        avg = elapsed / max(1, len([k for k in remaining if k <= idx0 or k in ordered])) if elapsed else 0
+                        eta = avg * (total - completed)
+                        try:
+                            self._push_progress_event(completed, total, float(eta))
+                            self._push_streaming_event(completed, est_total)
+                        except Exception:
+                            pass
+            # tras merge, ordered tiene streamed + remaining exitosos
+        # reordena antes de join — orden preservado por índice
+        # si algún remaining falló (413/429/timeout) queda fuera → parcial
+        ordered_list = [ordered[i] for i in sorted(ordered.keys()) if ordered.get(i)]
+        if not ordered_list:
+            return None
+        result = " ".join(ordered_list)
+        # checkpoint .partial.txt para compat con process_recording lógica de parcial (si faltan chunks)
+        total_chunks = total
+        got = len(ordered_list)
+        # si faltaron chunks, dejar .partial.txt con lo que hay para que caller conserve WAV
+        # (transcribe_with_groq ya maneja parcial, pero aquí lo hacemos directo para streaming merge)
+        if temp_path:
+            partial_path = str(temp_path) + ".partial.txt"
+            if got < total_chunks:
+                try:
+                    with open(partial_path, "w", encoding="utf-8") as pf:
+                        pf.write(result)
+                        pf.flush()
+                        os.fsync(pf.fileno())
+                    try:
+                        self.tlogger.info(f"STREAM MERGE partial WRITE got={got}/{total_chunks} len={len(result)} path={partial_path}")
+                    except Exception:
+                        pass
+                except Exception as _ce:
+                    try:
+                        self.tlogger.warning(f"STREAM MERGE partial FAIL {_ce}")
+                    except Exception:
+                        pass
+            else:
+                # todo OK, borrar parciales previos si existen
+                try:
+                    if os.path.exists(partial_path):
+                        os.unlink(partial_path)
+                except Exception:
+                    pass
+                try:
+                    if streamed_partial_path and os.path.exists(streamed_partial_path):
+                        os.unlink(streamed_partial_path)
+                except Exception:
+                    pass
+                try:
+                    # también limpiar partial_stream si queda
+                    if streamed_partial_path and os.path.exists(str(streamed_partial_path)):
+                        os.unlink(str(streamed_partial_path))
+                except Exception:
+                    pass
+        # aplicar utf8 + vocab + blocks igual que transcribe() hace — reutilizar para consistencia
+        try:
+            if self.utf8_validation_enabled and result:
+                result = self.validate_transcription_utf8(result)
+            if result:
+                result = self.custom_vocab.apply_corrections(result)
+            if result:
+                result = self._process_with_blocks(result)
+        except Exception:
+            pass
+        return result
 
     def get_timer_event(self):
         """Consumir un evento de timer de la cola (usado por el polling de la UI).
@@ -792,9 +1204,46 @@ class Transcriber:
         if not audio_snapshot:
             self.update_status(self.localization_manager.get_string("no_audio_captured"), "red")
             return
-        threading.Thread(target=self.process_recording, args=(recording_id, audio_snapshot), daemon=True).start()
+        # ── Slice C streaming: detener new submits y esperar in-flight (no bloquea grabación, pero post-stop espera <2s) ──
+        streamed_snapshot = None
+        streamed_partial_path = None
+        streamed_pending = set()
+        try:
+            # detener trigger
+            self._stream_next_trigger = float("inf")
+            # shutdown pool 2 workers — esperar in-flight con timeout corto (Slice C: 2 workers 30s cada = max 1s real 0.5s mock)
+            # No cancelamos futures en vuelo; wait=True asegura que streaming_ordered se complete antes de post-stop
+            executor = getattr(self, "streaming_executor", None)
+            if executor is not None:
+                try:
+                    # intentar shutdown esperable 3s (no bloquea grabación, ya está en stop path post-grabación)
+                    executor.shutdown(wait=True, cancel_futures=False)
+                except TypeError:
+                    # py <3.9 sin cancel_futures
+                    executor.shutdown(wait=True)
+                except Exception:
+                    pass
+                self.streaming_executor = None
+                try:
+                    self.tlogger.info(f"STREAM shutdown ok recording_id={recording_id} ordered={len(getattr(self,'streaming_ordered',{}))} pending={len(getattr(self,'streaming_pending',set()))}")
+                except Exception:
+                    pass
+            # snapshot streaming_ordered bajo lock para post-stop
+            with self.streaming_lock:
+                streamed_snapshot = dict(self.streaming_ordered) if getattr(self, "streaming_ordered", None) else {}
+                streamed_pending = set(self.streaming_pending) if getattr(self, "streaming_pending", None) else set()
+                streamed_partial_path = getattr(self, "streaming_partial_path", None)
+        except Exception as _sd_e:
+            try:
+                self.tlogger.warning(f"STREAM shutdown error {_sd_e}")
+            except Exception:
+                pass
+            with self.streaming_lock:
+                streamed_snapshot = dict(getattr(self, "streaming_ordered", {}))
+                streamed_partial_path = getattr(self, "streaming_partial_path", None)
+        threading.Thread(target=self.process_recording, args=(recording_id, audio_snapshot, streamed_snapshot, streamed_partial_path), daemon=True).start()
 
-    def process_recording(self, recording_id=None, audio_snapshot=None):
+    def process_recording(self, recording_id=None, audio_snapshot=None, streamed_ordered=None, streamed_partial_path=None):
         # v0.15.8 single-owner + hash dedup + process_lock
         # Discard stale recording_id (ya no es el current owner)
         if recording_id is not None and self.current_recording_id is not None and recording_id != self.current_recording_id:
@@ -873,7 +1322,23 @@ class Transcriber:
             }
             service_name = service_names.get(service, service)
             self.logger.info(f"Iniciando transcripción con {service_name}.")
-            transcription = self.transcribe(temp_path)
+            # ── Slice C streaming incremental: si hay chunks ya streameados, solo quedan 1-2 → post-stop <6s ──
+            if streamed_ordered is not None and isinstance(streamed_ordered, dict) and len(streamed_ordered) > 0 and duration >= CHUNK_THRESHOLD_S and service == "groq":
+                try:
+                    transcription = self._transcribe_with_streaming_merge(full_audio, self.freq, streamed_ordered, streamed_partial_path, temp_path)
+                    try:
+                        self.tlogger.info(f"STREAM MERGE done transcription_len={len(transcription) if transcription else 0} streamed={len(streamed_ordered)}")
+                    except Exception:
+                        pass
+                except Exception as _sm_e:
+                    self.logger.warning(f"STREAM MERGE fallo {_sm_e} — fallback a transcribe normal")
+                    try:
+                        self.tlogger.warning(f"STREAM MERGE fallback {_sm_e}")
+                    except Exception:
+                        pass
+                    transcription = self.transcribe(temp_path)
+            else:
+                transcription = self.transcribe(temp_path)
 
             # Checkpoint parcial: si transcribe creó .partial.txt y transcription es None/falla, recuperar parcial
             partial_path = (str(temp_path) + ".partial.txt") if temp_path else None
@@ -955,12 +1420,38 @@ class Transcriber:
             if temp_path and os.path.exists(temp_path):
                 self.logger.warning(f"WAV temporal conservado tras excepción: {temp_path}")
         finally:
+            # Slice C: limpiar streaming partial_stream en éxito completo
+            try:
+                if streamed_partial_path and transcription and not (str(temp_path) + ".partial.txt" and os.path.exists(str(temp_path) + ".partial.txt") if temp_path else False):
+                    # si hubo éxito completo, borrar streaming partial
+                    if os.path.exists(streamed_partial_path):
+                        try:
+                            os.unlink(streamed_partial_path)
+                            try:
+                                self.tlogger.info(f"STREAM CLEANUP partial_stream DELETE {streamed_partial_path}")
+                            except Exception:
+                                pass
+                        except Exception:
+                            pass
+                    # también limpiar self.streaming_partial_path si coincide
+                    try:
+                        if getattr(self, "streaming_partial_path", None) == streamed_partial_path and os.path.exists(str(streamed_partial_path)):
+                            pass
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             # Solo borrar si hubo éxito completo (transcription truthy y sin parcial pendiente)
             # Si temp_path aún existe, verificar si corresponde borrar + log determinístico
             partial_path_final = (str(temp_path) + ".partial.txt") if temp_path else None
             has_partial_final = bool(partial_path_final and os.path.exists(partial_path_final))
+            # también considerar streaming partial como parcial pendiente
+            try:
+                has_stream_partial = bool(streamed_partial_path and os.path.exists(streamed_partial_path))
+            except Exception:
+                has_stream_partial = False
             if temp_path and os.path.exists(temp_path):
-                if transcription and not has_partial_final:
+                if transcription and not has_partial_final and not has_stream_partial:
                     try:
                         os.unlink(temp_path)
                         try:

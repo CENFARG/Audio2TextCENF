@@ -419,6 +419,18 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
                                 pass
                         except Exception:
                             pass
+                    elif event[0] == "streaming" and len(event) >= 3:
+                        _, cur, total = event
+                        # Slice C streaming incremental: En vivo durante grabación
+                        try:
+                            self.status_label.configure(
+                                text=f"🔴 En vivo Chunk {cur}/{total}...",
+                                text_color=DesignSystem.COLORS["success"]
+                            )
+                            logging.getLogger("transcription_debug").debug(f"UI poll STREAMING En vivo Chunk {cur}/{total} queue_depth~{transcriber.timer_queue.qsize() if hasattr(transcriber,'timer_queue') and transcriber.timer_queue else -1}")
+                            # 💡 se elabora: en vivo al entrar C ft compatible
+                        except Exception:
+                            pass
                 # Log si hubo eventos (evita spam cuando vacío)
                 if _events_received:
                     try:
