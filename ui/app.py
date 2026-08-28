@@ -372,14 +372,17 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         El bucle de captura de audio ya NO actualiza la UI directamente (eso
         trababa la lectura en grabaciones largas → audio cortado → tildes/palabras
         perdidas). Los eventos llegan por cola y este método los pinta cada 250ms.
+        Instrumentado: logs/transcription_debug.log con progress recibidos/descartados.
         """
         try:
             transcriber = getattr(self, 'transcriber', None)
             if transcriber is not None:
+                _events_received = []
                 while True:
                     event = transcriber.get_timer_event()
                     if event is None:
                         break
+                    _events_received.append(event[0])
                     if event[0] == "timer" and len(event) >= 3:
                         _, minutes, seconds = event
                         # Timer en el status label
@@ -392,12 +395,42 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
                     elif event[0] == "limit" and len(event) >= 2:
                         _, max_seconds = event
                         self.update_status(f"Grabación cortada por límite de {max_seconds}s", "orange")
+                        try:
+                            logging.getLogger("transcription_debug").debug(f"UI poll received LIMIT {max_seconds}s")
+                        except Exception:
+                            pass
                     elif event[0] == "overlay" and len(event) >= 3:
                         _, state, minutes, seconds = (event + (0, 0))[:4]
                         # Mantener compatibilidad con update_overlay (que usa after(0))
                         self.update_overlay(state, minutes or 0, seconds or 0)
+                    elif event[0] == "progress" and len(event) >= 4:
+                        _, cur, total, eta_s = event
+                        # Progress real Chunk X/48 ETA 12s durante transcripción
+                        try:
+                            eta_s = int(float(eta_s))
+                            self.status_label.configure(
+                                text=f"⏳ Chunk {cur}/{total} ETA {eta_s}s",
+                                text_color=DesignSystem.COLORS["warning"]
+                            )
+                            logging.getLogger("transcription_debug").debug(f"UI poll PROGRESS Chunk {cur}/{total} ETA {eta_s}s queue_depth~{transcriber.timer_queue.qsize() if hasattr(transcriber,'timer_queue') and transcriber.timer_queue else -1}")
+                            # También overlay si existe
+                            if self.recording_overlay:
+                                # reutilizar update_status visible; overlay muestra processing con contador
+                                pass
+                        except Exception:
+                            pass
+                # Log si hubo eventos (evita spam cuando vacío)
+                if _events_received:
+                    try:
+                        logging.getLogger("transcription_debug").debug(f"UI poll batch events={_events_received} queue_remaining={transcriber.timer_queue.qsize() if hasattr(transcriber,'timer_queue') and transcriber.timer_queue else -1}")
+                    except Exception:
+                        pass
         except Exception as e:
             self.logger.debug(f"Error en poll del timer: {e}")
+            try:
+                logging.getLogger("transcription_debug").warning(f"UI poll error {e}")
+            except Exception:
+                pass
         finally:
             self.after(250, self._poll_recording_timer)
 
@@ -560,12 +593,16 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         ctk.CTkRadioButton(record_mode_frame, text=self.localization_manager.get_string("record_mode_hold"), variable=self.record_mode_var, value="hold", command=self.save_config).grid(row=0, column=0, padx=5, sticky="w")
         ctk.CTkRadioButton(record_mode_frame, text=self.localization_manager.get_string("record_mode_toggle"), variable=self.record_mode_var, value="toggle", command=self.save_config).grid(row=0, column=1, padx=10, sticky="w")
 
-        # Max Recording Duration — label a la izquierda (col 0) como todos los demás campos
+        # Max Recording Duration — CAP TRANSITORIO A - reevaluar post B (max 12 min)
         ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("max_duration_label")).grid(row=9, column=0, padx=10, pady=5, sticky="w")
-        current_duration = self.config_manager.get("max_recording_time", 1200)
-        duration_options = {"5 min": 300, "10 min": 600, "15 min": 900, "20 min": 1200}
+        current_duration = self.config_manager.get("max_recording_time", 720)
+        # CAP TRANSITORIO A - reevaluar post B: 12 min max (antes 20 min)
+        duration_options = {"5 min": 300, "10 min": 600, "12 min": 720}
         reverse_map = {v: k for k, v in duration_options.items()}
-        current_label = reverse_map.get(current_duration, "20 min")
+        # clamp si config viene con legacy 900/1200
+        if current_duration not in duration_options.values():
+            current_duration = 720
+        current_label = reverse_map.get(current_duration, "12 min")
         self.max_duration_var = tk.StringVar(value=current_label)
         ctk.CTkComboBox(main_conf_frame, values=list(duration_options.keys()), variable=self.max_duration_var, state="readonly", width=120, command=lambda e: self.save_config()).grid(row=9, column=1, columnspan=2, padx=5, pady=5, sticky="w")
 
@@ -1228,7 +1265,8 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             "nvidia_mode": self.nvidia_mode_var.get() if hasattr(self, 'nvidia_mode_var') else "cloud",
             "hotkey": hotkey_actual,  # FIX: el hotkey se mantiene con su valor actual (viene del config_manager)
             "record_mode": self.record_mode_var.get(),
-            "max_recording_time": {"5 min": 300, "10 min": 600, "15 min": 900, "20 min": 1200}.get(self.max_duration_var.get() if hasattr(self, "max_duration_var") else "20 min", 1200),
+            # CAP TRANSITORIO A - reevaluar post B: max 12 min
+            "max_recording_time": {"5 min": 300, "10 min": 600, "12 min": 720}.get(self.max_duration_var.get() if hasattr(self, "max_duration_var") else "12 min", 720),
             "auto_paste_text": self.auto_paste_var.get(), "show_transcription_panel": self.show_panel_var.get(),
             "audio_path": self.audio_path_var.get(), "transcriptions_path": self.transcriptions_path_var.get(),
             "save_audio": self.save_audio_var.get(), "save_logs": self.save_logs_var.get(),

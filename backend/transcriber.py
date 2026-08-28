@@ -9,8 +9,19 @@ import uuid
 import hashlib
 import psutil
 import threading
-from groq import Groq
+import random
 import logging
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from groq import Groq
+from .logger import ensure_transcription_debug_handler, get_transcription_logger, log_transcription_event
+# CAP TRANSITORIO A - reevaluar post B: hardening Groq (ver _call_groq_api)
+try:
+    from groq import APIStatusError as _GroqAPIStatusError, APITimeoutError as _GroqTimeoutError, RateLimitError as _GroqRateLimitError
+except Exception:  # compat si groq no expone
+    _GroqAPIStatusError = Exception
+    _GroqTimeoutError = Exception
+    _GroqRateLimitError = Exception
 from .localization_manager import LocalizationManager
 from .utf8_validator import UTF8Validator
 from .custom_vocabulary import CustomVocabulary
@@ -26,10 +37,36 @@ from .audio_chunker import transcribe_chunks
 MIN_AUDIO_DURATION = 0.5
 CHUNK_THRESHOLD_S = 28.0  # Audio >= 28s se troza para evitar pérdida en costuras de Groq
 
+# ── Slice A Hardening constants ──────────────────────────────────────────
+GROQ_TIMEOUT_S = 30  # timeout por chunk (CAP TRANSITORIO A - reevaluar post B)
+GROQ_MAX_RETRIES_429 = 3
+GROQ_BACKOFF_BASE_S = 1.0
+GROQ_MAX_FILE_MB = 25  # Groq 413 threshold aprox 25MB
+GROQ_CIRCUIT_THRESHOLD = 3  # fallos 429 consecutivos que abren circuito
+GROQ_CIRCUIT_OPEN_S = 60  # segundos que permanece abierto
+# CAP TRANSITORIO A - reevaluar post B
+TRANSIENT_CAP_S = 720  # 12 min
+_groq_circuit_failures = 0
+_groq_circuit_open_until = 0.0
+_groq_circuit_lock = threading.Lock()
+
+# ── Slice B: paralelización Groq ──────────────────────────────────────────
+# ThreadPoolExecutor 3 workers (2-4 configurable) — NO multiprocessing
+GROQ_PARALLEL_WORKERS_DEFAULT = 3
+GROQ_PARALLEL_WORKERS_MIN = 2
+GROQ_PARALLEL_WORKERS_MAX = 4
+GROQ_PARALLEL_TIMEOUT_S = 30  # timeout por future
+
 class Transcriber:
     def __init__(self, config_manager, sound_manager, file_manager, update_status_callback, transcription_callback, localization_manager, overlay_callback=None):
         import queue as _queue
+        # Ensure deterministic debug log file handler exists (flush per record)
+        try:
+            ensure_transcription_debug_handler()
+        except Exception:
+            pass
         self.logger = logging.getLogger(self.__class__.__name__)
+        self.tlogger = get_transcription_logger()
         self.config_manager = config_manager
         self.sound_manager = sound_manager
         self.file_manager = file_manager
@@ -39,7 +76,9 @@ class Transcriber:
         # FIX v0.15.0: overlay_callback (si existe) se canaliza por la cola de eventos
         # para que el thread de grabación/transcripción NUNCA toque la UI directamente.
         self.overlay_callback = overlay_callback  # se llama vía _push_overlay_event
-        self.timer_queue = _queue.Queue(maxsize=8)  # cola de eventos (timer/overlay) para polling
+        # Slice A: cola ampliada a 64 para no descartar eventos críticos (progress Chunk X/48)
+        # CAP TRANSITORIO A - reevaluar post B (antes 8, insuficiente para 48 chunks)
+        self.timer_queue = _queue.Queue(maxsize=64)  # cola de eventos (timer/overlay/progress) para polling
 
         self.logger.info(f"Transcriber inicializado con hotkey: {self.config_manager.get('hotkey')}, modo de grabación: {self.config_manager.get('record_mode')}")
 
@@ -145,13 +184,56 @@ class Transcriber:
             self.logger.warning("GROQ_API_KEY no configurada. El cliente Groq no se inicializará.")
             return None
         try:
-            client = Groq(api_key=api_key)
-            self.logger.info("Cliente Groq inicializado exitosamente.")
+            client = Groq(api_key=api_key, timeout=GROQ_TIMEOUT_S)
+            self.logger.info(f"Cliente Groq inicializado exitosamente (timeout={GROQ_TIMEOUT_S}s).")
             return client
         except Exception as e:
             self.update_status(self.localization_manager.get_string("groq_init_error", error=e), "red")
             self.logger.error(f"Error al inicializar Groq: {e}")
             return None
+
+    # ── Slice A helpers: circuit-breaker + error classification ─────────
+    def _is_circuit_open(self) -> bool:
+        with _groq_circuit_lock:
+            return time.time() < _groq_circuit_open_until
+
+    def _record_groq_success(self):
+        global _groq_circuit_failures
+        with _groq_circuit_lock:
+            _groq_circuit_failures = 0
+
+    def _record_groq_failure_429(self):
+        global _groq_circuit_failures, _groq_circuit_open_until
+        with _groq_circuit_lock:
+            _groq_circuit_failures += 1
+            if _groq_circuit_failures >= GROQ_CIRCUIT_THRESHOLD:
+                _groq_circuit_open_until = time.time() + GROQ_CIRCUIT_OPEN_S
+                self.logger.warning(f"Circuit-breaker GROQ abierto {_groq_circuit_open_until - time.time():.0f}s (429 x{_groq_circuit_failures})")
+
+    def _classify_groq_error(self, e: Exception) -> str:
+        """Clasifica error Groq: '413' | '429' | 'timeout' | 'other'."""
+        # status_code directo (groq SDK)
+        sc = getattr(e, "status_code", None)
+        msg = str(e).lower()
+        if sc == 413 or "413" in msg or "too large" in msg or "payload" in msg:
+            return "413"
+        if sc == 429 or isinstance(e, _GroqRateLimitError) or "429" in msg or "rate limit" in msg:
+            return "429"
+        if isinstance(e, _GroqTimeoutError) or "timeout" in msg or "timed out" in msg:
+            return "timeout"
+        # httpx timeouts
+        if "httpx" in msg and "timeout" in msg:
+            return "timeout"
+        return "other"
+
+    # ── Slice B helper: workers configurables ────────────────────────────
+    def _get_parallel_workers(self) -> int:
+        """Retorna workers Groq clamp [2,4], default 3."""
+        try:
+            w = int(self.config_manager.get("groq_parallel_workers", GROQ_PARALLEL_WORKERS_DEFAULT))
+        except Exception:
+            w = GROQ_PARALLEL_WORKERS_DEFAULT
+        return max(GROQ_PARALLEL_WORKERS_MIN, min(GROQ_PARALLEL_WORKERS_MAX, w))
 
     def _init_nvidia_client(self):
         """Inicializar cliente NVIDIA Riva ASR si está configurado."""
@@ -453,7 +535,8 @@ class Transcriber:
         """
         import queue
         if not hasattr(self, 'timer_queue'):
-            self.timer_queue = queue.Queue(maxsize=4)  # cola acotada, put_nowait no bloquea
+            # CAP TRANSITORIO A - reevaluar post B: maxsize 64 para progress 48 chunks
+            self.timer_queue = queue.Queue(maxsize=64)  # cola acotada, put_nowait no bloquea
 
         start_time = time.time()
         max_time = self.config_manager.get("max_recording_time", 300)
@@ -478,10 +561,26 @@ class Transcriber:
                     self._drain_remaining_audio()
                     # Avisar que se cortó por límite (vía cola, sin bloquear)
                     try:
-                        self.timer_queue.put_nowait(("limit", int(max_time)))
+                        qd = self.timer_queue.qsize()
+                    except Exception:
+                        qd = -1
+                    try:
+                        self.tlogger.info(f"record_loop AUTO-CUT dur={elapsed_time:.1f}s cap={max_time}s queue_depth={qd}")
                     except Exception:
                         pass
-                    self.stop_recording()
+                    try:
+                        self._queue_put(("limit", int(max_time)), critical=True)
+                    except Exception:
+                        pass
+                    # stop_recording ahora es seguro desde recording_thread (skip join)
+                    try:
+                        self.stop_recording()
+                    except Exception as _stop_e:
+                        try:
+                            self.tlogger.error(f"record_loop stop_recording error: {_stop_e}")
+                        except Exception:
+                            pass
+                        self.logger.error(f"record_loop stop_recording error: {_stop_e}")
                     break
                 if now - last_ui_push >= ui_interval:
                     last_ui_push = now
@@ -493,7 +592,17 @@ class Transcriber:
 
             except Exception as e:
                 self.logger.error(f"Error en bucle de grabación: {e}")
-                self.stop_recording()
+                try:
+                    self.tlogger.error(f"record_loop exception: {e} queue_depth={self.timer_queue.qsize()}")
+                except Exception:
+                    pass
+                # Evitar doble stop si ya se detuvo (el fix de join ya evitó RuntimeError, pero este except era el que causaba second call con is_recording False → no process)
+                # Solo intentar stop si aún está grabando
+                if getattr(self, "is_recording", False):
+                    try:
+                        self.stop_recording()
+                    except Exception:
+                        pass
                 break
 
     def _drain_remaining_audio(self):
@@ -523,7 +632,8 @@ class Transcriber:
 
         Returns:
             Tupla ("timer", minutes, seconds), ("limit", seconds),
-            ("overlay", state, minutes, seconds) o None si vacía.
+            ("overlay", state, minutes, seconds), ("progress", cur, total, eta_s)
+            o None si vacía.
         """
         import queue
         q = getattr(self, 'timer_queue', None)
@@ -534,6 +644,74 @@ class Transcriber:
         except queue.Empty:
             return None
 
+    def _queue_put(self, item, critical=False):
+        """Encolar sin perder eventos críticos. CAP TRANSITORIO A - reevaluar post B"""
+        import queue
+        q = getattr(self, 'timer_queue', None)
+        if q is None:
+            return False
+        try:
+            q.put_nowait(item)
+            # log queue depth at DEBUG for transcription_debug
+            try:
+                if critical or item[0] == "progress":
+                    self.tlogger.debug(f"queue_put OK {item[0]} q={q.qsize()}/{q.maxsize} critical={critical}")
+            except Exception:
+                pass
+            return True
+        except queue.Full:
+            try:
+                qd = q.qsize()
+            except Exception:
+                qd = -1
+            if critical:
+                # eventos críticos: intentar con timeout corto, si aún lleno descartar el más viejo y reintentar
+                try:
+                    self.tlogger.debug(f"queue_put FULL critical={item[0]} q={qd}/{q.maxsize} trying timeout 0.15s")
+                except Exception:
+                    pass
+                try:
+                    q.put(item, timeout=0.15)
+                    try:
+                        self.tlogger.debug(f"queue_put RETRY OK {item[0]} q={q.qsize()}/{q.maxsize}")
+                    except Exception:
+                        pass
+                    return True
+                except queue.Full:
+                    try:
+                        # hacer espacio descartando un timer no crítico si existe
+                        discarded = q.get_nowait()
+                        q.put_nowait(item)
+                        try:
+                            self.tlogger.warning(f"queue_put DISCARDED oldest={discarded[0]} to make room for critical={item[0]} q={q.qsize()}/{q.maxsize}")
+                        except Exception:
+                            pass
+                        return True
+                    except Exception:
+                        self.logger.debug(f"timer_queue llena, evento crítico descartado: {item[0]}")
+                        try:
+                            self.tlogger.warning(f"queue_put CRITICAL DISCARD {item[0]} q={qd}/{q.maxsize}")
+                        except Exception:
+                            pass
+                        return False
+            else:
+                self.logger.debug(f"timer_queue llena, evento no crítico descartado: {item[0]}")
+                try:
+                    self.tlogger.debug(f"queue_put DISCARD non-critical {item[0]} q={qd}/{q.maxsize}")
+                except Exception:
+                    pass
+                return False
+        except Exception:
+            return False
+
+    def _push_progress_event(self, current: int, total: int, eta_s: float):
+        """Progress Chunk X/Y ETA Zs — evento crítico, no debe perderse."""
+        try:
+            self.tlogger.debug(f"progress push Chunk {current}/{total} ETA {eta_s:.1f}s q={self.timer_queue.qsize()}/{self.timer_queue.maxsize}")
+        except Exception:
+            pass
+        self._queue_put(("progress", int(current), int(total), float(eta_s)), critical=True)
+
     def _push_overlay_event(self, state, minutes=0, seconds=0):
         """FIX: canalizar actualizaciones de overlay por la cola (nunca bloquear).
 
@@ -541,19 +719,14 @@ class Transcriber:
         (eso trababa la captura en grabaciones largas). Este método encola el
         evento; la UI lo consume por polling.
         """
-        q = getattr(self, 'timer_queue', None)
-        if q is None:
-            # Fallback: si no hay cola, usar el callback directo (compatibilidad)
-            if self.overlay_callback:
+        # overlay es crítico para UX pero puede ser lossy si hay burst; lo marcamos critical
+        if not self._queue_put(("overlay", state, minutes, seconds), critical=True):
+            # Fallback directo si no hay cola (compatibilidad)
+            if getattr(self, 'overlay_callback', None):
                 try:
                     self.overlay_callback(state, minutes, seconds)
                 except Exception:
                     pass
-            return
-        try:
-            q.put_nowait(("overlay", state, minutes, seconds))
-        except Exception:
-            pass  # cola llena → se saltea, nunca bloquea
 
     def stop_recording(self):
         if not self.is_recording: return
@@ -564,12 +737,41 @@ class Transcriber:
         self.update_status(self.localization_manager.get_string("status_processing"), "yellow")
         self.logger.info("Grabación detenida. Iniciando procesamiento.")
         
-        # Actualizar overlay (vía cola)
+        # Actualizar overlay (vía cola) — crítico, no descartar
         self._push_overlay_event("processing", 0, 0)
 
-        # Perf quick win: 0.08s cubre 1 read de 1024 frames @16kHz (~64ms) + margen
+        # Slice A: join ampliado para no descartar audio/timer crítico (CAP TRANSITORIO A - reevaluar post B)
+        # FIX CRÍTICO 12m smoke (cannot join current thread): si stop_recording se llama
+        # desde el propio recording_thread (auto-cut por max_recording_time en _record_loop),
+        # join al current thread lanza RuntimeError y aborta antes de spawnear process_recording.
         if getattr(self, 'recording_thread', None) and self.recording_thread.is_alive():
-            self.recording_thread.join(timeout=0.08)
+            if threading.current_thread() is self.recording_thread:
+                # auto-cut path — no hacer join a sí mismo, solo log y continuar a process_recording
+                try:
+                    self.tlogger.debug("stop_recording: llamado desde recording_thread (auto-cut) — skip join, queue_depth=%s" % self.timer_queue.qsize())
+                except Exception:
+                    pass
+                self.logger.debug("stop_recording: auto-cut desde recording_thread — skip join (evita RuntimeError)")
+            else:
+                try:
+                    self.recording_thread.join(timeout=1.0)
+                except RuntimeError as _join_err:
+                    self.logger.warning(f"join recording_thread falló (RuntimeError): {_join_err} — continuando a process_recording")
+                    try:
+                        self.tlogger.warning(f"join RuntimeError skip: {_join_err} queue_depth={self.timer_queue.qsize()}")
+                    except Exception:
+                        pass
+                if self.recording_thread.is_alive():
+                    self.logger.warning("recording_thread aún vivo tras join 1.0s — posible pérdida de último bloque, drenando")
+                    try:
+                        self.tlogger.warning(f"recording_thread aún vivo tras 1.0s queue_depth={self.timer_queue.qsize()}")
+                    except Exception:
+                        pass
+                    # intentar drenar una vez más aunque el thread siga
+                    try:
+                        self._drain_remaining_audio()
+                    except Exception:
+                        pass
 
         if self.input_stream:
             try:
@@ -623,6 +825,7 @@ class Transcriber:
 
         self.logger.info(f"Iniciando procesamiento de grabación (id={recording_id}).")
         temp_path = None
+        transcription = None
         try:
             # Usar snapshot pasado o tomar uno nuevo
             if audio_snapshot is not None:
@@ -646,6 +849,9 @@ class Transcriber:
                 self.logger.warning("Audio demasiado corto (< 1.5s).")
                 self._push_overlay_event("ready")  # Ocultar overlay si es corto
                 return
+            # CAP TRANSITORIO A - reevaluar post B: clamp validación (grabación ya corta a 720s)
+            if duration > TRANSIENT_CAP_S:
+                self.logger.warning(f"Duración {duration:.1f}s excede CAP TRANSITORIO A {TRANSIENT_CAP_S}s — se transcribe igual por chunks")
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_audio_file:
                 temp_path = temp_audio_file.name
             
@@ -668,33 +874,116 @@ class Transcriber:
             service_name = service_names.get(service, service)
             self.logger.info(f"Iniciando transcripción con {service_name}.")
             transcription = self.transcribe(temp_path)
-            
+
+            # Checkpoint parcial: si transcribe creó .partial.txt y transcription es None/falla, recuperar parcial
+            partial_path = (str(temp_path) + ".partial.txt") if temp_path else None
+            has_partial = bool(partial_path and os.path.exists(partial_path))
             if transcription:
-                self.transcription_callback(transcription)
-                self.file_manager.save_transcription_entry({
-                    "text": transcription, "duration": duration,
-                    "language": self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es")), "audio_file": audio_file_path or ""
-                })
-                self.sound_manager.sound_success()
-                self.update_status(self.localization_manager.get_string("transcription_completed"), "green")
-                # Actualizar overlay (vía cola)
-                self._push_overlay_event("ready", 0, 0)
+                # Éxito (full o parcial con texto) — verificar si fue parcial incompleto
+                is_partial = has_partial
+                if is_partial:
+                    self.logger.warning("Transcripción parcial detectada — WAV temporal se conserva para reintento")
+                    try:
+                        # guardar parcial también como entrada marcada
+                        self.file_manager.save_transcription_entry({
+                            "text": transcription, "duration": duration,
+                            "language": self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es")), "audio_file": audio_file_path or "",
+                            "partial": True
+                        })
+                    except Exception:
+                        pass
+                    self.update_status("⚠️ Transcripción parcial guardada — WAV conservado", "orange")
+                    self._push_overlay_event("error", 0, 0)
+                    # NO borrar temp ni parcial — conservar para reintento manual
+                else:
+                    self.transcription_callback(transcription)
+                    self.file_manager.save_transcription_entry({
+                        "text": transcription, "duration": duration,
+                        "language": self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es")), "audio_file": audio_file_path or ""
+                    })
+                    self.sound_manager.sound_success()
+                    self.update_status(self.localization_manager.get_string("transcription_completed"), "green")
+                    self._push_overlay_event("ready", 0, 0)
+                    # Éxito completo — borrar temporales
+                    try:
+                        if os.path.exists(temp_path):
+                            os.unlink(temp_path)
+                            temp_path = None
+                    except Exception:
+                        pass
+                    try:
+                        if partial_path and os.path.exists(partial_path):
+                            os.unlink(partial_path)
+                    except Exception:
+                        pass
             else:
-                self.update_status(self.localization_manager.get_string("transcription_failed"), "red")
-                # Actualizar overlay (vía cola)
-                self._push_overlay_event("error", 0, 0)
-            
-            if os.path.exists(temp_path): os.unlink(temp_path)
+                # Falla total — intentar recuperar parcial del checkpoint
+                if has_partial:
+                    try:
+                        with open(partial_path, "r", encoding="utf-8") as pf:
+                            partial_text = pf.read().strip()
+                    except Exception:
+                        partial_text = ""
+                    if partial_text:
+                        self.logger.warning(f"Recuperando transcripción parcial {len(partial_text)} chars tras fallo")
+                        self.transcription_callback(partial_text)
+                        try:
+                            self.file_manager.save_transcription_entry({
+                                "text": partial_text, "duration": duration,
+                                "language": self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es")), "audio_file": audio_file_path or "",
+                                "partial": True
+                            })
+                        except Exception:
+                            pass
+                        self.update_status("⚠️ Transcripción parcial guardada — WAV conservado", "orange")
+                        self._push_overlay_event("error", 0, 0)
+                        # conservar WAV y parcial
+                    else:
+                        self.update_status(self.localization_manager.get_string("transcription_failed"), "red")
+                        self._push_overlay_event("error", 0, 0)
+                        self.logger.warning(f"Transcripción fallida — WAV temporal conservado en {temp_path} para reintento")
+                else:
+                    self.update_status(self.localization_manager.get_string("transcription_failed"), "red")
+                    self._push_overlay_event("error", 0, 0)
+                    self.logger.warning(f"Transcripción fallida — WAV temporal conservado en {temp_path} para reintento")
+                # No borrar temp en caso de fallo
             
         except Exception as e:
             self.update_status(f'{self.localization_manager.get_string("processing_error")} {e}', "red")
             self.logger.critical(f"Error crítico durante el procesamiento: {e}", exc_info=True)
-        finally:
+            # conservar WAV en caso de excepción
             if temp_path and os.path.exists(temp_path):
-                try:
-                    os.unlink(temp_path)
-                except Exception:
-                    pass
+                self.logger.warning(f"WAV temporal conservado tras excepción: {temp_path}")
+        finally:
+            # Solo borrar si hubo éxito completo (transcription truthy y sin parcial pendiente)
+            # Si temp_path aún existe, verificar si corresponde borrar + log determinístico
+            partial_path_final = (str(temp_path) + ".partial.txt") if temp_path else None
+            has_partial_final = bool(partial_path_final and os.path.exists(partial_path_final))
+            if temp_path and os.path.exists(temp_path):
+                if transcription and not has_partial_final:
+                    try:
+                        os.unlink(temp_path)
+                        try:
+                            self.tlogger.info(f"temp DELETE success transcription={len(transcription) if transcription else 0} path={temp_path}")
+                        except Exception:
+                            pass
+                    except Exception as _del_e:
+                        try:
+                            self.tlogger.warning(f"temp DELETE fail {_del_e} path={temp_path}")
+                        except Exception:
+                            pass
+                else:
+                    # conservar — log ya emitido
+                    try:
+                        self.tlogger.info(f"temp CONSERVED partial={has_partial_final} transcription={'yes' if transcription else 'no'} path={temp_path} log_path=logs/transcription_debug.log")
+                    except Exception:
+                        pass
+                    # Asegurar mensaje UI con ruta de log si hubo fallo
+                    if not transcription or has_partial_final:
+                        try:
+                            self.update_status(f"⚠️ Ver logs/transcription_debug.log — WAV conservado {temp_path}", "orange")
+                        except Exception:
+                            pass
             # v0.15.8: liberar process_lock si fue adquirido
             try:
                 if self.process_lock.locked():
@@ -703,39 +992,172 @@ class Transcriber:
                 pass
 
     def _call_groq_api(self, wav_path, prompt=None):
-        """Llamar a la API de Groq con un único archivo WAV.
+        """Llamar a la API de Groq con un único archivo WAV — con hardening Slice A.
 
-        Args:
-            wav_path: Ruta al archivo WAV.
-            prompt: Texto de contexto para mantener consistencia entre ventanas.
+        - timeout=30s (Groq client)
+        - 413 no reintenta (fail fast)
+        - 429 retry backoff + jitter + circuit-breaker
+        - timeout retry 2x sin bloquear para siempre
+        CAP TRANSITORIO A - reevaluar post B
+        Instrumentado: logs/transcription_debug.log con file_size, attempt, latency, err, circuit, queue_depth.
         """
-        with open(wav_path, "rb") as f:
-            kwargs = dict(
-                file=(os.path.basename(wav_path), f.read()),
-                model="whisper-large-v3",
-                response_format="text",
-                language=self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es")),
-            )
-            if prompt:
-                kwargs["prompt"] = prompt
-            return self.cliente.audio.transcriptions.create(**kwargs)
+        # circuit-breaker check
+        if self._is_circuit_open():
+            with _groq_circuit_lock:
+                remaining = max(0.0, _groq_circuit_open_until - time.time())
+            self.logger.warning(f"Groq circuit-breaker abierto ({remaining:.0f}s restantes) — fail fast")
+            try:
+                self.tlogger.warning(f"Groq circuit OPEN skip {wav_path} remaining={remaining:.0f}s queue_depth={getattr(self, 'timer_queue', None).qsize() if getattr(self, 'timer_queue', None) else -1}")
+            except Exception:
+                pass
+            raise RuntimeError(f"Groq circuit-breaker abierto, reintente en {remaining:.0f}s")
+
+        # 413 pre-check por tamaño (evita subir 38MB y recibir 413)
+        try:
+            sz = os.path.getsize(wav_path)
+            sz_mb = sz / (1024 * 1024)
+            try:
+                self.tlogger.debug(f"Groq pre-check {os.path.basename(wav_path)} size={sz_mb:.2f}MB prompt={'yes' if prompt else 'no'}")
+            except Exception:
+                pass
+            if sz > GROQ_MAX_FILE_MB * 1024 * 1024:
+                self.logger.error(f"Groq 413 pre-check: {wav_path} {sz/(1024*1024):.1f}MB > {GROQ_MAX_FILE_MB}MB")
+                try:
+                    self.tlogger.error(f"Groq 413 pre-check FAIL {wav_path} size={sz_mb:.2f}MB >{GROQ_MAX_FILE_MB}MB")
+                except Exception:
+                    pass
+                self.update_status(f"❌ Audio {sz/(1024*1024):.1f}MB excede límite Groq {GROQ_MAX_FILE_MB}MB (413)", "red")
+                raise RuntimeError(f"413 Payload Too Large {sz} bytes > {GROQ_MAX_FILE_MB}MB")
+        except RuntimeError:
+            raise
+        except Exception:
+            pass  # si no se puede stat, seguir
+
+        last_exc = None
+        max_attempts = GROQ_MAX_RETRIES_429 + 1  # 1 intento inicial + retries
+        for attempt in range(max_attempts):
+            t_api0 = time.perf_counter()
+            try:
+                with open(wav_path, "rb") as f:
+                    file_bytes = f.read()
+                    file_mb = len(file_bytes) / (1024 * 1024)
+                    kwargs = dict(
+                        file=(os.path.basename(wav_path), file_bytes),
+                        model="whisper-large-v3",
+                        response_format="text",
+                        language=self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es")),
+                    )
+                    if prompt:
+                        kwargs["prompt"] = prompt
+                    try:
+                        qd = self.timer_queue.qsize() if getattr(self, "timer_queue", None) else -1
+                    except Exception:
+                        qd = -1
+                    try:
+                        self.tlogger.debug(f"Groq call START wav={os.path.basename(wav_path)} size={file_mb:.2f}MB attempt={attempt+1}/{max_attempts} q={qd}")
+                    except Exception:
+                        pass
+                    result = self.cliente.audio.transcriptions.create(**kwargs)
+                    latency = time.perf_counter() - t_api0
+                    self._record_groq_success()
+                    try:
+                        self.tlogger.info(f"Groq call OK wav={os.path.basename(wav_path)} latency={latency:.3f}s attempt={attempt+1} size={file_mb:.2f}MB")
+                    except Exception:
+                        pass
+                    return result
+            except Exception as e:
+                latency = time.perf_counter() - t_api0
+                last_exc = e
+                kind = self._classify_groq_error(e)
+                try:
+                    qd = self.timer_queue.qsize() if getattr(self, "timer_queue", None) else -1
+                except Exception:
+                    qd = -1
+                try:
+                    self.tlogger.warning(f"Groq call FAIL wav={os.path.basename(wav_path)} err={kind} latency={latency:.3f}s attempt={attempt+1}/{max_attempts} q={qd} exc={e}")
+                except Exception:
+                    pass
+                if kind == "413":
+                    self.logger.error(f"Groq 413 Payload Too Large: {e} — no reintenta")
+                    self.update_status("❌ Groq 413: archivo muy grande", "red")
+                    raise
+                elif kind == "429":
+                    self._record_groq_failure_429()
+                    if attempt < GROQ_MAX_RETRIES_429:
+                        # backoff exponencial + jitter
+                        base = GROQ_BACKOFF_BASE_S * (2 ** attempt)
+                        jitter = random.uniform(0, 1.0)
+                        # respetar Retry-After si viene en headers
+                        retry_after = None
+                        try:
+                            resp = getattr(e, "response", None)
+                            if resp is not None and hasattr(resp, "headers"):
+                                ra = resp.headers.get("retry-after") or resp.headers.get("Retry-After")
+                                if ra:
+                                    retry_after = float(ra)
+                        except Exception:
+                            pass
+                        wait = retry_after if retry_after is not None else base + jitter
+                        wait = min(wait, 8.0)  # cap 8s
+                        self.logger.warning(f"Groq 429 intento {attempt+1}/{max_attempts} backoff {wait:.1f}s")
+                        try:
+                            self.tlogger.info(f"Groq 429 backoff {wait:.1f}s attempt={attempt+1}")
+                        except Exception:
+                            pass
+                        # informar progreso si es chunk
+                        try:
+                            self.update_status(f"⏳ Groq 429, reintento {attempt+1}/{GROQ_MAX_RETRIES_429} en {wait:.1f}s...", "orange")
+                        except Exception:
+                            pass
+                        time.sleep(wait)
+                        continue
+                    else:
+                        self.logger.error(f"Groq 429 agotados {max_attempts} intentos — circuit-breaker")
+                        raise
+                elif kind == "timeout":
+                    # timeout: reintentar máximo 2 veces con backoff corto
+                    if attempt < 2:
+                        wait = GROQ_BACKOFF_BASE_S * (attempt + 1) + random.uniform(0, 0.5)
+                        wait = min(wait, 4.0)
+                        self.logger.warning(f"Groq timeout intento {attempt+1} backoff {wait:.1f}s — {e}")
+                        try:
+                            self.tlogger.info(f"Groq timeout backoff {wait:.1f}s attempt={attempt+1}")
+                        except Exception:
+                            pass
+                        time.sleep(wait)
+                        continue
+                    else:
+                        self.logger.error(f"Groq timeout definitivo tras {attempt+1} intentos: {e}")
+                        raise
+                else:
+                    # other errors: no retry
+                    self.logger.error(f"Groq error no reintentable ({kind}): {e}")
+                    raise
+        if last_exc:
+            raise last_exc
+        raise RuntimeError("Groq _call_groq_api falló sin excepción capturada")
 
     def _groq_chunk_callback(self, chunk, sr, prompt=None):
-        """Callback para transcribe_chunks: escribe chunk a WAV temporal y llama Groq."""
+        """Callback para transcribe_chunks: escribe chunk a WAV temporal y llama Groq (con timeout 30s)."""
         tmp_path = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 tmp_path = tmp.name
             sf.write(tmp_path, chunk, sr)
-            return self._call_groq_api(tmp_path, prompt=prompt) or ""
+            res = self._call_groq_api(tmp_path, prompt=prompt)
+            return res or ""
         except Exception as e:
+            # 413/429/timeout ya logueado en _call_groq_api; propagar para que caller marque parcial (no confundir con silencio)
             self.logger.warning(f"Error transcribiendo chunk: {e}")
+            kind = self._classify_groq_error(e)
+            if kind in ("413", "429", "timeout") or "circuit-breaker" in str(e).lower():
+                raise
             return ""
         finally:
             if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
-    def transcribe_with_groq(self, audio_path):
+    def transcribe_with_groq(self, audio_path, progress_callback=None):
         if not self.cliente:
             self.update_status(self.localization_manager.get_string("groq_client_not_initialized"), "red")
             return None
@@ -743,19 +1165,252 @@ class Transcriber:
             data, sr = sf.read(audio_path)
             duration = len(data) / sr
 
+            # CAP TRANSITORIO A - reevaluar post B: validar duración
+            if duration > TRANSIENT_CAP_S:
+                self.logger.warning(f"Audio {duration:.1f}s excede CAP TRANSITORIO A {TRANSIENT_CAP_S}s (12 min) — se intentará transcribir igual por chunks (no se pierde).")
+                # No rechazamos de plano para no perder datos si el cap se saltea; el record ya corta a 720s.
+                # Si se quiere rechazar estricto, descomentar:
+                # self.update_status(f"❌ Audio {duration/60:.1f}min excede límite transitorio 12 min", "red")
+                # return None
+
             if duration >= CHUNK_THRESHOLD_S:
                 self.logger.info(
                     f"Audio largo ({duration:.1f}s): trozando en ventanas <30s "
                     f"para evitar pérdida en costuras de Groq."
                 )
-                chunk_sr = sr
-                def chunk_cb(chunk, prompt=None):
-                    return self._groq_chunk_callback(chunk, chunk_sr, prompt)
-                response = transcribe_chunks(
-                    data, sr, api_call=chunk_cb, target_s=25.0, max_s=29.0,
-                )
+                # Slice B: paralelización Groq — ThreadPoolExecutor 3 workers (2-4 configurable)
+                from .audio_chunker import split_audio_on_silence
+                chunks = split_audio_on_silence(data, sr, target_s=25.0, max_s=29.0)
+                total = len(chunks)
+                workers = self._get_parallel_workers()
+                self.logger.info(f"Groq chunking: {total} chunks (target 25s, max 29s) workers={workers} parallel=SliceB")
+                # checkpoint parcial: archivo .partial junto al wav si está en temp
+                partial_path = str(audio_path) + ".partial.txt"
+                # limpiar parcial previo si existe
+                try:
+                    if os.path.exists(partial_path):
+                        os.unlink(partial_path)
+                except Exception:
+                    pass
+
+                # Global timeout safety para 28 chunks *30s=840s
+                _global_deadline = time.time() + 700  # 700s < 12m cap + margen
+                try:
+                    file_size_mb = os.path.getsize(audio_path) / (1024 * 1024)
+                except Exception:
+                    file_size_mb = len(data) * 2 / (1024 * 1024)  # estimado PCM16
+                try:
+                    self.tlogger.info(f"transcribe START dur={duration:.1f}s file={file_size_mb:.2f}MB chunks={total} sr={sr} workers={workers} queue_depth={self.timer_queue.qsize() if getattr(self,'timer_queue',None) else -1}")
+                except Exception:
+                    pass
+
+                # Slice B structures — thread-safe
+                texts_ordered: list = [None] * total
+                chunk_times: list = []
+                completed = 0
+                all_ok = True
+                start_wall = time.perf_counter()
+                checkpoint_lock = threading.Lock()
+                times_lock = threading.Lock()
+                completed_lock = threading.Lock()
+                # global timeout flag
+                _global_timed_out = False
+
+                def _parallel_chunk_task(idx0: int, chunk: np.ndarray) -> str:
+                    """Task por chunk: START/END con worker_id, latency, pool queue. 413/429 no bloquea pool."""
+                    worker_id = threading.current_thread().name  # groq-w_0 etc
+                    # pool queue depth (executor._work_queue.qsize si existe)
+                    try:
+                        qsz = getattr(_parallel_chunk_task, "_executor", None)
+                        if qsz is not None and hasattr(qsz, "_work_queue"):
+                            q_depth = qsz._work_queue.qsize()
+                        else:
+                            q_depth = -1
+                    except Exception:
+                        q_depth = -1
+                    try:
+                        chunk_dur = len(chunk) / sr
+                        chunk_mb = len(chunk) * 2 / (1024 * 1024)
+                    except Exception:
+                        chunk_dur = 0
+                        chunk_mb = 0
+                    try:
+                        self.tlogger.debug(f"Chunk START {idx0+1}/{total} worker={worker_id} dur={chunk_dur:.1f}s size={chunk_mb:.2f}MB q={q_depth}")
+                    except Exception:
+                        pass
+                    t0 = time.perf_counter()
+                    part = ""
+                    try:
+                        # Slice B: prompt=None en paralelo para evitar dependencia secuencial (tradeoff speedup >2.5x)
+                        # circuit-breaker + 429 backoff ya manejado en _call_groq_api por chunk
+                        part = self._groq_chunk_callback(chunk, sr, prompt=None) or ""
+                    except Exception as ce:
+                        kind = self._classify_groq_error(ce)
+                        latency_fail = time.perf_counter() - t0
+                        try:
+                            # outer q depth
+                            qd2 = -1
+                            try:
+                                ex = getattr(_parallel_chunk_task, "_executor", None)
+                                if ex is not None and hasattr(ex, "_work_queue"):
+                                    qd2 = ex._work_queue.qsize()
+                            except Exception:
+                                pass
+                            self.tlogger.error(f"Chunk FAIL {idx0+1}/{total} worker={worker_id} err={kind} latency={latency_fail:.3f}s exc={ce} q={qd2}")
+                        except Exception:
+                            pass
+                        if kind == "413":
+                            # 413 no reintenta, retornar vacío sin bloquear pool
+                            return ""
+                        # 429/timeout/circuit: ya hizo retry/backoff interno, retornar vacío para no cancelar otros
+                        return ""
+                    latency = max(0.01, time.perf_counter() - t0)
+                    try:
+                        qd_end = -1
+                        try:
+                            ex = getattr(_parallel_chunk_task, "_executor", None)
+                            if ex is not None and hasattr(ex, "_work_queue"):
+                                qd_end = ex._work_queue.qsize()
+                        except Exception:
+                            pass
+                        kind2 = "ok" if part and part.strip() else "empty"
+                        self.tlogger.debug(f"Chunk END {idx0+1}/{total} worker={worker_id} latency={latency:.3f}s result={kind2} len={len(part) if part else 0} q={qd_end}")
+                    except Exception:
+                        pass
+                    return part.strip() if part else ""
+
+                # ——— submit all ———
+                futures_map = {}
+                # throughput ETA: completed/elapsed
+                with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="groq-w") as executor:
+                    # attach executor for queue logging inside task
+                    _parallel_chunk_task._executor = executor
+                    for idx0, ch in enumerate(chunks):
+                        # global deadline pre-check: si ya pasó, no submitear resto
+                        if time.time() > _global_deadline:
+                            _global_timed_out = True
+                            break
+                        fut = executor.submit(_parallel_chunk_task, idx0, ch)
+                        futures_map[fut] = idx0
+                    # as_completed — orden de llegada desordenado, reordena antes de join
+                    for fut in as_completed(futures_map):
+                        idx0 = futures_map[fut]
+                        # timeout 30s por future (GROQ_PARALLEL_TIMEOUT_S)
+                        try:
+                            part = fut.result(timeout=GROQ_PARALLEL_TIMEOUT_S)
+                        except concurrent.futures.TimeoutError:
+                            try:
+                                self.tlogger.error(f"Chunk TIMEOUT {idx0+1}/{total} worker=timeout latency={GROQ_PARALLEL_TIMEOUT_S}s q={executor._work_queue.qsize() if hasattr(executor,'_work_queue') else -1}")
+                            except Exception:
+                                pass
+                            part = ""
+                            all_ok = False
+                        except Exception as ce:
+                            part = ""
+                            all_ok = False
+                        # guardar en posición ordenada
+                        texts_ordered[idx0] = part or ""
+                        if not part:
+                            all_ok = False
+                        else:
+                            # latency approx via wall? ya logueada en task; para ETA usamos wall elapsed
+                            pass
+                        # thread-safe checkpoint: reordena antes de join
+                        with checkpoint_lock:
+                            # escribir join ordenado de los completados (None → no incluido aún)
+                            ordered_partial = " ".join([t for t in texts_ordered if t])
+                            if ordered_partial:
+                                try:
+                                    with open(partial_path, "w", encoding="utf-8") as pf:
+                                        pf.write(ordered_partial)
+                                        pf.flush()
+                                        os.fsync(pf.fileno())
+                                    try:
+                                        self.tlogger.info(f"checkpoint WRITE completed chunk {idx0+1}/{total} total_len={len(ordered_partial)} path={partial_path} q={executor._work_queue.qsize() if hasattr(executor,'_work_queue') else -1}")
+                                    except Exception:
+                                        pass
+                                except Exception as ce:
+                                    try:
+                                        self.tlogger.warning(f"checkpoint FAIL Chunk {idx0+1} err={ce}")
+                                    except Exception:
+                                        pass
+                        # thread-safe ETA por throughput real
+                        with completed_lock:
+                            completed += 1
+                            elapsed = time.perf_counter() - start_wall
+                            avg = elapsed / completed if completed else 0
+                            eta = avg * (total - completed)
+                            # track latency for avg display
+                            with times_lock:
+                                # aproximar latency como avg
+                                chunk_times.append(avg if avg else 0.01)
+                            try:
+                                self._push_progress_event(completed, total, float(eta))
+                            except Exception:
+                                pass
+                            if progress_callback:
+                                try:
+                                    progress_callback(completed, total, float(eta))
+                                except Exception:
+                                    pass
+                            try:
+                                self.update_status(f"⏳ Chunk {completed}/{total} ETA {int(eta)}s...", "yellow")
+                            except Exception:
+                                pass
+                            # global timeout post-check
+                            if time.time() > _global_deadline:
+                                _global_timed_out = True
+                    # cleanup attach
+                    try:
+                        _parallel_chunk_task._executor = None
+                    except Exception:
+                        pass
+
+                if _global_timed_out:
+                    self.logger.error(f"transcribe GLOBAL TIMEOUT tras {time.time() - (_global_deadline-700):.0f}s — abort parcial")
+                    try:
+                        self.tlogger.error(f"GLOBAL TIMEOUT aborted completed={completed}/{total}")
+                    except Exception:
+                        pass
+                    try:
+                        self.update_status("❌ Timeout global — parcial guardado, ver logs/transcription_debug.log", "red")
+                    except Exception:
+                        pass
+                    all_ok = False
+
+                # reordena antes de join — orden preservado por índice
+                texts = [t for t in texts_ordered if t]
+                response = " ".join(texts)
+                # si hubo algún chunk fallido pero tenemos texto parcial, lo consideramos éxito parcial
+                if not response and not all_ok:
+                    self.logger.warning("Transcripción chunked sin texto y con fallos — retornando None para que caller preserve WAV")
+                    return None
+                # push final progress 100%
+                try:
+                    self._push_progress_event(total, total, 0.0)
+                except Exception:
+                    pass
+                # checkpoint: si todo OK, borrar parcial; si no, mantener
+                if all_ok and response:
+                    try:
+                        if os.path.exists(partial_path):
+                            os.unlink(partial_path)
+                    except Exception:
+                        pass
+                else:
+                    self.logger.warning(f"Transcripción parcial {len(texts)}/{total} chunks OK — WAV no se borrará, parcial en {partial_path}")
             else:
                 self.logger.debug(f"Enviando audio {audio_path} a la API de Groq.")
+                try:
+                    sz = os.path.getsize(audio_path) / (1024*1024)
+                    self.tlogger.info(f"transcribe SINGLE dur={duration:.1f}s size={sz:.2f}MB path={audio_path}")
+                except Exception:
+                    pass
+                # progress single chunk
+                try:
+                    self._push_progress_event(1, 1, 0.0)
+                except Exception:
+                    pass
                 response = self._call_groq_api(audio_path)
 
             # Aplicar validación UTF-8 si está habilitada

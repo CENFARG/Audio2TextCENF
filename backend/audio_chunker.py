@@ -36,6 +36,10 @@ MAX_WINDOW_S = 30.0
 DEFAULT_TARGET_S = 25.0
 DEFAULT_MAX_S = 29.0
 
+# Slice B: paralelización Groq — pool 3 workers (2-4 configurable)
+DEFAULT_PARALLEL_WORKERS = 3
+PARALLEL_TIMEOUT_S = 30  # timeout por future (match GROQ_TIMEOUT_S)
+
 
 def _silence_threshold_db(db: np.ndarray) -> float:
     """Umbral adaptativo de silencio en dB a partir del perfil del audio.
@@ -153,7 +157,8 @@ def transcribe_chunks(audio: np.ndarray, sr: int,
                       api_call: Callable[[np.ndarray, Optional[str]], str],
                       target_s: float = DEFAULT_TARGET_S,
                       max_s: float = DEFAULT_MAX_S,
-                      prompt_chars: int = 300) -> str:
+                      prompt_chars: int = 300,
+                      progress_callback: Optional[Callable[[int, int, float], None]] = None) -> str:
     """Transcribir audio largo troceado, uniendo los textos de cada chunk.
 
     Encadena un `prompt` con el final del texto anterior en cada llamada:
@@ -168,20 +173,141 @@ def transcribe_chunks(audio: np.ndarray, sr: int,
             `prompt` es None en la primera llamada.
         target_s / max_s: parámetros del trozado.
         prompt_chars: cuántos caracteres de contexto previo pasar como prompt.
+        progress_callback: opcional (idx, total, eta_s) para progress real Chunk X/Y.
 
     Returns:
         Texto unido de todos los chunks.
     """
+    import time as _time
     chunks = split_audio_on_silence(audio, sr, target_s=target_s, max_s=max_s)
-    texts = []
-    for chunk in chunks:
+    total = len(chunks)
+    texts: List[str] = []
+    chunk_times: List[float] = []
+    for idx, chunk in enumerate(chunks, start=1):
+        if progress_callback:
+            if chunk_times:
+                avg = sum(chunk_times) / len(chunk_times)
+                eta = avg * (total - idx + 1)
+            else:
+                eta = 0.0
+            try:
+                progress_callback(idx, total, float(eta))
+            except Exception:
+                pass
         prompt = None
         if texts:
             joined = " ".join(texts)
             prompt = joined[-prompt_chars:].strip()
+        t0 = _time.perf_counter()
         part = api_call(chunk, prompt=prompt)
+        t1 = _time.perf_counter()
+        chunk_times.append(max(0.01, t1 - t0))
         if part:
             part = part.strip()
         if part:
             texts.append(part)
+    if progress_callback and total:
+        try:
+            progress_callback(total, total, 0.0)
+        except Exception:
+            pass
     return " ".join(texts)
+
+
+def transcribe_chunks_parallel(
+    audio: np.ndarray,
+    sr: int,
+    api_call: Callable[[np.ndarray, Optional[str]], str],
+    target_s: float = DEFAULT_TARGET_S,
+    max_s: float = DEFAULT_MAX_S,
+    prompt_chars: int = 300,
+    progress_callback: Optional[Callable[[int, int, float], None]] = None,
+    max_workers: int = DEFAULT_PARALLEL_WORKERS,
+    timeout_s: float = PARALLEL_TIMEOUT_S,
+) -> str:
+    """Slice B: transcribir chunks en paralelo con ThreadPoolExecutor.
+
+    Mantiene orden de chunks para join final (reordena tras completions),
+    ETA recalculado por throughput real (completed/elapsed), sin usar
+    multiprocessing. En paralelo el prompt se omite (None) para evitar
+    dependencia secuencial — tradeoff documentado para speedup >2.5x.
+
+    413/429 por chunk no bloquea el pool; 429 no cancela otros futures.
+    Timeout 30s por future.
+    """
+    import time as _time
+    import threading
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    # clamp workers 2-4
+    try:
+        max_workers = int(max_workers)
+    except Exception:
+        max_workers = DEFAULT_PARALLEL_WORKERS
+    max_workers = max(2, min(4, max_workers))
+
+    chunks = split_audio_on_silence(audio, sr, target_s=target_s, max_s=max_s)
+    total = len(chunks)
+    if total == 0:
+        return ""
+    if total == 1:
+        # single chunk — secuencial directo
+        t0 = _time.perf_counter()
+        part = api_call(chunks[0], prompt=None)
+        t1 = _time.perf_counter()
+        if progress_callback:
+            try:
+                progress_callback(1, 1, 0.0)
+            except Exception:
+                pass
+        return (part or "").strip()
+
+    # parallel path
+    texts: List[Optional[str]] = [None] * total
+    completed = 0
+    start_wall = _time.perf_counter()
+    lock = threading.Lock()
+
+    def _call_one(idx0: int, chunk: np.ndarray) -> str:
+        # prompt desacoplado en paralelo (None)
+        try:
+            return api_call(chunk, prompt=None) or ""
+        except Exception:
+            # 413/429/timeout: no propagar para no cancelar pool, retornar vacío
+            return ""
+
+    # submit all at once — pool limita concurrencia a max_workers (3*25MB safe)
+    futures = {}
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="groq-w") as executor:
+        for idx0, chunk in enumerate(chunks):
+            fut = executor.submit(_call_one, idx0, chunk)
+            futures[fut] = idx0
+        for fut in as_completed(futures):
+            idx0 = futures[fut]
+            try:
+                part = fut.result(timeout=timeout_s)
+            except Exception:
+                part = ""
+            if part:
+                part = part.strip()
+            texts[idx0] = part or ""
+            with lock:
+                completed += 1
+                elapsed = _time.perf_counter() - start_wall
+                avg = elapsed / completed if completed else 0
+                eta = avg * (total - completed)
+                if progress_callback:
+                    try:
+                        # throughput real: completed/elapsed
+                        progress_callback(completed, total, float(eta))
+                    except Exception:
+                        pass
+    # reordena antes de join — orden preservado por índice
+    ordered = [t for t in texts if t]
+    # progress final 100%
+    if progress_callback and total:
+        try:
+            progress_callback(total, total, 0.0)
+        except Exception:
+            pass
+    return " ".join(ordered)

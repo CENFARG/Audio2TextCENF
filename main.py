@@ -33,6 +33,8 @@ if sys.platform.startswith('win'):
 import logging
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
+from pathlib import Path
+from backend.logger import ensure_transcription_debug_handler  # Slice A deterministic debug log
 
 # Add the project root to the Python path
 if getattr(sys, 'frozen', False):
@@ -163,6 +165,13 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=handlers
 )
+
+# Slice A: deterministic transcription_debug.log (flush per record, DEBUG)
+try:
+    _td_path = ensure_transcription_debug_handler(logs_dir=Path(logs_path))
+    logging.getLogger("transcription_debug").info(f"transcription_debug.log activo: {_td_path}")
+except Exception as _e:
+    print(f"[main] no se pudo inicializar transcription_debug.log: {_e}")
 
 # Silenciar logs ruidosos de la UI y librerías
 logging.getLogger("App").setLevel(logging.INFO)
