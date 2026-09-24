@@ -50,4 +50,8 @@ streaming implemented). i18n: `lang/es.json`, `lang/en.json`.
 - [x] Bug report to Gentleman-Programming/gentle-shell (see task 2 in todo)
 
 ## Evidence
-- Commits: (to be recorded per work unit)
+- Commits:
+  - d1aa677 docs(roadmap): add product/UX Track A and reorganize master roadmap into two tracks
+- Upstream report: https://github.com/Gentleman-Programming/gentle-shell/issues/1414
+  - bug(memory): session-bound memory writes fail permanently with "session has already ended" until pi is restarted
+  - Labels: bug, status:needs-review (readback verified)
