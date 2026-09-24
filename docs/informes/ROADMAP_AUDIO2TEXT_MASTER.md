@@ -2,6 +2,8 @@
 
 Índice único de evolución de Audio2Text para **reuniones largas**, **subtitulado vivo**, **traducción simultánea**, **interlocutores**, **diarización** y **speech-to-speech**. Esta referencia consolida el estado estable, los aprendizajes y las decisiones de priorización sin convertir hipótesis en compromisos.
 
+El roadmap se organiza en dos tracks que conviven: **Track A — Producto/UX** (features inmediatas de la app, corto plazo) y **Track B — Iniciativas estratégicas 1-10** (reuniones y vivo). El Track A genera valor de uso inmediato mientras el Track B construye las capacidades de largo plazo.
+
 ## Cómo convocarlo
 
 Buscar o pedir: **Audio2Text roadmap maestro**, **reuniones largas**, **subtitulado vivo**, **traducción simultánea**, **interlocutores**, **diarización**, **speech-to-speech**.
@@ -64,7 +66,19 @@ Aprendizajes consolidados:
 - Evaluar diarización audio-only o audiovisual; los timestamps no son speaker labels.
 - Mantener speech-to-speech/doblaje para el final, después de contar con transcripción, contexto, permisos y métricas estables.
 
-## Roadmap único 1-10
+## Track A — Producto/UX (corto plazo)
+
+Features definidas con el usuario (GR) el 2026-09-24. Corren sobre la línea `fix/v0.15.1-ui-polish` (v0.15.x, UI CustomTkinter en `ui/app.py`) reutilizando la maquinaria de transcripción existente (`backend/transcriber.py`). Documento de tareas: `odd/tasks/audio2text-ux-track.md`.
+
+| # | Iniciativa y valor | Dificultad | Dependencias | Criterio de salida |
+|---:|---|---|---|---|
+| A1 | **Pestaña Archivos**: transcribir archivos de audio cargándolos, arrastrándolos o pegándolos desde el portapapeles, con la misma maquinaria de transcripción. | Media | Tab UI + drag&drop (tkinterdnd2) + clipboard; pipeline batch existente | Un archivo ingresado por las tres vías se transcribe y aparece en historial, con i18n es/en |
+| A2 | **Pestaña Supervisor de respuestas a IAs**: entradas numeradas con cita de la IA (entre comillas) + `:` + corrección del usuario; selectbox de bloques de contexto predefinidos (templates de `.amBotHs/contextBlocks/*.md`, 12 bloques con frontmatter id/name/description); botón "Nueva respuesta"; CRUD de historial; auto-guardado por pulsación (nada se pierde por crash o hotkeys de TUIs de agentes); botones "Copiar respuesta N" / "Copiar todo"; estado borrador/enviada; por fragmento: escribir o grabar por voz. | Media-Alta | Bloques de contexto externos; persistencia JSON local | Flujo captura→redacción→grabación→copia definido como máquina de estado; una entrada sobrevive a un crash |
+| A3 | **Hotkey global de captura**: captura el portapapeles como entrada nueva del Supervisor; si se re-copia el mismo contenido, reemplaza la última ordinal en vez de duplicar. | Baja-Media | A2 | Re-copia no duplica: actualiza la última entrada |
+
+Priorización: el Track A va primero en el corto plazo por ser quick wins con valor de uso inmediato (análisis quick win → big goals); no bloquea ni modifica las iniciativas estratégicas del Track B.
+
+## Track B — Iniciativas estratégicas 1-10 (reuniones, vivo, traducción)
 
 Orden vigente: valor práctico de reuniones primero; complejidad y dependencias después. La dificultad es relativa y no representa horas ni presupuesto.
 
@@ -114,7 +128,7 @@ La investigación encontró que Groq documenta STT batch y que su endpoint de tr
 | **Scheme** | Diseña el proceso y la arquitectura de la iniciativa elegida: contratos de estado, dependencias, límites humanos/IA, proveedores, seguridad, observabilidad y criterios de entrada/salida. |
 | **SEE** | Evalúa viabilidad técnico-económica-tiempo y recursos disponibles antes de autorizar el salto de una etapa; reaudita con evidencia de piloto, métricas, costos y riesgos. |
 
-Flujo recomendado: **Planificador prioriza -> Scheme diseña -> SEE evalúa -> implementación/piloto -> SEE reaudita -> Planificador actualiza este índice**. Este archivo es la referencia de coordinación, no reemplaza una especificación, diseño técnico ni evaluación SEE.
+Flujo recomendado: **Planificador prioriza -> Scheme diseña -> SEE evalúa -> implementación/piloto -> SEE reaudita -> Planificador actualiza este índice**. Ambos tracks siguen este flujo; el Track A usa ciclos más cortos por su alcance acotado. Este archivo es la referencia de coordinación, no reemplaza una especificación, diseño técnico ni evaluación SEE.
 
 ## Fuentes y trazabilidad
 
