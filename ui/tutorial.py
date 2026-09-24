@@ -45,14 +45,14 @@ class TutorialManager:
             },
             {
                 "title": "Servicio de Transcripción",
-                "message": "Elige entre Groq Cloud (online) o faster-whisper (local).\nGroq es más rápido. faster-whisper funciona offline.",
+                "message": "La app usa Groq Cloud (online) con Whisper Large V3.\nRápido y preciso. Requiere API Key.",
                 "target": "tab_settings_placeholder",
                 "position": "bottom_dock",
                 "tab": self.app.localization_manager.get_string("tab_settings")
             },
             {
-                "title": "API Key (solo Groq)",
-                "message": "Groq necesita API Key gratis.\nObténla en: console.groq.com/keys\n\nfaster-whisper NO necesita API key (es local).",
+                "title": "API Key (Groq)",
+                "message": "Groq necesita API Key gratis.\nObténla en: console.groq.com/keys",
                 "target": "tab_settings_placeholder",
                 "position": "bottom_dock",
                 "tab": self.app.localization_manager.get_string("tab_settings")

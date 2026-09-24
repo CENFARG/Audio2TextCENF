@@ -16,8 +16,21 @@ class FileManager:
         # Si está compilado con PyInstaller, usar el directorio del .exe
         # Si es desarrollo, usar el directorio del script
         if getattr(sys, 'frozen', False):
-            # Ejecutándose como .exe compilado
-            self.base_dir = os.path.dirname(sys.executable)
+            # HC-04 FIX: usar sys.executable dir en frozen para que WorkingDir del acceso directo no desvíe paths
+            # Fallback a cwd si executable no existe (tests con mock)
+            try:
+                exe = getattr(sys, 'executable', None)
+                if exe and os.path.exists(os.path.dirname(exe) if os.path.dirname(exe) else exe):
+                    # os.path.dirname('') -> '' para exe sin dir, fallback a cwd
+                    exe_dir = os.path.dirname(exe)
+                    self.base_dir = exe_dir if exe_dir else os.getcwd()
+                else:
+                    # sys.frozen mock sin executable real (tests) -> cwd
+                    self.base_dir = os.path.dirname(sys.executable) if exe else os.getcwd()
+                    if not self.base_dir:
+                        self.base_dir = os.getcwd()
+            except Exception:
+                self.base_dir = os.getcwd()
         else:
             # Ejecutándose como script Python
             self.base_dir = os.path.dirname(os.path.abspath(__file__))
@@ -55,6 +68,11 @@ class FileManager:
         # Límites de archivos
         self.max_audio_files = self.config.get("max_audio_files", 100)
         self.max_transcription_age_days = self.config.get("max_transcription_age_days", 30)
+
+        # Perf: cache duración {filepath: (mtime, duration)} — lazy invalidado por mtime
+        self._duration_cache: dict = {}
+        # Límite de cache para evitar fuga con muchos archivos rotados
+        self._duration_cache_max = 512
 
     def save_audio_file(self, audio_data, sample_rate=16000):
         if not self.config.get("save_audio", True): return None
@@ -149,6 +167,8 @@ class FileManager:
         try:
             for filename in os.listdir(self.audio_path):
                 if filename.endswith('.wav'): os.remove(os.path.join(self.audio_path, filename))
+            # Perf: limpiar cache — todos los archivos eliminados
+            self._duration_cache.clear()
             return True
         except Exception as e:
             print(f"Error al eliminar archivos de audio: {e}")
@@ -235,6 +255,44 @@ class FileManager:
             print(f"Error al mantener límite de archivos: {e}")
             return 0
 
+    def _get_wav_duration(self, filepath: str) -> float:
+        """Obtener duración en segundos de un WAV sin cargar todo el audio en memoria."""
+        try:
+            import soundfile as sf
+            info = sf.info(filepath)
+            if info.samplerate and info.frames:
+                return info.frames / float(info.samplerate)
+        except Exception:
+            pass
+        try:
+            import wave
+            with wave.open(filepath, 'rb') as wf:
+                frames = wf.getnframes()
+                rate = wf.getframerate()
+                if rate:
+                    return frames / float(rate)
+        except Exception:
+            pass
+        return 0.0
+
+    def _get_cached_duration(self, filepath: str) -> float:
+        """Perf: duración con cache dict {path: (mtime, duration)} invalidado por mtime."""
+        try:
+            mtime = os.path.getmtime(filepath)
+        except Exception:
+            return 0.0
+        cached = self._duration_cache.get(filepath)
+        if cached is not None and cached[0] == mtime:
+            return cached[1]
+        duration = self._get_wav_duration(filepath)
+        # Evicción simple FIFO si excede max
+        if len(self._duration_cache) >= self._duration_cache_max:
+            # remover ~20% más antiguo (dict mantiene inserción ordenada en py3.7+)
+            for k in list(self._duration_cache.keys())[: self._duration_cache_max // 5]:
+                self._duration_cache.pop(k, None)
+        self._duration_cache[filepath] = (mtime, duration)
+        return duration
+
     def get_audio_files_list(self, limit=None, offset=0):
         """
         Obtener lista de archivos de audio con paginación.
@@ -244,20 +302,41 @@ class FileManager:
             offset: Número de archivos a saltar (para paginación)
 
         Returns:
-            list: Lista de archivos (nombre, filepath, mtime)
+            list: Lista de archivos (nombre, filepath, mtime, duration)
         """
         try:
             audio_files = [f for f in os.listdir(self.audio_path) if f.endswith('.wav')]
 
-            # Agregar metadatos
+            # Agregar metadatos — perf: duración via cache mtime
             files_with_metadata = []
             for filename in audio_files:
                 filepath = os.path.join(self.audio_path, filename)
+                try:
+                    mtime = os.path.getmtime(filepath)
+                except Exception:
+                    mtime = 0
+                # Usar mtime ya obtenido para evitar segundo stat en cache
+                cached = self._duration_cache.get(filepath)
+                if cached is not None and cached[0] == mtime:
+                    duration = cached[1]
+                else:
+                    duration = self._get_wav_duration(filepath)
+                    if len(self._duration_cache) >= self._duration_cache_max:
+                        for k in list(self._duration_cache.keys())[: self._duration_cache_max // 5]:
+                            self._duration_cache.pop(k, None)
+                    self._duration_cache[filepath] = (mtime, duration)
                 files_with_metadata.append({
                     "name": filename,
                     "path": filepath,
-                    "mtime": os.path.getmtime(filepath)
+                    "mtime": mtime,
+                    "duration": duration
                 })
+            # Limpiar entradas huérfanas (archivos ya borrados) para no acumular
+            if len(self._duration_cache) > len(audio_files) + 10:
+                valid_paths = {os.path.join(self.audio_path, f) for f in audio_files}
+                for k in list(self._duration_cache.keys()):
+                    if k not in valid_paths:
+                        self._duration_cache.pop(k, None)
 
             # Ordenar por fecha de modificación (más recientes primero)
             files_with_metadata.sort(key=lambda x: x["mtime"], reverse=True)

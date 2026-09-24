@@ -80,9 +80,11 @@ class RecordingOverlay(ctk.CTkToplevel):
         self.withdraw()  # Ocultar ventana
     
     def set_error(self):
-        """Establecer estado de error"""
+        """Establecer estado de error y Ocultar ventana"""
         self.is_recording = False
         self.led_canvas.itemconfig(self.led, fill="#EF4444")  # Rojo
+        # FIX: el overlay debe ocultarse ante un error para no quedar colgado en pantalla
+        self.withdraw()
     
     def update_timer(self, minutes, seconds):
         """Actualizar el timer"""

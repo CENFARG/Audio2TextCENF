@@ -6,7 +6,7 @@
 
 **Transcripción de Audio en Tiempo Real con IA**
 
-[![Version](https://img.shields.io/badge/version-0.13.0-blue.svg)](https://github.com/CENFARG/Audio2Text/releases)
+[![Version](https://img.shields.io/badge/version-0.15.12-blue.svg)](https://github.com/CENFARG/Audio2Text/releases)
 [![License](https://img.shields.io/badge/license-Apache%202.0-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![Platform](https://img.shields.io/badge/platform-Windows-lightgrey.svg)](https://www.microsoft.com/windows)

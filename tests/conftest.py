@@ -72,7 +72,7 @@ def mock_config():
         dict: Mock configuration
     """
     return {
-        "version": "0.13.0",
+        "version": "0.15.0",
         "api_key": "test_api_key_123",
         "api_key_obfuscated": " obscured_key",
         "language": "es",
@@ -83,7 +83,6 @@ def mock_config():
         "auto_cleanup_days": 30,
         "theme": "dark",
         "service": "groq",
-        "faster_whisper": {"model_size": "base", "device": "cpu", "compute_type": "int8"},
         "blocks": {
             "task_extractor": {"enabled": True, "stage": "post"},
             "summary": {"enabled": True, "stage": "post"},
