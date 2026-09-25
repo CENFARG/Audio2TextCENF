@@ -66,3 +66,11 @@ gemini_usage.json
 gemini_bench.json
 # Local Pi runtime state
 .atl/
+
+# Test and runtime artifacts
+.coverage
+coverage.xml
+htmlcov/
+app_log.txt
+test_session.log
+transcription_metadata.json
