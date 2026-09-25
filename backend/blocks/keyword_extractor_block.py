@@ -7,9 +7,11 @@ Author: Audio2Text Development Team
 Version: 0.11.0 (development)
 """
 
-import re
-from typing import Dict, Any, Optional, List, Tuple
+from __future__ import annotations
+
 import logging
+import re
+from typing import Any
 
 from .base_block import BaseBlock, BlockType, ProcessingStage, BlockResult
 
@@ -27,7 +29,7 @@ class KeywordExtractorBlock(BaseBlock):
     - Términos técnicos del vocabulario
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """
         Inicializar bloque extractor de palabras clave.
 
@@ -102,7 +104,7 @@ class KeywordExtractorBlock(BaseBlock):
                 data=keywords,
                 metadata={
                     'total_keywords': len(keywords),
-                    'unique_terms': len(set(k['keyword'] for k in keywords)),
+                    'unique_terms': len({k['keyword'] for k in keywords}),
                     'max_score': keywords[0]['score'] if keywords else 0
                 }
             )
@@ -117,7 +119,7 @@ class KeywordExtractorBlock(BaseBlock):
                 error=str(e)
             )
 
-    def _extract_keywords(self, text: str) -> List[Dict[str, Any]]:
+    def _extract_keywords(self, text: str) -> list[dict[str, Any]]:
         """Extraer palabras clave usando múltiples estrategias."""
         keywords = {}
 
@@ -145,16 +147,23 @@ class KeywordExtractorBlock(BaseBlock):
                 keywords[num] = keywords.get(num, 0) + score
 
         # Convertir a lista de diccionarios
+        # BUG-2 fix: aplicar min_length en TODAS las estrategias — punto único
+        # de control sobre el dict combinado (frecuencia, entidades, vocabulario,
+        # números). Antes solo _extract_entities respetaba self.min_length.
+        filtered = {
+            kw: score for kw, score in keywords.items()
+            if len(kw) >= self.min_length
+        }
         return [
             {
                 'keyword': kw,
                 'score': score,
                 'type': self._classify_keyword(kw)
             }
-            for kw, score in keywords.items()
+            for kw, score in filtered.items()
         ]
 
-    def _extract_by_frequency(self, text: str) -> List[Tuple[str, float]]:
+    def _extract_by_frequency(self, text: str) -> list[tuple[str, float]]:
         """Extraer palabras por frecuencia (TF simplificado)."""
         # Stopwords en español
         stopwords = {
@@ -164,8 +173,10 @@ class KeywordExtractorBlock(BaseBlock):
             'este', 'esta', 'esto', 'estos', 'estas', 'ese', 'esa', 'eso'
         }
 
-        # Tokenizar
-        words = re.findall(r'\b[a-záéíóúñ]{4,}\b', text.lower())
+        # Tokenizar — BUG-2 fix: el piso de longitud sale de la configuración
+        # (self.min_length), no del {4,} hardcodeado.
+        min_len = max(1, int(self.min_length))
+        words = re.findall(rf'\b[a-záéíóúñ]{{{min_len},}}\b', text.lower())
 
         # Contar frecuencia
         freq = {}
@@ -180,7 +191,7 @@ class KeywordExtractorBlock(BaseBlock):
         # Filtrar por score mínimo
         return [(word, score) for word, score in normalized if score > 0.2]
 
-    def _extract_entities(self, text: str) -> List[Tuple[str, float]]:
+    def _extract_entities(self, text: str) -> list[tuple[str, float]]:
         """Extraer entidades nombradas (nombres propios, fechas, etc.)."""
         entities = []
 
@@ -206,7 +217,7 @@ class KeywordExtractorBlock(BaseBlock):
 
         return entities
 
-    def _extract_vocabulary_terms(self, text: str) -> List[Tuple[str, float]]:
+    def _extract_vocabulary_terms(self, text: str) -> list[tuple[str, float]]:
         """Extraer términos del vocabulario técnico."""
         import json
         import os
@@ -237,7 +248,7 @@ class KeywordExtractorBlock(BaseBlock):
 
         return terms
 
-    def _extract_numbers(self, text: str) -> List[Tuple[str, float]]:
+    def _extract_numbers(self, text: str) -> list[tuple[str, float]]:
         """Extraer números significativos."""
         numbers = []
 
