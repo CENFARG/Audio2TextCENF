@@ -22,19 +22,15 @@ config/version_info.txt (+3 variantes), setup.py, config/version.json (manifest 
 
 ## B — Batch 2: bug fixes (aprobado GR 2026-09-25)
 
-- [ ] B1. BUG-1 hotkey fail-open: parse_hotkey_string descarta modificadores desconocidos →
-      "win+f5" aceptado. Fix: rechazar tokens desconocidos; test ya existe (rojo)
-- [ ] B2. BUG-2 keyword min_length: _extract_by_frequency hardcodea {4,} ignorando config.
-      Fix: regex desde min_length configurado; test ya existe (rojo)
-- [ ] B3. LT-3 charset API key: validar key al guardar/check (ASCII imprimible, strip),
-      error amigable en UI en vez de crash ascii codec repetido
-- [ ] B4. TRANSCRIPCIÓN DOBLE (reporte Pablo): bajo alguna condición el texto sale pegado
-      dos veces. Investigar: merge post-stop de Slice C (checkpoint + merge final),
-      hash guard de display_transcription (v0.15.8), doble llamado a save/display.
-      Reproducir con test → fix → test verde
-- [ ] B5. test_transcriber (2F+13E): triage AttributeError drift vs bugs reales
-      (mismo protocolo que batch 1: tests al contrato actual; bugs reales se reportan)
-- [ ] B6. Commit granular por fix + bump patch 0.15.13 al cerrar el batch
+- [x] B1. BUG-1 hotkey fail-open — fail closed vía Hotkey.invalid_modifiers (c56ff0f)
+- [x] B2. BUG-2 keyword min_length — regex desde config + filtro a nivel ensamblado (168d6ca)
+- [x] B3. LT-3 charset API key — validación en save + check, error localizado es/en (99d6fb6)
+- [x] B4. TRANSCRIPCIÓN DOBLE — RAÍZ: excepción total==1 streameaba el snapshot-cola con borde
+      inestable (re-corte post-stop solapa ~1.8s) → merge re-transcribía el solape. Fix: no
+      streamear la cola durante grabación (8e8f9c2; repro determinista + 2 invariantes)
+- [x] B5. test_transcriber — 24/24 alineados al contrato verificado, sin bugs nuevos (f5d4090)
+- [x] B6. Suite: 307 passed / 0 failed / 0 errors, cov 61.93% (2 flakes preexistentes
+      order-dependent: test_12min_real_repro, test_429_retry_backoff)
 
 ## C — F1 seguimiento
 
@@ -86,6 +82,8 @@ config/version_info.txt (+3 variantes), setup.py, config/version.json (manifest 
 ## Estado
 
 - Batch 1 deuda: ✅ (18F→5F, cov 61.29%)
-- F1: ✅ implementada y verificada en vivo (pendiente C1-C5)
-- Batch 2 (B1-B5): 🔄 en curso
+- F1: ✅ implementada y verificada en vivo
+- Batch 2 (B1-B6): ✅ suite 100% verde (307P/0F/0E, cov 61.93%)
+- F1.1 restructure (C4): ⏳ próximo
+- Versionado (A): ⏳ auditado, falta ejecutar
 - F2/F3/G: ⏳ cola
