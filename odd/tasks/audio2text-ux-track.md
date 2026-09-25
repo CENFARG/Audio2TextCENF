@@ -51,7 +51,12 @@ streaming implemented). i18n: `lang/es.json`, `lang/en.json`.
 
 ## Evidence
 - Commits:
-  - d1aa677 docs(roadmap): add product/UX Track A and reorganize master roadmap into two tracks
+  - d1aa677 docs(roadmap): Track A + reorg two tracks
+  - 91f8deb docs(tasks): roadmap commit + issue link
+  - d63ff85 docs(spec): F1 openspec change
+  - bf0cfaf feat(files): import validation + clipboard paths (TDD 29/29)
+  - 187378b feat(ui): Files tab (picker, drag-drop, clipboard)
+  - 834f4db chore: ignore local .atl runtime state
 - Upstream report: https://github.com/Gentleman-Programming/gentle-shell/issues/1414
   - bug(memory): session-bound memory writes fail permanently with "session has already ended" until pi is restarted
   - Labels: bug, status:needs-review (readback verified)
