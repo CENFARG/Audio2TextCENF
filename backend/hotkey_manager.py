@@ -11,7 +11,7 @@ Soporta:
 import logging
 import keyboard
 from typing import Dict, List, Tuple, Optional, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -20,6 +20,10 @@ class Hotkey:
     key: str  # Tecla principal: "f1", "a", "1", etc.
     modifiers: List[str]  # Modificadores: ["ctrl", "shift"], ["alt"], etc.
     mouse_button: Optional[str] = None  # Botón mouse: "left", "right", "middle", etc.
+    # Tokens en posición de modificador que no son un modificador soportado
+    # ni un botón de mouse conocido (ej: "win"). Deben llegar a validación
+    # para rechazar el hotkey (fail closed) en vez de descartarse en silencio.
+    invalid_modifiers: List[str] = field(default_factory=list)
 
     def __str__(self) -> str:
         """Representación legible del hotkey."""
@@ -83,7 +87,21 @@ class HotkeyManager:
                 mouse_button = part
                 break
 
-        return Hotkey(key=key, modifiers=modifiers, mouse_button=mouse_button)
+        # Fail closed: todo token en posición de modificador que no sea un
+        # modificador soportado ni un botón mouse conocido se registra para
+        # que is_hotkey_valid rechace el hotkey. Antes estos tokens se
+        # descartaban silenciosamente y la validación fallaba abierta (B4/BUG-1).
+        invalid_modifiers = [
+            p for p in parts[:-1]
+            if p not in self.MODIFIERS and p not in self.MOUSE_BUTTONS
+        ]
+
+        return Hotkey(
+            key=key,
+            modifiers=modifiers,
+            mouse_button=mouse_button,
+            invalid_modifiers=invalid_modifiers,
+        )
 
     def format_hotkey_string(self, key: str, modifiers: List[str], mouse_button: Optional[str] = None) -> str:
         """
@@ -116,6 +134,13 @@ class HotkeyManager:
         """
         try:
             hotkey = self.parse_hotkey_string(hotkey_str)
+
+            # Validar modificadores desconocidos (fail closed)
+            if hotkey.invalid_modifiers:
+                self.logger.warning(
+                    f"Modificador inválido: {', '.join(hotkey.invalid_modifiers)}"
+                )
+                return False
 
             # Validar tecla
             valid_keys = self.F_KEYS + [chr(i) for i in range(ord('a'), ord('z') + 1)]

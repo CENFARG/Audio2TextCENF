@@ -19,7 +19,7 @@ from unittest.mock import Mock, patch
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from backend.hotkey_manager import HotkeyManager, Hotkey
+from backend.hotkey_manager import Hotkey, HotkeyManager
 
 
 @pytest.mark.unit
@@ -115,48 +115,54 @@ class TestHotkeyValidation:
 
     def test_valid_simple_hotkey(self, manager):
         """Test validation of valid simple hotkey."""
-        assert manager.is_hotkey_valid("f5") == True
+        assert manager.is_hotkey_valid("f5")
 
     def test_valid_hotkey_with_modifiers(self, manager):
         """Test validation of valid hotkey with modifiers."""
-        assert manager.is_hotkey_valid("ctrl+shift+f1") == True
-        assert manager.is_hotkey_valid("alt+f10") == True
-        assert manager.is_hotkey_valid("shift+a") == True
+        assert manager.is_hotkey_valid("ctrl+shift+f1")
+        assert manager.is_hotkey_valid("alt+f10")
+        assert manager.is_hotkey_valid("shift+a")
 
     def test_invalid_key(self, manager):
         """Test validation with invalid key."""
-        assert manager.is_hotkey_valid("invalid") == False
-        assert manager.is_hotkey_valid("ctrl+xyz") == False
+        assert not manager.is_hotkey_valid("invalid")
+        assert not manager.is_hotkey_valid("ctrl+xyz")
 
     def test_invalid_modifier(self, manager):
         """Test validation with invalid modifier.
 
-        LEFT FAILING ON PURPOSE — real backend bug report (tech-debt batch 1b):
-        parse_hotkey_string silently drops tokens not in MODIFIERS
-        (``[p for p in parts[:-1] if p in self.MODIFIERS]``), so the
-        "Modificador inválido" rejection branch inside is_hotkey_valid is
-        unreachable and validation fails open: is_hotkey_valid("win+f5")
-        returns True and register_hotkey proceeds with an unsupported
-        modifier. Backend must surface unknown modifiers to validation.
-        Do NOT adjust this expectation; backend owns the fix.
+        BUG-1 (tech-debt batch 1b, fixed): parse_hotkey_string silently
+        dropped tokens not in MODIFIERS, so the "Modificador inválido"
+        rejection branch inside is_hotkey_valid was unreachable and
+        validation failed open (is_hotkey_valid("win+f5") was True).
+        Contract now: unknown modifiers surface to validation via
+        Hotkey.invalid_modifiers and reject the hotkey (fail closed).
         """
-        assert manager.is_hotkey_valid("win+f5") == False
+        assert not manager.is_hotkey_valid("win+f5")
+
+    def test_valid_compound_hotkey(self, manager):
+        """Test a valid compound hotkey still works after the BUG-1 fix."""
+        assert manager.is_hotkey_valid("ctrl+shift+f9") is True
+        hotkey = manager.parse_hotkey_string("ctrl+shift+f9")
+        assert hotkey.key == "f9"
+        assert hotkey.modifiers == ["ctrl", "shift"]
+        assert hotkey.invalid_modifiers == []
 
     def test_empty_hotkey(self, manager):
         """Test validation of empty hotkey."""
-        assert manager.is_hotkey_valid("") == False
+        assert not manager.is_hotkey_valid("")
 
     def test_valid_f_keys(self, manager):
         """Test all F keys are valid."""
         for i in range(1, 13):
-            assert manager.is_hotkey_valid(f"f{i}") == True
+            assert manager.is_hotkey_valid(f"f{i}")
 
     def test_valid_alphanumeric_keys(self, manager):
         """Test alphanumeric keys are valid."""
-        assert manager.is_hotkey_valid("a") == True
-        assert manager.is_hotkey_valid("z") == True
-        assert manager.is_hotkey_valid("0") == True
-        assert manager.is_hotkey_valid("9") == True
+        assert manager.is_hotkey_valid("a")
+        assert manager.is_hotkey_valid("z")
+        assert manager.is_hotkey_valid("0")
+        assert manager.is_hotkey_valid("9")
 
 
 @pytest.mark.unit
@@ -263,6 +269,8 @@ class TestHotkeyEdgeCases:
 
         # Should handle gracefully
         assert hotkey.key == "f5"
+        # Fail closed: the empty token is not a supported modifier
+        assert not manager.is_hotkey_valid("ctrl++shift+f5")
 
     def test_parse_hotkey_with_spaces(self, manager):
         """Test parsing hotkey with spaces.
