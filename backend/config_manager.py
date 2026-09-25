@@ -1,9 +1,39 @@
 # C:\Users\gonza\Dropbox\DOC. RECA\06-Software\Audio2Text\audio2text_v0.8.1\backend\config_manager.py
-import os
+from __future__ import annotations
+
 import json
-import re
 import logging
+import os
+import re
+
 from .localization_manager import LocalizationManager
+
+
+def validate_api_key_charset(api_key: str | None) -> tuple[str, str | None]:
+    """Sanitizar y validar el charset de una API key de Groq.
+
+    LT-3: el SDK de Groq envía la key en el header Authorization y el
+    cliente HTTP no puede codificar headers no-ASCII (crash "'ascii' codec
+    can't encode character" en cada save/check si el usuario pegó la clave
+    con tildes o símbolos de más).
+
+    Args:
+        api_key: Valor crudo de la key (puede venir con espacios o None).
+
+    Returns:
+        Tupla ``(cleaned, issue)``: la key con espacios de bordes removidos y
+        el problema detectado — ``None`` si es utilizable, ``"empty"`` si
+        queda vacía tras el strip, ``"non_ascii"`` si contiene caracteres
+        fuera de ASCII (tildes, ñ, ¿, etc.).
+    """
+    cleaned = (api_key or "").strip()
+    if not cleaned:
+        return cleaned, "empty"
+    try:
+        cleaned.encode("ascii")
+    except UnicodeEncodeError:
+        return cleaned, "non_ascii"
+    return cleaned, None
 
 # Optional keyring support — graceful fallback if not installed
 try:
@@ -73,22 +103,22 @@ class ConfigManager:
         needs_save = False
         try:
             if os.path.exists(self.config_file):
-                with open(self.config_file, 'r', encoding='utf-8') as f:
+                with open(self.config_file, encoding='utf-8') as f:
                     loaded_config = json.load(f)
                     config.update(loaded_config)
-                
+
                 # Check if keys are already obfuscated by trying to decode them
                 # If they are NOT obfuscated (plain 'gsk_', 'nvapi-', 'sk-'), we force a save after loading
                 needs_save = False
                 for key in ["groq_api_key", "nvidia_api_key"]:
                     val = config.get(key, "")
-                    if val and (val.startswith("gsk_") or val.startswith("nvapi-") or val.startswith("sk-")):
+                    if val and val.startswith(("gsk_", "nvapi-", "sk-")):
                         needs_save = True
                         break
-                
+
         except Exception as e:
             self.logger.error(f"Error al cargar configuración desde {self.config_file}: {e}, usando configuración por defecto.")
-        
+
         # Migración: si el archivo no tenía transcription_language, copiar desde su default_language
         if "transcription_language" not in loaded_config:
             # Si el archivo tenía default_language (ej: "en"), respetarlo para transcripción
@@ -161,7 +191,7 @@ class ConfigManager:
                 if os.path.exists(self.config_file):
                     config["_geometry_migrated"] = True
                     needs_save = True
-        
+
         # Decode sensitive keys (Always do this, even for defaults) — compat con configs viejas obfuscadas
         for key in ["groq_api_key", "nvidia_api_key"]:
             if config.get(key):
@@ -171,7 +201,7 @@ class ConfigManager:
                 # _decode_gift_key ya maneja el caso plain retornando original
                 config[key] = decoded_value
                 self.logger.debug(f"Decoded {key}: {original_value[:20]}... -> {decoded_value[:20]}...")
-        
+
         # También decodificar gift_key_encoded si existe (compatibilidad con instalaciones viejas)
         if config.get("gift_key_encoded"):
             try:
@@ -219,12 +249,12 @@ class ConfigManager:
             config["groq_parallel_workers"] = _gpw_int
 
         self.config = config
-        
+
         # Force save if it was plain text to obfuscate it inmediatamente
         if needs_save:
             self.logger.info("Detectada clave en texto plano. Ofuscando automáticamente...")
             self.save_config()
-            
+
         return config
 
     def save_config(self):
@@ -234,12 +264,12 @@ class ConfigManager:
             # HC-01: nunca persistir gift_key_encoded con valor real — limpiar
             if config_to_save.get("gift_key_encoded"):
                 config_to_save["gift_key_encoded"] = ""
-            
+
             # Encode sensitive keys before saving
             for key in ["groq_api_key", "nvidia_api_key"]:
                 if config_to_save.get(key):
                     config_to_save[key] = self._encode_key(config_to_save[key])
-            
+
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(config_to_save, f, indent=2, ensure_ascii=False)
             self.logger.info(f"Configuración guardada en {self.config_file}")
@@ -250,10 +280,19 @@ class ConfigManager:
         return self.config.get(key, default)
 
     def set(self, key, value):
+        if key == "groq_api_key":
+            value = self._sanitize_groq_api_key(value)
         self.config[key] = value
         self.save_config()
 
     def set_multiple(self, new_settings: dict):
+        if "groq_api_key" in new_settings:
+            new_settings = {
+                **new_settings,
+                "groq_api_key": self._sanitize_groq_api_key(
+                    new_settings["groq_api_key"]
+                ),
+            }
         self.config.update(new_settings)
         self.save_config()
 
@@ -343,12 +382,33 @@ class ConfigManager:
         """Compat: alias a get_groq_api_key() para código existente."""
         return self.get_groq_api_key()
 
+    def _sanitize_groq_api_key(self, api_key: str) -> str:
+        """Limpiar y validar el charset de la Groq API key al guardarla.
+
+        LT-3: strip de bordes + detección de caracteres no ASCII. La key se
+        guarda igual (limpia) para que el check de UI pueda reportar el
+        problema de forma amigable y localizada; acá solo se registra la
+        advertencia.
+
+        Args:
+            api_key: Valor crudo ingresado por el usuario.
+
+        Returns:
+            La key con espacios de bordes removidos.
+        """
+        cleaned, issue = validate_api_key_charset(api_key)
+        if issue == "non_ascii":
+            self.logger.warning(
+                self.localization_manager.get_string("api_key_charset_error")
+            )
+        return cleaned
+
     def set_groq_api_key(self, api_key: str, use_keyring: bool = True):
         """
         Guardar GROQ_API_KEY. Si use_keyring y keyring disponible, guarda en vault;
         siempre guarda en config como fallback (ofuscada al persistir).
         """
-        api_key = (api_key or "").strip()
+        api_key = self._sanitize_groq_api_key(api_key)
         if use_keyring and api_key:
             if self._set_keyring_api_key(api_key):
                 # También guardar en config para fallback si keyring falla luego

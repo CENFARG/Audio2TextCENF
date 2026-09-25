@@ -30,6 +30,7 @@
   "clear_transcriptions_button": "Clear Transcriptions",
   "settings_title_main": "Main Settings",
   "api_key_placeholder": "Groq API Key (from environment variable)",
+  "api_key_charset_error": "The Groq API Key contains invalid characters (accents, ñ or symbols pasted by mistake). Clear the field and paste the key again.",
   "verify_button": "Verify",
   "record_hotkey_button": "Record Hotkey",
   "record_mode_label": "Recording Mode:",

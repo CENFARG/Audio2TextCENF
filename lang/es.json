@@ -30,6 +30,7 @@
   "clear_transcriptions_button": "Limpiar Transcripciones",
   "settings_title_main": "Configuración Principal",
   "api_key_placeholder": "Clave API de Groq (desde variable de entorno)",
+  "api_key_charset_error": "La API Key de Groq contiene caracteres no válidos (¿tildes, ñ o símbolos pegados por error?). Borrá el campo y volvé a pegar la clave.",
   "nvidia_api_key_placeholder": "Clave API de NVIDIA (desde variable de entorno)",
   "asr_provider_label": "Servicio de Transcripción:",
   "asr_provider_groq": "Groq Cloud (Whisper Large v3)",

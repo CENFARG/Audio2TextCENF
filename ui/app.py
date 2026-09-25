@@ -19,7 +19,7 @@ import json
 from datetime import datetime
 
 # Backend imports
-from backend.config_manager import ConfigManager
+from backend.config_manager import ConfigManager, validate_api_key_charset
 from backend.file_manager import FileManager
 from backend.sound_manager import SoundManager
 from backend.transcriber import Transcriber
@@ -1398,15 +1398,34 @@ class App(FilesViewMixin, HistoryViewMixin, VocabDialogMixin, _FilesDndBase, ctk
         self.logger.debug("Pestaña 'Actualizaciones' creada.")
 
     def _check_api_key(self, show_popup: bool = False):
-        """Verificar API Key. Si show_popup=False (auto-check), solo actualiza dot y status sin modal."""
+        """Verificar API Key. Si show_popup=False (auto-check), solo actualiza dot y status sin modal.
+
+        LT-3: valida el charset de la key ANTES de cualquier llamada de red —
+        el SDK de Groq envía la key en el header Authorization y un header
+        no-ASCII crashea con "'ascii' codec can't encode character". Una key
+        con tildes/símbolos pegados por error produce un error amigable
+        localizado (api_key_charset_error) en vez del crash.
+        """
         self.logger.info(f"Verificando claves API (popup={show_popup})...")
 
         groq_key = self.api_key_var.get()
-        if groq_key:
+        cleaned_key, charset_issue = validate_api_key_charset(groq_key)
+        if charset_issue == "non_ascii":
+            friendly = self.localization_manager.get_string("api_key_charset_error")
+            self.logger.warning(f"API Key de Groq con caracteres no válidos: {friendly}")
+            self.api_key_status_label.configure(
+                text="●", text_color=DesignSystem.COLORS["error"]
+            )
+            self._api_key_last_valid = False
+            self.update_status(f"❌ {friendly}", "red")
+            if show_popup:
+                self._show_api_key_error_hint(friendly)
+            return
+        if cleaned_key:
             self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["warning"])
             self.update_idletasks()
             try:
-                Groq(api_key=groq_key).models.list()
+                Groq(api_key=cleaned_key).models.list()
                 self.api_key_status_label.configure(
                     text="●", text_color=DesignSystem.COLORS["success"]
                 )
