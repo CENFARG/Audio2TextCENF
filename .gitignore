@@ -64,3 +64,5 @@ TranscripcionesYT/
 .agent/
 gemini_usage.json
 gemini_bench.json
+# Local Pi runtime state
+.atl/
