@@ -715,6 +715,11 @@ class Transcriber:
         - Copia lista bajo audio_lock brevísimo.
         - Trozado con split_audio_on_silence(target 25s) — mismo que post-stop.
         - Cada índice sellado (todos menos tail incompleto) no enviado aún se submitea al pool 2.
+        - B4 fix: el tail NUNCA se envía mientras se graba —incluido el caso
+          total==1 (buffer <= max_s en un solo chunk)—. Su borde final no es
+          estable: el split post-stop puede recortar esa región antes
+          (silencio más cercano al target), y el merge por índice
+          re-transcribiría ese audio → texto duplicado pegado dos veces.
         - Maneja 429/413/timeout sin bloquear grabación (log STREAM, no propaga).
         """
         # snapshot copia bajo lock (μs)
@@ -745,15 +750,16 @@ class Transcriber:
             return
         # total estimado para UI (ceil max_time/25)
         est_total = getattr(self, "_stream_total_est", 0) or total
-        # decidir unsent: todos menos tail (último) salvo si total==1 (primer chunk sí se envía a los 25s)
+        # decidir unsent: todos menos tail (último) — B4: sin excepción total==1,
+        # el tail no tiene borde estable hasta el split post-stop
         unsent = []
         with self.streaming_lock:
             for idx in range(total):
                 if idx == total - 1 and getattr(self, "is_recording", False):
-                    if total == 1:
-                        pass  # primer chunk sí se envía pronto
-                    else:
-                        continue
+                    # Tail chunk: su fin puede cambiar (buffer crece). Si se
+                    # streamea y el split final recorta antes, el merge
+                    # duplica esa región (tests/test_double_transcription.py).
+                    continue
                 if idx in self.streaming_ordered:
                     continue
                 if idx in self.streaming_pending:
