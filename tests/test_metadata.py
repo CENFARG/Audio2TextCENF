@@ -13,13 +13,13 @@ Author: Audio2Text Development Team
 Version: 0.13.0
 """
 
-import pytest
-import sys
-import os
 import json
+import os
+import sys
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+
+import pytest
 
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -392,7 +392,7 @@ class TestMetadataOperations:
 
     def test_get_display_name_fallback_to_filename(self, metadata):
         """Test display name falls back to filename if no title."""
-        display = metadata.get_display_name("audio_1.wav")
+        display = metadata.get_display_name("audio_1.wav", include_emoji=False)
 
         assert display == "audio_1.wav"
 

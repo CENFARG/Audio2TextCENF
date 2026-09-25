@@ -9,7 +9,7 @@ Cubre:
 - Checkpoint parcial: WAV no borrado hasta todos OK, parcial por chunk
 - timer_queue y join no descartan eventos críticos
 
-Usa .venv\Scripts\python.exe -m pytest tests/test_long_transcription_hardening.py -v
+Usa .venv/Scripts/python.exe -m pytest tests/test_long_transcription_hardening.py -v
 """
 import os
 import time

@@ -10,6 +10,7 @@ Author: Audio2Text Development Team
 Version: 0.15.0
 """
 
+import contextlib
 import json
 import sys
 from pathlib import Path
@@ -31,10 +32,8 @@ class TestCustomVocabularyCase:
 
     def teardown_method(self):
         import os
-        try:
+        with contextlib.suppress(OSError):
             os.remove("backend/vocabulary/test_case.json")
-        except OSError:
-            pass
 
     def test_add_correction_preserva_caso_incorrect(self):
         """add_correction debe guardar la clave con el caso EXACTO definido."""
@@ -91,10 +90,8 @@ class TestCustomVocabularyImport:
     def teardown_method(self):
         import os
         for f in ["backend/vocabulary/test_import.json", "backend/vocabulary/vocab_test.txt"]:
-            try:
+            with contextlib.suppress(OSError):
                 os.remove(f)
-            except OSError:
-                pass
 
     def test_import_lineas_con_flecha(self):
         """Importar desde texto con separador →."""
@@ -148,8 +145,8 @@ class TestCustomVocabularyImport:
         out = tmp_path / "out.txt"
         assert self.vocab.export_to_file(str(out)) is True
         content = out.read_text(encoding="utf-8")
-        assert "zenf → CENF" in content
-        assert "ambots → amBotHs" in content
+        assert "zenf=CENF" in content
+        assert "ambots=amBotHs" in content
 
     def test_import_respeto_caso(self):
         """Importar respeta el caso de las palabras definidas."""
