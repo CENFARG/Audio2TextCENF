@@ -17,6 +17,7 @@ pystray>=0.19.4
 pyperclip>=1.8.2
 pyautogui>=0.9.54
 tkhtmlview>=0.2.0
+tkinterdnd2>=2.0.0  # F1 Files tab: drag & drop (app degrades gracefully if missing)
 
 # System and Audio Processing
 psutil>=5.9.0

@@ -8,6 +8,7 @@
     "hotkey": "f12",
     "language": "es",
     "recording_mode": "hold",
+    "audio_import_extensions": ["mp3", "wav", "m4a", "ogg", "flac", "webm", "opus", "aac"],
     "show_transcription_panel": true,
     "tutorial_completed": false,
     "autostart_windows": false,

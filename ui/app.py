@@ -1,5 +1,4 @@
 # C:\Users\gonza\Dropbox\DOC. RECA\06-Software\Audio2Text\audio2text_v0.8.1\ui\app.py
-print("!!! UI_APP_PY_LOADED_ROOT !!!")
 import os
 import sys
 import webbrowser
@@ -41,16 +40,48 @@ from ui.update_tab import UpdateTab
 
 # HC-02 god-class extraction — mixins delegados (single source en ui/views + ui/dialogs)
 from ui.views.history_view import HistoryViewMixin
+from ui.views.files_view import FilesViewMixin
 from ui.dialogs.vocab_dialog import VocabDialogMixin
+
+# F1 Files tab: documented default audio import allowlist
+from backend.file_import import DEFAULT_AUDIO_EXTENSIONS
+
+# F1 Files tab: drag & drop via tkinterdnd2 (graceful degradation without tkdnd)
+try:
+    from tkinterdnd2 import DND_FILES, TkinterDnD
+
+    _TKDND_AVAILABLE = True
+except ImportError:  # distributed builds may not ship tkdnd
+    TkinterDnD = None  # type: ignore[assignment]
+    DND_FILES = "<<Drop>>"  # type: ignore[assignment]  # placeholder, never registered
+    _TKDND_AVAILABLE = False
+
+if _TKDND_AVAILABLE:
+    _FilesDndBase = TkinterDnD.DnDWrapper
+else:
+
+    class _FilesDndBase:  # type: ignore[no-redef]
+        """No-op stand-in so App is defined identically without tkinterdnd2."""
+
 
 # HC-03 Shift fallback (delegado): _is_shift_pressed vive en ui/dialogs/vocab_dialog.py
 # con fallback cross-platform: try ctypes.windll -> fallback keyboard.is_pressed -> event.state,
 # warning solo una vez vía atributo _warned, sin crash en Linux/macOS. App hereda vía VocabDialogMixin.
 # TODO v0.16: extraer HistoryView a clase vista completa con DI (FileManager, MetadataManager) y tests sin Tk.
 
+
 class ToolTip:
     """Tooltip widget para CustomTkinter - Muestra ventana emergente flotante"""
-    def __init__(self, widget, text=None, wraplength=400, background="#1E293B", foreground="#F8FAFC", bordercolor="#2563EB"):
+
+    def __init__(
+        self,
+        widget,
+        text=None,
+        wraplength=400,
+        background="#1E293B",
+        foreground="#F8FAFC",
+        bordercolor="#2563EB",
+    ):
         self.widget = widget
         self.text = text
         self.wraplength = wraplength
@@ -93,7 +124,7 @@ class ToolTip:
             wraplength=self.wraplength,
             font=("Segoe UI", 10),
             padx=10,
-            pady=8
+            pady=8,
         )
         label.pack(ipadx=1)
 
@@ -103,6 +134,7 @@ class ToolTip:
         self.tip_window = None
         if tw:
             tw.destroy()
+
 
 def create_tooltip(widget, text):
     """Crear y asociar tooltip a un widget"""
@@ -117,29 +149,43 @@ def create_tooltip(widget, text):
     widget.bind("<Enter>", enter)
     widget.bind("<Leave>", leave)
 
+
 class DesignSystem:
     COLORS = {
-        "primary": "#2563EB", "primary_hover": "#1D4ED8",
-        "success": "#10B981", "error": "#EF4444", "warning": "#F59E0B",
-        "background": "#0F172A", "surface": "#1E293B",
-        "text_primary": "#F8FAFC", "text_secondary": "#CBD5E1",
+        "primary": "#2563EB",
+        "primary_hover": "#1D4ED8",
+        "success": "#10B981",
+        "error": "#EF4444",
+        "warning": "#F59E0B",
+        "background": "#0F172A",
+        "surface": "#1E293B",
+        "text_primary": "#F8FAFC",
+        "text_secondary": "#CBD5E1",
     }
     TYPOGRAPHY = {
-        "heading_large": ("Segoe UI", 20, "bold"), "heading_medium": ("Segoe UI", 16, "bold"),
+        "heading_large": ("Segoe UI", 20, "bold"),
+        "heading_medium": ("Segoe UI", 16, "bold"),
         "body_bold": ("Segoe UI", 13, "bold"),
-        "body_medium": ("Segoe UI", 14, "normal"), "body_small": ("Segoe UI", 12, "normal"),
+        "body_medium": ("Segoe UI", 14, "normal"),
+        "body_small": ("Segoe UI", 12, "normal"),
         "link": ("Segoe UI", 12, "underline"),
     }
 
-class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
+
+class App(FilesViewMixin, HistoryViewMixin, VocabDialogMixin, _FilesDndBase, ctk.CTk):
     """HC-02: God-class descompuesta vía mixins. Ver ui/views/history_view.py y ui/dialogs/vocab_dialog.py."""
+
     def __init__(self, config_manager=None):
         super().__init__()
         self.logger = logging.getLogger(self.__class__.__name__)
         self.logger.info("Initializing application UI.")
 
-        self.config_manager = config_manager if config_manager else ConfigManager(config_file="config.json")
-        self.localization_manager = self.config_manager.localization_manager # Usa la instancia de localization_manager de config_manager
+        self.config_manager = (
+            config_manager if config_manager else ConfigManager(config_file="config.json")
+        )
+        self.localization_manager = (
+            self.config_manager.localization_manager
+        )  # Usa la instancia de localization_manager de config_manager
         # Título dinámico con versión desde config (no depende de lang files)
         _version = self.config_manager.get("app_version", "0.0.0")
         self.title(f"Audio2Text CENF v.{_version}")
@@ -152,15 +198,18 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         self._load_window_geometry()
 
         # Bind para guardar geometry cuando se redimensiona
-        self.bind('<Configure>', self._on_window_resize)
+        self.bind("<Configure>", self._on_window_resize)
 
         try:
             # Buscar icono en múltiples ubicaciones
             import os
+
             _icon_paths = [
                 "icono.ico",
                 os.path.join("assets", "icons", "icono.ico"),
-                os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets", "icons", "icono.ico"),
+                os.path.join(
+                    os.path.dirname(os.path.dirname(__file__)), "assets", "icons", "icono.ico"
+                ),
             ]
             _icon_loaded = False
             for _ip in _icon_paths:
@@ -173,6 +222,32 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
                 self.logger.warning("No se encontró icono.ico en ninguna ubicación.")
         except Exception as e:
             self.logger.warning(f"Error cargando icono: {e}")
+
+        # F1 Files tab: audio import allowlist (config override, documented default)
+        _configured_exts = self.config_manager.get("audio_import_extensions", None)
+        if (
+            isinstance(_configured_exts, (list, tuple))
+            and _configured_exts
+            and all(isinstance(_e, str) and _e.strip() for _e in _configured_exts)
+        ):
+            self.audio_import_extensions = frozenset(
+                _e.strip().lstrip(".").lower() for _e in _configured_exts
+            )
+        else:
+            self.audio_import_extensions = DEFAULT_AUDIO_EXTENSIONS
+
+        # F1 Files tab: enable OS drag & drop when tkdnd loads (graceful degradation)
+        self._dnd_available = False
+        if _TKDND_AVAILABLE:
+            try:
+                TkinterDnD._require(self)
+                self.drop_target_register(DND_FILES)
+                self.dnd_bind("<<Drop>>", self._on_files_drop)
+                self._dnd_available = True
+            except Exception as e:
+                self.logger.warning(f"Drag & drop disabled: could not load tkdnd ({e})")
+        else:
+            self.logger.warning("Drag & drop disabled: tkinterdnd2 is not installed")
 
         self.sound_manager = SoundManager(config_manager=self.config_manager)
         self.file_manager = FileManager(self.config_manager)
@@ -197,26 +272,27 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
 
         # Crear overlay de grabación - REACTIVADO
         from ui.recording_overlay import RecordingOverlay
+
         self.recording_overlay = RecordingOverlay(self)
-        
+
         # Crear transcriber — FIX v0.15.0: la UI ya NO se actualiza desde el thread
         # de grabación (eso trababa la captura en grabaciones largas). El timer se
         # consume por polling desde el main thread con _poll_recording_timer().
         self.transcriber = Transcriber(
-            self.config_manager, 
-            self.sound_manager, 
-            self.file_manager, 
-            self.update_status, 
-            self.display_transcription, 
+            self.config_manager,
+            self.sound_manager,
+            self.file_manager,
+            self.update_status,
+            self.display_transcription,
             self.localization_manager,
-            overlay_callback=None  # el overlay ahora se actualiza vía cola + polling
+            overlay_callback=None,  # el overlay ahora se actualiza vía cola + polling
         )
         # Iniciar el polling del timer de grabación (main thread, nunca bloquea audio)
         self.after(250, self._poll_recording_timer)
 
         self.updater = Updater(
             current_version=self.config_manager.get("app_version"),
-            github_repo="CENFARG/Audio2TextCENF"
+            github_repo="CENFARG/Audio2TextCENF",
         )
 
         self.tray_icon = None
@@ -224,7 +300,7 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         self.create_widgets()
         self.update_file_info()
         self.after(1000, self._check_api_key)
-        
+
         # Tutorial deshabilitado — no iniciar
 
     def create_widgets(self):
@@ -238,12 +314,14 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         self.main_frame = ctk.CTkTabview(self)
         self.main_frame.grid(row=1, column=0, padx=10, pady=(10, 5), sticky="nsew")
         self.main_frame.add(self.localization_manager.get_string("tab_main"))
+        self.main_frame.add(self.localization_manager.get_string("tab_files"))
         self.main_frame.add(self.localization_manager.get_string("tab_settings"))
         self.main_frame.add(self.localization_manager.get_string("tab_info"))
         self.main_frame.add(self.localization_manager.get_string("tab_history"))
         self.main_frame.add(self.localization_manager.get_string("tab_updates"))
-        
+
         self.create_main_tab()
+        self.create_files_tab()
         self.create_config_tab()
         self.create_info_tab()
         self.create_history_tab()
@@ -251,9 +329,17 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
 
         self.bottom_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.bottom_frame.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
-        cenf_link = ctk.CTkLabel(self.bottom_frame, text=self.localization_manager.get_string("cenf_website"), font=DesignSystem.TYPOGRAPHY["link"], text_color=DesignSystem.COLORS["primary"], cursor="hand2")
+        cenf_link = ctk.CTkLabel(
+            self.bottom_frame,
+            text=self.localization_manager.get_string("cenf_website"),
+            font=DesignSystem.TYPOGRAPHY["link"],
+            text_color=DesignSystem.COLORS["primary"],
+            cursor="hand2",
+        )
         cenf_link.pack(side="right")
         cenf_link.bind("<Button-1>", lambda e: webbrowser.open_new("https://www.cenfarg.com.ar"))
+        # F1: Ctrl-V pastes clipboard file paths while the Files tab is active
+        self.bind_all("<Control-v>", self._on_files_paste_hotkey)
         self.logger.debug("Widgets de la interfaz de usuario creados.")
 
     def _create_omnipresent_lang_switch(self):
@@ -263,10 +349,14 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         top_bar.grid_columnconfigure(0, weight=1)
 
         # — Izquierda: idioma de transcripción —
-        current = self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es"))
+        current = self.config_manager.get(
+            "transcription_language", self.config_manager.get("default_language", "es")
+        )
         self._lang_switch_var = tk.StringVar(value=current)
 
-        ctk.CTkLabel(top_bar, text="🌐 Transcripción:", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(side="left", padx=(5, 5))
+        ctk.CTkLabel(
+            top_bar, text="🌐 Transcripción:", font=DesignSystem.TYPOGRAPHY["body_small"]
+        ).pack(side="left", padx=(5, 5))
 
         self._lang_switch = ctk.CTkSegmentedButton(
             top_bar,
@@ -318,42 +408,49 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             self.config_manager.set("default_language", "es")
         self._update_lang_switch_label(new_lang)
         # Sincronizar el ComboBox de Configuración si existe
-        if hasattr(self, 'language_var'):
+        if hasattr(self, "language_var"):
             self.language_var.set(new_lang)
         self.logger.info(f"Idioma de transcripción (omnipresente): {old} → {new_lang}")
-        self.update_status(f"🌐 Transcripción: {'Español' if new_lang == 'es' else 'English'}", "green")
+        self.update_status(
+            f"🌐 Transcripción: {'Español' if new_lang == 'es' else 'English'}", "green"
+        )
 
     def _update_lang_switch_label(self, lang: str):
-        if hasattr(self, '_lang_switch_label'):
+        if hasattr(self, "_lang_switch_label"):
             self._lang_switch_label.configure(text="Español" if lang == "es" else "English")
 
     def _on_sound_toggle(self):
         """Callback del switch omnipresente de sonido — persiste y actualiza UI."""
         enabled = bool(self._sound_switch_var.get())
         self.config_manager.set("sound_enabled", enabled)
-        if hasattr(self, '_sound_switch'):
+        if hasattr(self, "_sound_switch"):
             self._sound_switch.configure(text="🔊 Sonido" if enabled else "🔇 Sonido")
         self.logger.info(f"Sonido {'ON' if enabled else 'OFF'} (omnipresente)")
-        self.update_status(f"{'🔊 Sonido ON' if enabled else '🔇 Sonido OFF'}", "green" if enabled else "white")
+        self.update_status(
+            f"{'🔊 Sonido ON' if enabled else '🔇 Sonido OFF'}", "green" if enabled else "white"
+        )
         # Sincronizar CTkSwitch de Config tab si existe (futuro)
-        if hasattr(self, '_sound_config_switch_var'):
+        if hasattr(self, "_sound_config_switch_var"):
             try:
                 self._sound_config_switch_var.set(enabled)
-                if hasattr(self, '_sound_config_switch'):
-                    self._sound_config_switch.configure(text="🔊 Sonido" if enabled else "🔇 Sonido")
+                if hasattr(self, "_sound_config_switch"):
+                    self._sound_config_switch.configure(
+                        text="🔊 Sonido" if enabled else "🔇 Sonido"
+                    )
             except Exception:
                 pass
 
     def _update_sound_switch_label(self, enabled: bool):
-        if hasattr(self, '_sound_switch'):
+        if hasattr(self, "_sound_switch"):
             self._sound_switch.configure(text="🔊 Sonido" if enabled else "🔇 Sonido")
 
     def update_overlay(self, state, minutes=0, seconds=0):
         """Actualizar el overlay de grabación según el estado (Thread-safe)"""
+
         def _update():
             if not self.recording_overlay:
                 return
-                
+
             if state == "recording":
                 self.recording_overlay.set_recording()
                 self.recording_overlay.update_timer(minutes, seconds)
@@ -363,7 +460,7 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
                 self.recording_overlay.set_ready()
             elif state == "error":
                 self.recording_overlay.set_error()
-        
+
         self.after(0, _update)
 
     def _poll_recording_timer(self):
@@ -375,7 +472,7 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         Instrumentado: logs/transcription_debug.log con progress recibidos/descartados.
         """
         try:
-            transcriber = getattr(self, 'transcriber', None)
+            transcriber = getattr(self, "transcriber", None)
             if transcriber is not None:
                 _events_received = []
                 while True:
@@ -387,16 +484,23 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
                         _, minutes, seconds = event
                         # Timer en el status label
                         msg = self.localization_manager.get_string("status_recording")
-                        self.status_label.configure(text=f"{msg} {minutes:02d}:{seconds:02d}", text_color=DesignSystem.COLORS["success"])
+                        self.status_label.configure(
+                            text=f"{msg} {minutes:02d}:{seconds:02d}",
+                            text_color=DesignSystem.COLORS["success"],
+                        )
                         # Overlay de grabación
                         if self.recording_overlay:
                             self.recording_overlay.set_recording()
                             self.recording_overlay.update_timer(minutes, seconds)
                     elif event[0] == "limit" and len(event) >= 2:
                         _, max_seconds = event
-                        self.update_status(f"Grabación cortada por límite de {max_seconds}s", "orange")
+                        self.update_status(
+                            f"Grabación cortada por límite de {max_seconds}s", "orange"
+                        )
                         try:
-                            logging.getLogger("transcription_debug").debug(f"UI poll received LIMIT {max_seconds}s")
+                            logging.getLogger("transcription_debug").debug(
+                                f"UI poll received LIMIT {max_seconds}s"
+                            )
                         except Exception:
                             pass
                     elif event[0] == "overlay" and len(event) >= 3:
@@ -410,9 +514,11 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
                             eta_s = int(float(eta_s))
                             self.status_label.configure(
                                 text=f"⏳ Chunk {cur}/{total} ETA {eta_s}s",
-                                text_color=DesignSystem.COLORS["warning"]
+                                text_color=DesignSystem.COLORS["warning"],
                             )
-                            logging.getLogger("transcription_debug").debug(f"UI poll PROGRESS Chunk {cur}/{total} ETA {eta_s}s queue_depth~{transcriber.timer_queue.qsize() if hasattr(transcriber,'timer_queue') and transcriber.timer_queue else -1}")
+                            logging.getLogger("transcription_debug").debug(
+                                f"UI poll PROGRESS Chunk {cur}/{total} ETA {eta_s}s queue_depth~{transcriber.timer_queue.qsize() if hasattr(transcriber,'timer_queue') and transcriber.timer_queue else -1}"
+                            )
                             # También overlay si existe
                             if self.recording_overlay:
                                 # reutilizar update_status visible; overlay muestra processing con contador
@@ -425,16 +531,20 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
                         try:
                             self.status_label.configure(
                                 text=f"🔴 En vivo Chunk {cur}/{total}...",
-                                text_color=DesignSystem.COLORS["success"]
+                                text_color=DesignSystem.COLORS["success"],
                             )
-                            logging.getLogger("transcription_debug").debug(f"UI poll STREAMING En vivo Chunk {cur}/{total} queue_depth~{transcriber.timer_queue.qsize() if hasattr(transcriber,'timer_queue') and transcriber.timer_queue else -1}")
+                            logging.getLogger("transcription_debug").debug(
+                                f"UI poll STREAMING En vivo Chunk {cur}/{total} queue_depth~{transcriber.timer_queue.qsize() if hasattr(transcriber,'timer_queue') and transcriber.timer_queue else -1}"
+                            )
                             # 💡 se elabora: en vivo al entrar C ft compatible
                         except Exception:
                             pass
                 # Log si hubo eventos (evita spam cuando vacío)
                 if _events_received:
                     try:
-                        logging.getLogger("transcription_debug").debug(f"UI poll batch events={_events_received} queue_remaining={transcriber.timer_queue.qsize() if hasattr(transcriber,'timer_queue') and transcriber.timer_queue else -1}")
+                        logging.getLogger("transcription_debug").debug(
+                            f"UI poll batch events={_events_received} queue_remaining={transcriber.timer_queue.qsize() if hasattr(transcriber,'timer_queue') and transcriber.timer_queue else -1}"
+                        )
                     except Exception:
                         pass
         except Exception as e:
@@ -446,35 +556,46 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         finally:
             self.after(250, self._poll_recording_timer)
 
-
     def create_main_tab(self):
         self.logger.debug("Creando pestaña 'Principal'.")
         tab = self.main_frame.tab(self.localization_manager.get_string("tab_main"))
         tab.grid_columnconfigure(0, weight=1)
         tab.grid_rowconfigure(3, weight=1)  # Row 3 será el panel de transcripción (antes row 4)
-        
+
         # Status frame - REDUCIDO padding de 20 a 10
         status_frame = ctk.CTkFrame(tab, fg_color="transparent")
         status_frame.grid(row=0, column=0, pady=(10, 5), padx=15, sticky="ew")  # Reducido pady
         status_frame.grid_columnconfigure(0, weight=1)
-        self.status_label = ctk.CTkLabel(status_frame, text=self.localization_manager.get_string("status_ready"), font=DesignSystem.TYPOGRAPHY["heading_large"])
+        self.status_label = ctk.CTkLabel(
+            status_frame,
+            text=self.localization_manager.get_string("status_ready"),
+            font=DesignSystem.TYPOGRAPHY["heading_large"],
+        )
         self.status_label.grid(row=0, column=0, sticky="ew")
-        self.hotkey_display_label = ctk.CTkLabel(status_frame, text=self.localization_manager.get_string("hotkey_display", hotkey=self.config_manager.get('hotkey').upper()), font=DesignSystem.TYPOGRAPHY["body_small"])
+        self.hotkey_display_label = ctk.CTkLabel(
+            status_frame,
+            text=self.localization_manager.get_string(
+                "hotkey_display", hotkey=self.config_manager.get("hotkey").upper()
+            ),
+            font=DesignSystem.TYPOGRAPHY["body_small"],
+        )
         self.hotkey_display_label.grid(row=1, column=0, pady=(3, 5), sticky="ew")  # Reducido pady
 
         # Logo del cliente (si existe)
         logo_path = "logo.png"
-        if getattr(sys, 'frozen', False):
+        if getattr(sys, "frozen", False):
             logo_path = os.path.join(sys._MEIPASS, "logo.png")
-        
+
         if os.path.exists(logo_path):
             try:
                 pil_image = Image.open(logo_path)
                 # Resize keeping aspect ratio, max height 50
                 h_ratio = 50 / float(pil_image.size[1])
                 w_size = int((float(pil_image.size[0]) * float(h_ratio)))
-                logo_image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=(w_size, 50))
-                
+                logo_image = ctk.CTkImage(
+                    light_image=pil_image, dark_image=pil_image, size=(w_size, 50)
+                )
+
                 logo_label = ctk.CTkLabel(status_frame, text="", image=logo_image)
                 logo_label.grid(row=0, column=1, rowspan=2, padx=10, sticky="e")
             except Exception as e:
@@ -484,30 +605,43 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         info_frame = ctk.CTkFrame(tab, fg_color="transparent")
         info_frame.grid(row=1, column=0, padx=15, pady=(0, 5), sticky="ew")  # Reducido padding
         info_frame.grid_columnconfigure((0, 1), weight=1)
-        self.audio_size_label = ctk.CTkLabel(info_frame, text=self.localization_manager.get_string("audio_info", size="...", count="..."))
+        self.audio_size_label = ctk.CTkLabel(
+            info_frame,
+            text=self.localization_manager.get_string("audio_info", size="...", count="..."),
+        )
         self.audio_size_label.grid(row=0, column=0, sticky="w")
-        self.log_size_label = ctk.CTkLabel(info_frame, text=self.localization_manager.get_string("transcriptions_info", size="..."))
+        self.log_size_label = ctk.CTkLabel(
+            info_frame, text=self.localization_manager.get_string("transcriptions_info", size="...")
+        )
         self.log_size_label.grid(row=0, column=1, sticky="e")
 
         # Button frame - FIX: 2 botones ocupan todo el ancho del textbox, centrados e iguales
         button_frame = ctk.CTkFrame(tab, fg_color="transparent")
         button_frame.grid(row=2, column=0, padx=10, pady=(0, 5), sticky="ew")
         button_frame.grid_columnconfigure((0, 1), weight=1, uniform="btn")
-        ctk.CTkButton(button_frame, text=self.localization_manager.get_string("clear_audio_button"), command=self.clear_audio_with_feedback).grid(row=0, column=0, padx=(0, 5), sticky="ew")
-        ctk.CTkButton(button_frame, text=self.localization_manager.get_string("clear_transcriptions_button"), command=self.clear_logs_with_feedback).grid(row=0, column=1, padx=(5, 0), sticky="ew")
-        
+        ctk.CTkButton(
+            button_frame,
+            text=self.localization_manager.get_string("clear_audio_button"),
+            command=self.clear_audio_with_feedback,
+        ).grid(row=0, column=0, padx=(0, 5), sticky="ew")
+        ctk.CTkButton(
+            button_frame,
+            text=self.localization_manager.get_string("clear_transcriptions_button"),
+            command=self.clear_logs_with_feedback,
+        ).grid(row=0, column=1, padx=(5, 0), sticky="ew")
 
-        
         # --- Panel de Transcripción (AMPLIADO - ahora en row 3) ---
         if self.config_manager.get("show_transcription_panel"):
             self.transcription_frame = ctk.CTkFrame(tab, fg_color="transparent")
             self.transcription_frame.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="nsew")
-            self.transcription_textbox = ctk.CTkTextbox(self.transcription_frame, wrap="word", font=DesignSystem.TYPOGRAPHY["body_medium"])
+            self.transcription_textbox = ctk.CTkTextbox(
+                self.transcription_frame, wrap="word", font=DesignSystem.TYPOGRAPHY["body_medium"]
+            )
             self.transcription_textbox.pack(expand=True, fill="both")
         else:
             self.transcription_frame = None
             self.transcription_textbox = None
-            
+
         self.logger.debug("Pestaña 'Principal' creada.")
 
     def create_config_tab(self):
@@ -524,34 +658,61 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         main_conf_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
         main_conf_frame.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("settings_title_main"), font=DesignSystem.TYPOGRAPHY["heading_medium"]).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(
+            main_conf_frame,
+            text=self.localization_manager.get_string("settings_title_main"),
+            font=DesignSystem.TYPOGRAPHY["heading_medium"],
+        ).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
-        self.api_key_status_label = ctk.CTkLabel(main_conf_frame, text="●", font=("Segoe UI", 20), text_color="grey", cursor="hand2")
-        self.api_key_status_label.grid(row=1, column=0, padx=(10,0), sticky="w")
+        self.api_key_status_label = ctk.CTkLabel(
+            main_conf_frame, text="●", font=("Segoe UI", 20), text_color="grey", cursor="hand2"
+        )
+        self.api_key_status_label.grid(row=1, column=0, padx=(10, 0), sticky="w")
         self.api_key_status_label.bind("<Button-1>", lambda e: self._on_api_dot_click())
         self.api_key_var = tk.StringVar(value=self.config_manager.get("groq_api_key"))
-        api_entry = ctk.CTkEntry(main_conf_frame, textvariable=self.api_key_var, show="*", placeholder_text=self.localization_manager.get_string("api_key_placeholder"))
+        api_entry = ctk.CTkEntry(
+            main_conf_frame,
+            textvariable=self.api_key_var,
+            show="*",
+            placeholder_text=self.localization_manager.get_string("api_key_placeholder"),
+        )
         api_entry.grid(row=1, column=1, padx=5, sticky="ew")
-        api_entry.bind("<FocusOut>", lambda e: self.save_config()) # Autosave on focus out
-        verify_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("verify_button"), width=70, command=lambda: self._check_api_key(show_popup=True))
-        verify_btn.grid(row=1, column=2, padx=(0,10))
+        api_entry.bind("<FocusOut>", lambda e: self.save_config())  # Autosave on focus out
+        verify_btn = ctk.CTkButton(
+            main_conf_frame,
+            text=self.localization_manager.get_string("verify_button"),
+            width=70,
+            command=lambda: self._check_api_key(show_popup=True),
+        )
+        verify_btn.grid(row=1, column=2, padx=(0, 10))
 
         # ASR Provider Selection (solo Groq — Gemini ELIMINADO por completo de la
         # herramienta: benchmark 5-87s por transcripción vs 1-2s de Groq, inutilizable)
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("asr_provider_label")).grid(row=2, column=0, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(
+            main_conf_frame, text=self.localization_manager.get_string("asr_provider_label")
+        ).grid(row=2, column=0, padx=10, pady=5, sticky="w")
         self.asr_provider_var = tk.StringVar(value=self.config_manager.get("asr_provider", "groq"))
         asr_provider_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
         asr_provider_frame.grid(row=2, column=1, columnspan=2, padx=5, pady=5, sticky="w")
-        ctk.CTkRadioButton(asr_provider_frame, text=self.localization_manager.get_string("asr_provider_groq"), variable=self.asr_provider_var, value="groq", command=self.save_config).grid(row=0, column=0, padx=5, sticky="w")
+        ctk.CTkRadioButton(
+            asr_provider_frame,
+            text=self.localization_manager.get_string("asr_provider_groq"),
+            variable=self.asr_provider_var,
+            value="groq",
+            command=self.save_config,
+        ).grid(row=0, column=0, padx=5, sticky="w")
         # FIX v0.15.0: Gemini ELIMINADO (backend + frontend) — solo Groq, el que funciona
         # NVIDIA oculto de la UI pero funcional en config.json
 
         # Hotkey (v0.14.0 - Selector inline compacto)
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("hotkey_label")).grid(row=7, column=0, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(
+            main_conf_frame, text=self.localization_manager.get_string("hotkey_label")
+        ).grid(row=7, column=0, padx=10, pady=5, sticky="w")
 
         # Parsear hotkey actual
-        current_hotkey = self.config_manager.get('hotkey', default='f12')
+        current_hotkey = self.config_manager.get("hotkey", default="f12")
         from backend.hotkey_manager import HotkeyManager
+
         hm = HotkeyManager()
         parsed = hm.parse_hotkey_string(current_hotkey)
 
@@ -564,22 +725,40 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         self.hotkey_alt_var = tk.BooleanVar(value="alt" in parsed.modifiers)
         self.hotkey_shift_var = tk.BooleanVar(value="shift" in parsed.modifiers)
 
-        ctk.CTkCheckBox(hotkey_frame, text="Ctrl", variable=self.hotkey_ctrl_var, command=self._update_hotkey_from_inline, width=50).grid(row=0, column=0, padx=1)
-        ctk.CTkCheckBox(hotkey_frame, text="Alt", variable=self.hotkey_alt_var, command=self._update_hotkey_from_inline, width=50).grid(row=0, column=1, padx=1)
-        ctk.CTkCheckBox(hotkey_frame, text="Shift", variable=self.hotkey_shift_var, command=self._update_hotkey_from_inline, width=50).grid(row=0, column=2, padx=1)
+        ctk.CTkCheckBox(
+            hotkey_frame,
+            text="Ctrl",
+            variable=self.hotkey_ctrl_var,
+            command=self._update_hotkey_from_inline,
+            width=50,
+        ).grid(row=0, column=0, padx=1)
+        ctk.CTkCheckBox(
+            hotkey_frame,
+            text="Alt",
+            variable=self.hotkey_alt_var,
+            command=self._update_hotkey_from_inline,
+            width=50,
+        ).grid(row=0, column=1, padx=1)
+        ctk.CTkCheckBox(
+            hotkey_frame,
+            text="Shift",
+            variable=self.hotkey_shift_var,
+            command=self._update_hotkey_from_inline,
+            width=50,
+        ).grid(row=0, column=2, padx=1)
 
         # Fila 2: Tecla principal + Preview
         self.hotkey_key_var = tk.StringVar(value=parsed.key.upper())
-        all_keys = [f"F{i}" for i in range(1, 13)] + [chr(ord('A') + i) for i in range(26)]
+        all_keys = [f"F{i}" for i in range(1, 13)] + [chr(ord("A") + i) for i in range(26)]
 
         self.hotkey_dropdown = ctk.CTkOptionMenu(
             hotkey_frame,
             variable=self.hotkey_key_var,
             values=all_keys,
             command=lambda x: self._update_hotkey_from_inline(),
-            width=60
+            width=60,
         )
-        self.hotkey_dropdown.grid(row=1, column=0, columnspan=2, padx=1, pady=(3,0), sticky="w")
+        self.hotkey_dropdown.grid(row=1, column=0, columnspan=2, padx=1, pady=(3, 0), sticky="w")
 
         # Preview compacto
         self.hotkey_preview_label = ctk.CTkLabel(
@@ -589,24 +768,40 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             fg_color="#1E293B",
             corner_radius=4,
             width=70,
-            height=24
+            height=24,
         )
-        self.hotkey_preview_label.grid(row=1, column=2, padx=(3,0), pady=(3,0))
+        self.hotkey_preview_label.grid(row=1, column=2, padx=(3, 0), pady=(3, 0))
 
         # OCULTO v0.14.0: Botón "grabar hotkey" eliminado (no tiene sentido con selector inline)
         # record_hotkey_btn = ctk.CTkButton(main_conf_frame, text=self.localization_manager.get_string("record_hotkey_button"), width=70, command=self._start_hotkey_recording)
         # record_hotkey_btn.grid(row=3, column=2, padx=(0,10), pady=5)
 
         # Recording Mode
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("record_mode_label")).grid(row=8, column=0, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(
+            main_conf_frame, text=self.localization_manager.get_string("record_mode_label")
+        ).grid(row=8, column=0, padx=10, pady=5, sticky="w")
         self.record_mode_var = tk.StringVar(value=self.config_manager.get("record_mode"))
         record_mode_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
         record_mode_frame.grid(row=8, column=1, columnspan=2, padx=5, pady=5, sticky="w")
-        ctk.CTkRadioButton(record_mode_frame, text=self.localization_manager.get_string("record_mode_hold"), variable=self.record_mode_var, value="hold", command=self.save_config).grid(row=0, column=0, padx=5, sticky="w")
-        ctk.CTkRadioButton(record_mode_frame, text=self.localization_manager.get_string("record_mode_toggle"), variable=self.record_mode_var, value="toggle", command=self.save_config).grid(row=0, column=1, padx=10, sticky="w")
+        ctk.CTkRadioButton(
+            record_mode_frame,
+            text=self.localization_manager.get_string("record_mode_hold"),
+            variable=self.record_mode_var,
+            value="hold",
+            command=self.save_config,
+        ).grid(row=0, column=0, padx=5, sticky="w")
+        ctk.CTkRadioButton(
+            record_mode_frame,
+            text=self.localization_manager.get_string("record_mode_toggle"),
+            variable=self.record_mode_var,
+            value="toggle",
+            command=self.save_config,
+        ).grid(row=0, column=1, padx=10, sticky="w")
 
         # Max Recording Duration — CAP TRANSITORIO A - reevaluar post B (max 12 min)
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("max_duration_label")).grid(row=9, column=0, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(
+            main_conf_frame, text=self.localization_manager.get_string("max_duration_label")
+        ).grid(row=9, column=0, padx=10, pady=5, sticky="w")
         current_duration = self.config_manager.get("max_recording_time", 720)
         # CAP TRANSITORIO A - reevaluar post B: 12 min max (antes 20 min)
         duration_options = {"5 min": 300, "10 min": 600, "12 min": 720}
@@ -616,56 +811,124 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             current_duration = 720
         current_label = reverse_map.get(current_duration, "12 min")
         self.max_duration_var = tk.StringVar(value=current_label)
-        ctk.CTkComboBox(main_conf_frame, values=list(duration_options.keys()), variable=self.max_duration_var, state="readonly", width=120, command=lambda e: self.save_config()).grid(row=9, column=1, columnspan=2, padx=5, pady=5, sticky="w")
+        ctk.CTkComboBox(
+            main_conf_frame,
+            values=list(duration_options.keys()),
+            variable=self.max_duration_var,
+            state="readonly",
+            width=120,
+            command=lambda e: self.save_config(),
+        ).grid(row=9, column=1, columnspan=2, padx=5, pady=5, sticky="w")
 
         # Auto-paste & Show panel (filas propias, sin superposición)
         self.auto_paste_var = tk.BooleanVar(value=self.config_manager.get("auto_paste_text"))
-        ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("auto_paste_switch"), variable=self.auto_paste_var, command=self.save_config).grid(row=10, column=0, columnspan=3, padx=10, pady=5, sticky="w")
-        self.show_panel_var = tk.BooleanVar(value=self.config_manager.get("show_transcription_panel"))
-        ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("show_panel_switch"), variable=self.show_panel_var, command=self.save_config).grid(row=11, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        ctk.CTkSwitch(
+            main_conf_frame,
+            text=self.localization_manager.get_string("auto_paste_switch"),
+            variable=self.auto_paste_var,
+            command=self.save_config,
+        ).grid(row=10, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        self.show_panel_var = tk.BooleanVar(
+            value=self.config_manager.get("show_transcription_panel")
+        )
+        ctk.CTkSwitch(
+            main_conf_frame,
+            text=self.localization_manager.get_string("show_panel_switch"),
+            variable=self.show_panel_var,
+            command=self.save_config,
+        ).grid(row=11, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
         # Windows autostart (sincronizado con estado real de Startup folder)
         from backend.startup_manager import StartupManager
+
         startup_manager = StartupManager()
         # Sincronizar el valor del config con el estado real del sistema
         actual_autostart_state = startup_manager.is_enabled()
         self.config_manager.set("autostart_windows", actual_autostart_state)
 
         self.autostart_windows_var = tk.BooleanVar(value=actual_autostart_state)
-        ctk.CTkSwitch(main_conf_frame, text=self.localization_manager.get_string("autostart_windows_switch"), variable=self.autostart_windows_var, command=self.save_config).grid(row=12, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        ctk.CTkSwitch(
+            main_conf_frame,
+            text=self.localization_manager.get_string("autostart_windows_switch"),
+            variable=self.autostart_windows_var,
+            command=self.save_config,
+        ).grid(row=12, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
         # Idioma de transcripción (NO cambia interfaz — siempre ES)
-        ctk.CTkLabel(main_conf_frame, text=self.localization_manager.get_string("transcription_language_label")).grid(row=13, column=0, padx=10, pady=5, sticky="w")
-        self.language_var = tk.StringVar(value=self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es")))
-        ctk.CTkComboBox(main_conf_frame, values=["es", "en"], variable=self.language_var, state="readonly", command=lambda e: self.save_config()).grid(row=13, column=1, padx=5, pady=5, sticky="ew", columnspan=2)
+        ctk.CTkLabel(
+            main_conf_frame,
+            text=self.localization_manager.get_string("transcription_language_label"),
+        ).grid(row=13, column=0, padx=10, pady=5, sticky="w")
+        self.language_var = tk.StringVar(
+            value=self.config_manager.get(
+                "transcription_language", self.config_manager.get("default_language", "es")
+            )
+        )
+        ctk.CTkComboBox(
+            main_conf_frame,
+            values=["es", "en"],
+            variable=self.language_var,
+            state="readonly",
+            command=lambda e: self.save_config(),
+        ).grid(row=13, column=1, padx=5, pady=5, sticky="ew", columnspan=2)
 
         # --- File Management Frame ---
         files_frame = ctk.CTkFrame(scroll_frame)
         files_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
         files_frame.grid_columnconfigure(1, weight=1)
-        
-        ctk.CTkLabel(files_frame, text=self.localization_manager.get_string("settings_title_files"), font=DesignSystem.TYPOGRAPHY["heading_medium"]).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
-        ctk.CTkLabel(files_frame, text=self.localization_manager.get_string("audio_path_label")).grid(row=1, column=0, padx=10, sticky="w")
+
+        ctk.CTkLabel(
+            files_frame,
+            text=self.localization_manager.get_string("settings_title_files"),
+            font=DesignSystem.TYPOGRAPHY["heading_medium"],
+        ).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(
+            files_frame, text=self.localization_manager.get_string("audio_path_label")
+        ).grid(row=1, column=0, padx=10, sticky="w")
         self.audio_path_var = tk.StringVar(value=self.config_manager.get("audio_path"))
         audio_path_entry = ctk.CTkEntry(files_frame, textvariable=self.audio_path_var)
         audio_path_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
         audio_path_entry.bind("<FocusOut>", lambda e: self.save_config())
-        ctk.CTkButton(files_frame, text=self.localization_manager.get_string("browse_button"), width=70, command=lambda: self._browse_path(self.audio_path_var)).grid(row=1, column=2, padx=(0,10))
+        ctk.CTkButton(
+            files_frame,
+            text=self.localization_manager.get_string("browse_button"),
+            width=70,
+            command=lambda: self._browse_path(self.audio_path_var),
+        ).grid(row=1, column=2, padx=(0, 10))
 
-        ctk.CTkLabel(files_frame, text=self.localization_manager.get_string("transcriptions_path_label")).grid(row=2, column=0, padx=10, sticky="w")
-        self.transcriptions_path_var = tk.StringVar(value=self.config_manager.get("transcriptions_path"))
+        ctk.CTkLabel(
+            files_frame, text=self.localization_manager.get_string("transcriptions_path_label")
+        ).grid(row=2, column=0, padx=10, sticky="w")
+        self.transcriptions_path_var = tk.StringVar(
+            value=self.config_manager.get("transcriptions_path")
+        )
         logs_path_entry = ctk.CTkEntry(files_frame, textvariable=self.transcriptions_path_var)
         logs_path_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
         logs_path_entry.bind("<FocusOut>", lambda e: self.save_config())
-        ctk.CTkButton(files_frame, text=self.localization_manager.get_string("browse_button"), width=70, command=lambda: self._browse_path(self.transcriptions_path_var)).grid(row=2, column=2, padx=(0,10))
-        
+        ctk.CTkButton(
+            files_frame,
+            text=self.localization_manager.get_string("browse_button"),
+            width=70,
+            command=lambda: self._browse_path(self.transcriptions_path_var),
+        ).grid(row=2, column=2, padx=(0, 10))
+
         switch_frame = ctk.CTkFrame(files_frame, fg_color="transparent")
         switch_frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=10, pady=5)
-        switch_frame.grid_columnconfigure((0,1), weight=1)
+        switch_frame.grid_columnconfigure((0, 1), weight=1)
         self.save_audio_var = tk.BooleanVar(value=self.config_manager.get("save_audio"))
-        ctk.CTkSwitch(switch_frame, text=self.localization_manager.get_string("save_audio_switch"), variable=self.save_audio_var, command=self.save_config).grid(row=0, column=0, sticky="w")
+        ctk.CTkSwitch(
+            switch_frame,
+            text=self.localization_manager.get_string("save_audio_switch"),
+            variable=self.save_audio_var,
+            command=self.save_config,
+        ).grid(row=0, column=0, sticky="w")
         self.save_logs_var = tk.BooleanVar(value=self.config_manager.get("save_logs"))
-        ctk.CTkSwitch(switch_frame, text=self.localization_manager.get_string("save_logs_switch"), variable=self.save_logs_var, command=self.save_config).grid(row=0, column=1, sticky="w")
+        ctk.CTkSwitch(
+            switch_frame,
+            text=self.localization_manager.get_string("save_logs_switch"),
+            variable=self.save_logs_var,
+            command=self.save_config,
+        ).grid(row=0, column=1, sticky="w")
 
         # --- Client Logo Settings REMOVED (Build parameter) ---
         # ctk.CTkLabel(files_frame, text=self.localization_manager.get_string("client_logo_label")...
@@ -694,10 +957,18 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         vocab_frame.grid(row=3, column=0, padx=10, pady=10, sticky="ew")
         vocab_frame.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(vocab_frame, text="Correcciones de Vocabulario (v0.11.0)", font=DesignSystem.TYPOGRAPHY["heading_medium"]).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
+        ctk.CTkLabel(
+            vocab_frame,
+            text="Correcciones de Vocabulario (v0.11.0)",
+            font=DesignSystem.TYPOGRAPHY["heading_medium"],
+        ).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
         # Descripción
-        desc_label = ctk.CTkLabel(vocab_frame, text="Palabras que el modelo entiende mal (ej: CENF → zenf, cemp, cemf)", font=DesignSystem.TYPOGRAPHY["body_small"])
+        desc_label = ctk.CTkLabel(
+            vocab_frame,
+            text="Palabras que el modelo entiende mal (ej: CENF → zenf, cemp, cemf)",
+            font=DesignSystem.TYPOGRAPHY["body_small"],
+        )
         desc_label.grid(row=1, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
         # Entry para agregar corrección
@@ -705,16 +976,26 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         input_frame.grid(row=2, column=0, columnspan=3, padx=10, pady=5, sticky="ew")
 
         self.vocab_incorrect_var = tk.StringVar()
-        incorrect_entry = ctk.CTkEntry(input_frame, textvariable=self.vocab_incorrect_var, placeholder_text="Palabra incorrecta (ej: zenf)")
+        incorrect_entry = ctk.CTkEntry(
+            input_frame,
+            textvariable=self.vocab_incorrect_var,
+            placeholder_text="Palabra incorrecta (ej: zenf)",
+        )
         incorrect_entry.pack(side="left", padx=5, expand=True, fill="x")
 
         ctk.CTkLabel(input_frame, text="→").pack(side="left", padx=5)
 
         self.vocab_correct_var = tk.StringVar()
-        correct_entry = ctk.CTkEntry(input_frame, textvariable=self.vocab_correct_var, placeholder_text="Palabra correcta (ej: CENF)")
+        correct_entry = ctk.CTkEntry(
+            input_frame,
+            textvariable=self.vocab_correct_var,
+            placeholder_text="Palabra correcta (ej: CENF)",
+        )
         correct_entry.pack(side="left", padx=5, expand=True, fill="x")
 
-        add_vocab_btn = ctk.CTkButton(input_frame, text="Agregar", width=80, command=self._add_vocab_correction)
+        add_vocab_btn = ctk.CTkButton(
+            input_frame, text="Agregar", width=80, command=self._add_vocab_correction
+        )
         add_vocab_btn.pack(side="left", padx=5)
 
         # Lista de correcciones existentes
@@ -724,11 +1005,23 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         # Botones: ver/editar, importar archivo, exportar (FIX v0.15.0)
         vocab_buttons_frame = ctk.CTkFrame(vocab_frame, fg_color="transparent")
         vocab_buttons_frame.grid(row=4, column=0, columnspan=3, padx=10, pady=10, sticky="w")
-        manage_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text="Ver/Editar Correcciones", width=150, command=self._show_vocab_corrections)
+        manage_vocab_btn = ctk.CTkButton(
+            vocab_buttons_frame,
+            text="Ver/Editar Correcciones",
+            width=150,
+            command=self._show_vocab_corrections,
+        )
         manage_vocab_btn.pack(side="left", padx=(0, 5))
-        import_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text="📂 Importar archivo (TXT/MD/JSON)", width=200, command=self._import_vocab_file)
+        import_vocab_btn = ctk.CTkButton(
+            vocab_buttons_frame,
+            text="📂 Importar archivo (TXT/MD/JSON)",
+            width=200,
+            command=self._import_vocab_file,
+        )
         import_vocab_btn.pack(side="left", padx=5)
-        export_vocab_btn = ctk.CTkButton(vocab_buttons_frame, text="💾 Exportar", width=100, command=self._export_vocab_file)
+        export_vocab_btn = ctk.CTkButton(
+            vocab_buttons_frame, text="💾 Exportar", width=100, command=self._export_vocab_file
+        )
         export_vocab_btn.pack(side="left", padx=5)
 
         # Cargar lista de correcciones al iniciar
@@ -745,9 +1038,17 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         # Header
         header_frame = ctk.CTkFrame(tab, fg_color="transparent")
         header_frame.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
-        ctk.CTkLabel(header_frame, text=self.localization_manager.get_string("history_title"), font=DesignSystem.TYPOGRAPHY["heading_medium"]).pack(side="left")
-        ctk.CTkButton(header_frame, text=self.localization_manager.get_string("refresh_button"), width=80,
-                      command=lambda: self.refresh_history_list(full_reload=True)).pack(side="right")
+        ctk.CTkLabel(
+            header_frame,
+            text=self.localization_manager.get_string("history_title"),
+            font=DesignSystem.TYPOGRAPHY["heading_medium"],
+        ).pack(side="left")
+        ctk.CTkButton(
+            header_frame,
+            text=self.localization_manager.get_string("refresh_button"),
+            width=80,
+            command=lambda: self.refresh_history_list(full_reload=True),
+        ).pack(side="right")
 
         # List Area
         self.history_scroll_frame = ctk.CTkScrollableFrame(tab, fg_color="transparent")
@@ -772,6 +1073,7 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             emoji_btn: Botón de emoji a actualizar
             name_label: Label de nombre a actualizar
         """
+
         def on_emoji_selected(new_emoji: str):
             """Callback cuando se selecciona un emoji."""
             # Guardar en metadata
@@ -795,6 +1097,7 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
 
     def _open_hotkey_selector(self):
         """Abrir selector de hotkeys con modificadores."""
+
         def on_hotkey_selected(new_hotkey: str):
             """Callback cuando se selecciona un hotkey."""
             # Guardar en config
@@ -806,7 +1109,9 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
 
             # Actualizar display label en status bar
             self.hotkey_display_label.configure(
-                text=self.localization_manager.get_string("hotkey_display", hotkey=new_hotkey.upper())
+                text=self.localization_manager.get_string(
+                    "hotkey_display", hotkey=new_hotkey.upper()
+                )
             )
 
             # Re-registrar hotkey (detener anterior, registrar nuevo)
@@ -815,7 +1120,7 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             self.logger.info(f"Hotkey cambiado: {self.config_manager.get('hotkey')} → {new_hotkey}")
 
         # Mostrar selector
-        current_hotkey = self.config_manager.get('hotkey', default='f12')
+        current_hotkey = self.config_manager.get("hotkey", default="f12")
         show_hotkey_selector(self, self.localization_manager, on_hotkey_selected, current_hotkey)
 
     def _reregister_hotkey(self, new_hotkey: str):
@@ -829,7 +1134,7 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             import keyboard
 
             # Remover hotkey anterior
-            old_hotkey = self.config_manager.get('hotkey', default='f12')
+            old_hotkey = self.config_manager.get("hotkey", default="f12")
             try:
                 keyboard.remove_hotkey(old_hotkey)
                 self.logger.debug(f"Hotkey removido: {old_hotkey}")
@@ -880,9 +1185,11 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             self.transcriber.update_hotkey(new_hotkey)
 
             # Actualizar display label en status bar si existe
-            if hasattr(self, 'hotkey_display_label'):
+            if hasattr(self, "hotkey_display_label"):
                 self.hotkey_display_label.configure(
-                    text=self.localization_manager.get_string("hotkey_display", hotkey=new_hotkey.upper())
+                    text=self.localization_manager.get_string(
+                        "hotkey_display", hotkey=new_hotkey.upper()
+                    )
                 )
 
             self.logger.info(f"Hotkey actualizado: {new_hotkey}")
@@ -908,30 +1215,41 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         def play_in_thread():
             try:
                 import winsound
+
                 # SND_FILENAME | SND_ASYNC = reproducción asíncrona
                 winsound.PlaySound(file_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
-                self.after(100, lambda: self.update_status(f"▶️ Reproduciendo: {os.path.basename(file_path)}", "green"))
+                self.after(
+                    100,
+                    lambda: self.update_status(
+                        f"▶️ Reproduciendo: {os.path.basename(file_path)}", "green"
+                    ),
+                )
 
                 # Esperar a que termine la reproducción (estimar duración del archivo)
                 # WAV típico: ~1 segundo por 100KB (aproximado)
                 import os
+
                 file_size = os.path.getsize(file_path)
                 estimated_duration = max(1, file_size / 100000)  # Estimación conservadora
 
                 # Esperar duración + margen
                 import time
+
                 time.sleep(estimated_duration + 0.5)
 
                 # Restaurar botón
                 self.after(0, lambda: self._reset_play_button(file_path))
 
             except Exception as e:
-                self.after(100, lambda: self.update_status(f"❌ Error reproduciendo audio: {e}", "red"))
+                self.after(
+                    100, lambda: self.update_status(f"❌ Error reproduciendo audio: {e}", "red")
+                )
                 self.logger.error(f"Error reproduciendo audio: {e}")
                 self.after(0, lambda: self._reset_play_button(file_path))
 
         # Ejecutar en thread separado
         import threading
+
         thread = threading.Thread(target=play_in_thread, daemon=True)
         self.playing_threads[file_path] = thread
         thread.start()
@@ -943,6 +1261,7 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             # Detener cualquier sonido
             try:
                 import winsound
+
                 winsound.PlaySound(None, winsound.SND_PURGE)
             except:
                 pass
@@ -980,8 +1299,10 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             del self.playing_threads[file_path]
 
     def _delete_audio_file(self, full_path):
-        if messagebox.askyesno(self.localization_manager.get_string("confirm_delete_title"), 
-                              self.localization_manager.get_string("confirm_delete_msg")):
+        if messagebox.askyesno(
+            self.localization_manager.get_string("confirm_delete_title"),
+            self.localization_manager.get_string("confirm_delete_msg"),
+        ):
             try:
                 os.remove(full_path)
                 self.refresh_history_list()
@@ -999,14 +1320,25 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             text = self.transcriber.transcribe_with_groq(file_path)
             if text:
                 self.display_transcription(text)
-                self.file_manager.save_transcription_entry({
-                    "text": text, "duration": 0, # Duration unknown/irrelevant for re-transcription
-                    "language": self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es")), "audio_file": file_path
-                })
-                self.update_status(self.localization_manager.get_string("transcription_completed"), "green")
+                self.file_manager.save_transcription_entry(
+                    {
+                        "text": text,
+                        "duration": 0,  # Duration unknown/irrelevant for re-transcription
+                        "language": self.config_manager.get(
+                            "transcription_language",
+                            self.config_manager.get("default_language", "es"),
+                        ),
+                        "audio_file": file_path,
+                    }
+                )
+                self.update_status(
+                    self.localization_manager.get_string("transcription_completed"), "green"
+                )
                 self.sound_manager.sound_success()
             else:
-                 self.update_status(self.localization_manager.get_string("transcription_failed"), "red")
+                self.update_status(
+                    self.localization_manager.get_string("transcription_failed"), "red"
+                )
         except Exception as e:
             self.logger.error(f"Error en retranscripción: {e}")
             self.update_status(f"Error: {e}", "red")
@@ -1021,40 +1353,48 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         self._create_info_tab_fallback(tab)
 
         self.logger.debug("Pestaña 'Información' creada.")
-    
+
     def _create_info_tab_fallback(self, tab):
         """Fallback para info tab si tkhtmlview no está disponible"""
         scroll_frame = ctk.CTkScrollableFrame(tab, fg_color="transparent")
         scroll_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=5)
 
-        info_text = self.localization_manager.get_string("info_text_simplified", version=self.config_manager.get("app_version"))
-        
+        info_text = self.localization_manager.get_string(
+            "info_text_simplified", version=self.config_manager.get("app_version")
+        )
+
         # Usar wraplength fijo más amplio para evitar cortes
         info_label = ctk.CTkLabel(
-            scroll_frame, 
-            text=info_text, 
+            scroll_frame,
+            text=info_text,
             wraplength=450,  # Aumentado de 380 a 450
-            justify="left", 
+            justify="left",
             font=DesignSystem.TYPOGRAPHY["body_medium"],
-            anchor="w"
+            anchor="w",
         )
         info_label.pack(pady=10, padx=10, fill="x", expand=True)
 
-        groq_link = ctk.CTkLabel(scroll_frame, text=self.localization_manager.get_string("groq_api_key_link"), text_color=DesignSystem.COLORS["primary"], cursor="hand2", font=DesignSystem.TYPOGRAPHY["link"])
+        groq_link = ctk.CTkLabel(
+            scroll_frame,
+            text=self.localization_manager.get_string("groq_api_key_link"),
+            text_color=DesignSystem.COLORS["primary"],
+            cursor="hand2",
+            font=DesignSystem.TYPOGRAPHY["link"],
+        )
         groq_link.pack(pady=5, padx=10, anchor="w")
         groq_link.bind("<Button-1>", lambda e: webbrowser.open_new("https://console.groq.com/keys"))
-    
+
     def create_update_tab(self):
         """Crear pestaña de actualizaciones"""
         self.logger.debug("Creando pestaña 'Actualizaciones'.")
         tab = self.main_frame.tab(self.localization_manager.get_string("tab_updates"))
         tab.grid_rowconfigure(0, weight=1)
         tab.grid_columnconfigure(0, weight=1)
-        
+
         # Crear UpdateTab
         update_tab = UpdateTab(tab, self.updater)
         update_tab.grid(row=0, column=0, sticky="nsew")
-        
+
         self.logger.debug("Pestaña 'Actualizaciones' creada.")
 
     def _check_api_key(self, show_popup: bool = False):
@@ -1063,17 +1403,24 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
 
         groq_key = self.api_key_var.get()
         if groq_key:
-            self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["warning"]); self.update_idletasks()
+            self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["warning"])
+            self.update_idletasks()
             try:
                 Groq(api_key=groq_key).models.list()
-                self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["success"])
+                self.api_key_status_label.configure(
+                    text="●", text_color=DesignSystem.COLORS["success"]
+                )
                 self._api_key_last_valid = True
                 self.update_status("✅ API Key de Groq verificada", "green")
             except Exception as e:
                 self.logger.error(f"Error verificando API Key de Groq: {e}")
-                self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["error"])
+                self.api_key_status_label.configure(
+                    text="●", text_color=DesignSystem.COLORS["error"]
+                )
                 self._api_key_last_valid = False
-                self.update_status("❌ API Key de Groq inválida — ver Información para configurarla", "red")
+                self.update_status(
+                    "❌ API Key de Groq inválida — ver Información para configurarla", "red"
+                )
                 if show_popup:
                     self._show_api_key_error_hint(str(e))
         else:
@@ -1086,9 +1433,11 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
     def _on_api_dot_click(self):
         """Click en el dot de estado — si está en rojo, llevar a Información."""
         try:
-            if getattr(self, '_api_key_last_valid', None) is False:
+            if getattr(self, "_api_key_last_valid", None) is False:
                 self.main_frame.set(self.localization_manager.get_string("tab_info"))
-                self.update_status("ℹ️ Ver Información para configurar tu API Key de Groq", "orange")
+                self.update_status(
+                    "ℹ️ Ver Información para configurar tu API Key de Groq", "orange"
+                )
             else:
                 self._check_api_key(show_popup=True)
         except Exception:
@@ -1098,8 +1447,9 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         """Mostrar hint y ofrecer navegar a Información cuando la API Key falla."""
         # Evitar spam: solo mostrar si no se mostró hace poco (debounce 10s)
         import time
+
         now = time.time()
-        if hasattr(self, '_last_api_hint_time') and (now - self._last_api_hint_time) < 10:
+        if hasattr(self, "_last_api_hint_time") and (now - self._last_api_hint_time) < 10:
             return
         self._last_api_hint_time = now
 
@@ -1115,23 +1465,54 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         hint_win.geometry("460x220")
         hint_win.transient(self)
         hint_win.lift()
-        hint_win.attributes('-topmost', True)
-        hint_win.after(100, lambda: hint_win.attributes('-topmost', False))
+        hint_win.attributes("-topmost", True)
+        hint_win.after(100, lambda: hint_win.attributes("-topmost", False))
         hint_win.grab_set()
 
-        ctk.CTkLabel(hint_win, text="❌ API Key de Groq no válida", font=DesignSystem.TYPOGRAPHY["heading_medium"], text_color=DesignSystem.COLORS["error"]).pack(pady=(15, 5))
-        ctk.CTkLabel(hint_win, text="La verificación falló. Configurá tu API Key gratis en:", font=DesignSystem.TYPOGRAPHY["body_small"]).pack(pady=2)
-        link = ctk.CTkLabel(hint_win, text="https://console.groq.com/keys", font=DesignSystem.TYPOGRAPHY["link"], text_color=DesignSystem.COLORS["primary"], cursor="hand2")
+        ctk.CTkLabel(
+            hint_win,
+            text="❌ API Key de Groq no válida",
+            font=DesignSystem.TYPOGRAPHY["heading_medium"],
+            text_color=DesignSystem.COLORS["error"],
+        ).pack(pady=(15, 5))
+        ctk.CTkLabel(
+            hint_win,
+            text="La verificación falló. Configurá tu API Key gratis en:",
+            font=DesignSystem.TYPOGRAPHY["body_small"],
+        ).pack(pady=2)
+        link = ctk.CTkLabel(
+            hint_win,
+            text="https://console.groq.com/keys",
+            font=DesignSystem.TYPOGRAPHY["link"],
+            text_color=DesignSystem.COLORS["primary"],
+            cursor="hand2",
+        )
         link.pack(pady=2)
         link.bind("<Button-1>", lambda e: webbrowser.open_new("https://console.groq.com/keys"))
         if error_detail:
-            ctk.CTkLabel(hint_win, text=error_detail[:80], font=ctk.CTkFont(size=10), text_color="gray").pack(pady=2)
-        ctk.CTkLabel(hint_win, text="Pegá la clave en Configuración → API Key → Verificar", font=DesignSystem.TYPOGRAPHY["body_small"], text_color=DesignSystem.COLORS["text_secondary"]).pack(pady=2)
+            ctk.CTkLabel(
+                hint_win, text=error_detail[:80], font=ctk.CTkFont(size=10), text_color="gray"
+            ).pack(pady=2)
+        ctk.CTkLabel(
+            hint_win,
+            text="Pegá la clave en Configuración → API Key → Verificar",
+            font=DesignSystem.TYPOGRAPHY["body_small"],
+            text_color=DesignSystem.COLORS["text_secondary"],
+        ).pack(pady=2)
 
         btn_frame = ctk.CTkFrame(hint_win, fg_color="transparent")
         btn_frame.pack(pady=10)
-        ctk.CTkButton(btn_frame, text="Ir a Información", width=140, command=_go_to_info).pack(side="left", padx=5)
-        ctk.CTkButton(btn_frame, text="Cerrar", width=100, fg_color="gray", hover_color="#555", command=hint_win.destroy).pack(side="left", padx=5)
+        ctk.CTkButton(btn_frame, text="Ir a Información", width=140, command=_go_to_info).pack(
+            side="left", padx=5
+        )
+        ctk.CTkButton(
+            btn_frame,
+            text="Cerrar",
+            width=100,
+            fg_color="gray",
+            hover_color="#555",
+            command=hint_win.destroy,
+        ).pack(side="left", padx=5)
 
     def _show_block_stats(self):
         """Mostrar estadísticas de los bloques de procesamiento."""
@@ -1148,7 +1529,11 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
             # Título
-            ctk.CTkLabel(main_frame, text="Estadísticas de Bloques", font=DesignSystem.TYPOGRAPHY["heading_medium"]).pack(pady=10)
+            ctk.CTkLabel(
+                main_frame,
+                text="Estadísticas de Bloques",
+                font=DesignSystem.TYPOGRAPHY["heading_medium"],
+            ).pack(pady=10)
 
             if not stats:
                 ctk.CTkLabel(main_frame, text="No hay bloques configurados").pack(pady=20)
@@ -1160,39 +1545,30 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
                 frame.pack(fill="x", pady=5, padx=5)
 
                 # Nombre y estado
-                status_text = "✅ Activo" if block_stats['enabled'] else "❌ Inactivo"
-                status_color = "green" if block_stats['enabled'] else "gray"
+                status_text = "✅ Activo" if block_stats["enabled"] else "❌ Inactivo"
+                status_color = "green" if block_stats["enabled"] else "gray"
 
                 ctk.CTkLabel(
-                    frame,
-                    text=f"{block_name}",
-                    font=DesignSystem.TYPOGRAPHY["body_bold"]
+                    frame, text=f"{block_name}", font=DesignSystem.TYPOGRAPHY["body_bold"]
                 ).pack(side="left", padx=10, pady=5)
 
-                ctk.CTkLabel(
-                    frame,
-                    text=status_text,
-                    text_color=status_color
-                ).pack(side="right", padx=10, pady=5)
+                ctk.CTkLabel(frame, text=status_text, text_color=status_color).pack(
+                    side="right", padx=10, pady=5
+                )
 
                 # Estadísticas de procesamiento
-                if 'stats' in block_stats:
-                    stats_data = block_stats['stats']
+                if "stats" in block_stats:
+                    stats_data = block_stats["stats"]
                     stats_text = f"Procesados: {stats_data.get('processed', 0)} | Fallos: {stats_data.get('failed', 0)}"
 
                     ctk.CTkLabel(
-                        frame,
-                        text=stats_text,
-                        font=DesignSystem.TYPOGRAPHY["body_small"]
+                        frame, text=stats_text, font=DesignSystem.TYPOGRAPHY["body_small"]
                     ).pack(side="left", padx=10)
 
             # Botón cerrar
-            ctk.CTkButton(
-                main_frame,
-                text="Cerrar",
-                command=stats_window.destroy,
-                width=100
-            ).pack(pady=10)
+            ctk.CTkButton(main_frame, text="Cerrar", command=stats_window.destroy, width=100).pack(
+                pady=10
+            )
 
             self.logger.info("Estadísticas de bloques mostradas")
 
@@ -1202,44 +1578,54 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
 
     def _start_hotkey_recording(self):
         self.logger.debug("Iniciando grabación de hotkey.")
-        if self.hotkey_recording_window: 
+        if self.hotkey_recording_window:
             try:
                 self.hotkey_recording_window.destroy()
             except:
                 pass
-        
+
         self.hotkey_recording_window = ctk.CTkToplevel(self)
-        self.hotkey_recording_window.title(self.localization_manager.get_string("recording_hotkey_title"))
+        self.hotkey_recording_window.title(
+            self.localization_manager.get_string("recording_hotkey_title")
+        )
         self.hotkey_recording_window.geometry("300x100")
         self.hotkey_recording_window.transient(self)
         self.hotkey_recording_window.grab_set()
-        
-        label = ctk.CTkLabel(self.hotkey_recording_window, text=self.localization_manager.get_string("recording_hotkey_prompt"))
+
+        label = ctk.CTkLabel(
+            self.hotkey_recording_window,
+            text=self.localization_manager.get_string("recording_hotkey_prompt"),
+        )
         label.pack(pady=20, padx=20, expand=True, fill="both")
-        
+
         # Usar after para no bloquear la UI mientras se prepara el thread
-        self.after(100, lambda: threading.Thread(target=self._record_hotkey_thread, daemon=True).start())
+        self.after(
+            100, lambda: threading.Thread(target=self._record_hotkey_thread, daemon=True).start()
+        )
 
     def _record_hotkey_thread(self):
         try:
             hotkey = keyboard.read_hotkey(suppress=False)
             self.after(0, self._set_new_hotkey, hotkey)
-        except Exception as e: 
+        except Exception as e:
             self.logger.error(f"Error grabando hotkey: {e}")
             if self.hotkey_recording_window:
                 self.after(0, self.hotkey_recording_window.destroy)
 
     def _set_new_hotkey(self, hotkey):
         # FIX: hotkey_var fue reemplazado por el selector inline (hotkey_key_var) en v0.14.0
-        if hasattr(self, 'hotkey_key_var'):
+        if hasattr(self, "hotkey_key_var"):
             self.hotkey_key_var.set(hotkey.upper())
         self.logger.info(f"Nuevo hotkey establecido: {hotkey.upper()}")
-        if self.hotkey_recording_window: self.hotkey_recording_window.destroy()
+        if self.hotkey_recording_window:
+            self.hotkey_recording_window.destroy()
 
     def _browse_path(self, path_var):
         self.logger.debug(f"Navegando por la ruta actual: {path_var.get()}")
-        folder_selected = filedialog.askdirectory(initialdir=path_var.get() if os.path.exists(path_var.get()) else os.getcwd())
-        if folder_selected: 
+        folder_selected = filedialog.askdirectory(
+            initialdir=path_var.get() if os.path.exists(path_var.get()) else os.getcwd()
+        )
+        if folder_selected:
             path_var.set(folder_selected)
             self.logger.info(f"Ruta seleccionada: {folder_selected}")
             self.save_config()
@@ -1248,7 +1634,12 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
 
     def _browse_file(self, path_var, file_types):
         self.logger.debug(f"Navegando por archivo en: {path_var.get()}")
-        file_selected = filedialog.askopenfilename(initialdir=path_var.get() if os.path.exists(os.path.dirname(path_var.get())) else os.getcwd(), filetypes=file_types)
+        file_selected = filedialog.askopenfilename(
+            initialdir=(
+                path_var.get() if os.path.exists(os.path.dirname(path_var.get())) else os.getcwd()
+            ),
+            filetypes=file_types,
+        )
         if file_selected:
             path_var.set(file_selected)
             self.logger.info(f"Archivo seleccionado: {file_selected}")
@@ -1259,10 +1650,12 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         # reemplazado por hotkey_ctrl_var/alt_var/shift_var/key_var del selector inline).
         # Como 'hotkey_var' ya no existía, save_config() SIEMPRE retornaba temprano y NUNCA guardaba.
         # Ahora chequeamos una variable que SÍ existe: 'api_key_var' (creada en create_config_tab).
-        if not hasattr(self, 'api_key_var') or not hasattr(self, 'asr_provider_var'):
+        if not hasattr(self, "api_key_var") or not hasattr(self, "asr_provider_var"):
             return
         self.logger.info("Guardando configuración...")
-        old_tlang = self.config_manager.get("transcription_language", self.config_manager.get("default_language", "es"))
+        old_tlang = self.config_manager.get(
+            "transcription_language", self.config_manager.get("default_language", "es")
+        )
         old_show_panel = self.config_manager.get("show_transcription_panel")
 
         # Obtener configuración de bloques actual
@@ -1272,16 +1665,27 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         settings = {
             "groq_api_key": self.api_key_var.get(),
             "asr_provider": self.asr_provider_var.get(),
-            "nvidia_enabled": self.nvidia_enabled_var.get() if hasattr(self, 'nvidia_enabled_var') else False,
-            "nvidia_api_key": self.nvidia_api_key_var.get() if hasattr(self, 'nvidia_api_key_var') else "",
-            "nvidia_mode": self.nvidia_mode_var.get() if hasattr(self, 'nvidia_mode_var') else "cloud",
+            "nvidia_enabled": (
+                self.nvidia_enabled_var.get() if hasattr(self, "nvidia_enabled_var") else False
+            ),
+            "nvidia_api_key": (
+                self.nvidia_api_key_var.get() if hasattr(self, "nvidia_api_key_var") else ""
+            ),
+            "nvidia_mode": (
+                self.nvidia_mode_var.get() if hasattr(self, "nvidia_mode_var") else "cloud"
+            ),
             "hotkey": hotkey_actual,  # FIX: el hotkey se mantiene con su valor actual (viene del config_manager)
             "record_mode": self.record_mode_var.get(),
             # CAP TRANSITORIO A - reevaluar post B: max 12 min
-            "max_recording_time": {"5 min": 300, "10 min": 600, "12 min": 720}.get(self.max_duration_var.get() if hasattr(self, "max_duration_var") else "12 min", 720),
-            "auto_paste_text": self.auto_paste_var.get(), "show_transcription_panel": self.show_panel_var.get(),
-            "audio_path": self.audio_path_var.get(), "transcriptions_path": self.transcriptions_path_var.get(),
-            "save_audio": self.save_audio_var.get(), "save_logs": self.save_logs_var.get(),
+            "max_recording_time": {"5 min": 300, "10 min": 600, "12 min": 720}.get(
+                self.max_duration_var.get() if hasattr(self, "max_duration_var") else "12 min", 720
+            ),
+            "auto_paste_text": self.auto_paste_var.get(),
+            "show_transcription_panel": self.show_panel_var.get(),
+            "audio_path": self.audio_path_var.get(),
+            "transcriptions_path": self.transcriptions_path_var.get(),
+            "save_audio": self.save_audio_var.get(),
+            "save_logs": self.save_logs_var.get(),
             "max_audio_files": int(self.config_manager.get("max_audio_files")),
             "max_log_entries": int(self.config_manager.get("max_log_entries")),
             "audio_priority_apps": self.config_manager.get("audio_priority_apps"),
@@ -1292,27 +1696,30 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
                 **blocks_config,  # Mantener configuración existente
                 "task_extractor_enabled": self.block_task_enabled_var.get(),
                 "summary_enabled": self.block_summary_enabled_var.get(),
-                "keyword_extractor_enabled": self.block_keyword_enabled_var.get()
-            }
+                "keyword_extractor_enabled": self.block_keyword_enabled_var.get(),
+            },
         }
         self.config_manager.set_multiple(settings)
-        
+
         # --- Autostart con Windows ---
         from backend.startup_manager import StartupManager
+
         startup_manager = StartupManager()
         success = startup_manager.toggle(settings["autostart_windows"])
         if not success:
-            self.logger.error(f"Error al configurar inicio automático: {settings['autostart_windows']}")
+            self.logger.error(
+                f"Error al configurar inicio automático: {settings['autostart_windows']}"
+            )
         # ----------------------------
-        
+
         # Idioma de transcripción cambió — sincronizar switch omnipresente si existe
         new_tlang = self.language_var.get()
         if new_tlang != old_tlang:
             self.logger.info(f"Idioma de transcripción: {old_tlang} → {new_tlang}")
-            if hasattr(self, '_lang_switch_var') and self._lang_switch_var.get() != new_tlang:
+            if hasattr(self, "_lang_switch_var") and self._lang_switch_var.get() != new_tlang:
                 self._lang_switch_var.set(new_tlang)
                 self._update_lang_switch_label(new_tlang)
-        
+
         # --- API Key Logic Fix ---
         # FIX v0.15.0: recargar cliente SIEMPRE al guardar config (el provider
         # pudo cambiar). Antes solo se recargaba si había groq_api_key.
@@ -1323,7 +1730,7 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
 
         # Verify hotkey change
         if settings["hotkey"] != self.transcriber.hotkey:
-             self.transcriber.update_hotkey(settings["hotkey"])
+            self.transcriber.update_hotkey(settings["hotkey"])
 
         # Recargar bloques si cambió la configuración
         old_blocks_config = self.config_manager.get("blocks", {})
@@ -1331,21 +1738,32 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         if old_blocks_config != new_blocks_config:
             self.logger.info("Configuración de bloques cambió, recargando...")
             self.transcriber.reload_blocks()
-        
+
         self.transcriber.record_mode = settings["record_mode"]
-        self.hotkey_display_label.configure(text=self.localization_manager.get_string("hotkey_display", hotkey=settings['hotkey'].upper()))
-        
+        self.hotkey_display_label.configure(
+            text=self.localization_manager.get_string(
+                "hotkey_display", hotkey=settings["hotkey"].upper()
+            )
+        )
+
         if self.config_manager.get("show_transcription_panel"):
             if self.transcription_frame is None:
                 # Recrear panel si no existe
-                self.transcription_frame = ctk.CTkFrame(self.main_frame.tab(self.localization_manager.get_string("tab_main")), fg_color="transparent")
+                self.transcription_frame = ctk.CTkFrame(
+                    self.main_frame.tab(self.localization_manager.get_string("tab_main")),
+                    fg_color="transparent",
+                )
                 self.transcription_frame.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="nsew")
-                self.transcription_textbox = ctk.CTkTextbox(self.transcription_frame, wrap="word", font=DesignSystem.TYPOGRAPHY["body_medium"])
+                self.transcription_textbox = ctk.CTkTextbox(
+                    self.transcription_frame,
+                    wrap="word",
+                    font=DesignSystem.TYPOGRAPHY["body_medium"],
+                )
                 self.transcription_textbox.pack(expand=True, fill="both")
             else:
                 self.transcription_frame.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="nsew")
         else:
-             if self.transcription_frame:
+            if self.transcription_frame:
                 self.transcription_frame.grid_remove()
 
         self._check_api_key()
@@ -1354,14 +1772,16 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
     def _update_status_on_main_thread(self, message, color):
         self.logger.debug(f"Actualizando estado de UI: {message} ({color})")
         color_map = {"green": "success", "yellow": "warning", "red": "error", "orange": "warning"}
-        text_color = DesignSystem.COLORS.get(color_map.get(color), DesignSystem.COLORS["text_primary"])
+        text_color = DesignSystem.COLORS.get(
+            color_map.get(color), DesignSystem.COLORS["text_primary"]
+        )
         self.status_label.configure(text=message, text_color=text_color)
 
     def update_status(self, message, color="white"):
         # FIX v0.15.0 (punto 0): evitar acumular callbacks pendientes del thread de
         # grabación (en grabaciones largas, miles de after(0) pendientes colapsaban
         # la UI y congelaban la captura de audio). Se conserva solo el último.
-        if hasattr(self, '_status_after_id'):
+        if hasattr(self, "_status_after_id"):
             try:
                 self.after_cancel(self._status_after_id)
             except Exception:
@@ -1384,7 +1804,7 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         if self.config_manager.get("auto_paste_text"):
             self.logger.info("Auto-pegando transcripcion.")
             # Perf quick win: non-blocking paste — no time.sleep en main thread
-            self.after(100, lambda: pyautogui.hotkey('ctrl', 'v'))
+            self.after(100, lambda: pyautogui.hotkey("ctrl", "v"))
 
     def display_transcription(self, text, recording_id=None, audio_hash=None):
         """Mostrar transcripción con protección contra duplicados — v0.15.8 blindaje
@@ -1395,29 +1815,46 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         """
         import time
         import hashlib
+
         current_time = time.time()
 
         # Guard 1s original
-        if text == self.last_transcription_text and (current_time - self.last_transcription_time) < 1.0:
+        if (
+            text == self.last_transcription_text
+            and (current_time - self.last_transcription_time) < 1.0
+        ):
             self.logger.warning("Detectada transcripción duplicada (guard 1s), ignorando...")
             return
 
         # v0.15.8 hash guard: calcula hash si no viene
         try:
-            text_hash = audio_hash or hashlib.sha1(text.encode("utf-8")).hexdigest() if text else None
+            text_hash = (
+                audio_hash or hashlib.sha1(text.encode("utf-8")).hexdigest() if text else None
+            )
         except Exception:
             text_hash = None
         # Si recording_id viene y es igual al último procesado, es duplicado de owner
         # (guardamos last_recording_id si exists)
-        if recording_id is not None and hasattr(self, 'last_transcription_recording_id'):
-            if recording_id == getattr(self, 'last_transcription_recording_id', None) and text == self.last_transcription_text:
-                self.logger.warning(f"Detectada transcripción duplicada por recording_id {recording_id}, ignorando...")
+        if recording_id is not None and hasattr(self, "last_transcription_recording_id"):
+            if (
+                recording_id == getattr(self, "last_transcription_recording_id", None)
+                and text == self.last_transcription_text
+            ):
+                self.logger.warning(
+                    f"Detectada transcripción duplicada por recording_id {recording_id}, ignorando..."
+                )
                 return
         # Hash guard: texto idéntico con hash igual -> descarta aunque pase 1s (ventana 10s)
-        if text == self.last_transcription_text and text_hash is not None and text_hash == self.last_transcription_hash:
+        if (
+            text == self.last_transcription_text
+            and text_hash is not None
+            and text_hash == self.last_transcription_hash
+        ):
             # descarta aunque haya pasado 1s; ventana extendida 10s para no bloquear indefinido
             if (current_time - self.last_transcription_time) < 10.0:
-                self.logger.warning("Detectada transcripción duplicada por hash (aunque >1s), ignorando...")
+                self.logger.warning(
+                    "Detectada transcripción duplicada por hash (aunque >1s), ignorando..."
+                )
                 return
 
         self.last_transcription_time = current_time
@@ -1428,19 +1865,36 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
 
         self.after(0, self._safe_display_transcription_on_main_thread, text)
 
-
     def update_file_info(self):
         try:
             audio_size_mb = self.file_manager.get_audio_files_size() / (1024 * 1024)
-            num_files = len([f for f in os.listdir(self.file_manager.audio_path) if f.endswith('.wav')])
-            self.audio_size_label.configure(text=self.localization_manager.get_string("audio_info", size=f"{audio_size_mb:.2f}", count=num_files))
+            num_files = len(
+                [f for f in os.listdir(self.file_manager.audio_path) if f.endswith(".wav")]
+            )
+            self.audio_size_label.configure(
+                text=self.localization_manager.get_string(
+                    "audio_info", size=f"{audio_size_mb:.2f}", count=num_files
+                )
+            )
             log_size_kb = self.file_manager.get_transcriptions_size() / 1024
-            self.log_size_label.configure(text=self.localization_manager.get_string("transcriptions_info", size=f"{log_size_kb:.2f}"))
-            self.logger.debug(f"Información de archivos actualizada: Audio {audio_size_mb:.2f}MB, Transcripciones {log_size_kb:.2f}KB")
+            self.log_size_label.configure(
+                text=self.localization_manager.get_string(
+                    "transcriptions_info", size=f"{log_size_kb:.2f}"
+                )
+            )
+            self.logger.debug(
+                f"Información de archivos actualizada: Audio {audio_size_mb:.2f}MB, Transcripciones {log_size_kb:.2f}KB"
+            )
         except FileNotFoundError:
-            self.audio_size_label.configure(text=self.localization_manager.get_string("audio_info", size="N/A", count="N/A"))
-            self.log_size_label.configure(text=self.localization_manager.get_string("transcriptions_info", size="N/A"))
-            self.logger.warning("No se encontraron archivos de audio o de logs para actualizar la información.")
+            self.audio_size_label.configure(
+                text=self.localization_manager.get_string("audio_info", size="N/A", count="N/A")
+            )
+            self.log_size_label.configure(
+                text=self.localization_manager.get_string("transcriptions_info", size="N/A")
+            )
+            self.logger.warning(
+                "No se encontraron archivos de audio o de logs para actualizar la información."
+            )
         except Exception as e:
             self.logger.error(f"Error al actualizar la información de archivos: {e}")
         self.after(5000, self.update_file_info)
@@ -1460,7 +1914,9 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
     def clear_logs_with_feedback(self):
         self.logger.info("Intentando limpiar archivos de transcripciones.")
         if self.file_manager.clear_transcriptions():
-            self.update_status(self.localization_manager.get_string("transcriptions_deleted"), "green")
+            self.update_status(
+                self.localization_manager.get_string("transcriptions_deleted"), "green"
+            )
             self.logger.info("Archivos de transcripciones eliminados exitosamente.")
             # Limpiar cache de transcripciones y refrescar tooltips
             self.transcriptions_cache = {}
@@ -1468,7 +1924,9 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             # Si también hay audios, refrescar historial para actualizar tooltips
             self.refresh_history_list(full_reload=True)
         else:
-            self.update_status(self.localization_manager.get_string("error_deleting_transcriptions"), "red")
+            self.update_status(
+                self.localization_manager.get_string("error_deleting_transcriptions"), "red"
+            )
             self.logger.error("Error al eliminar archivos de transcripciones.")
         self.update_file_info()
 
@@ -1497,8 +1955,14 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         try:
             saved_geometry = self.config_manager.get("window_geometry")
             # Validación: existe, es string no vacío y matchea regex
-            if not saved_geometry or not isinstance(saved_geometry, str) or not _GEO_RE.match(saved_geometry.strip()):
-                self.logger.warning(f"window_geometry inválida o vacía '{saved_geometry}' — fallback a {_DEFAULT_GEOMETRY}")
+            if (
+                not saved_geometry
+                or not isinstance(saved_geometry, str)
+                or not _GEO_RE.match(saved_geometry.strip())
+            ):
+                self.logger.warning(
+                    f"window_geometry inválida o vacía '{saved_geometry}' — fallback a {_DEFAULT_GEOMETRY}"
+                )
                 self.geometry(_DEFAULT_GEOMETRY)
                 self.logger.info(f"Geometry aplicada (fallback inválida): {_DEFAULT_GEOMETRY}")
                 return
@@ -1509,12 +1973,16 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
                 w_str, h_str = wh_part.split("x")
                 w, h = int(w_str), int(h_str)
                 if w < _MINSIZE_W or h < _MINSIZE_H:
-                    self.logger.warning(f"window_geometry muy pequeña '{saved_geometry}' (<{_MINSIZE_W}x{_MINSIZE_H}) — fallback a {_DEFAULT_GEOMETRY}")
+                    self.logger.warning(
+                        f"window_geometry muy pequeña '{saved_geometry}' (<{_MINSIZE_W}x{_MINSIZE_H}) — fallback a {_DEFAULT_GEOMETRY}"
+                    )
                     self.geometry(_DEFAULT_GEOMETRY)
                     self.logger.info(f"Geometry aplicada (fallback minsize): {_DEFAULT_GEOMETRY}")
                     return
             except Exception as parse_e:
-                self.logger.warning(f"Error parseando geometry '{saved_geometry}': {parse_e} — fallback a {_DEFAULT_GEOMETRY}")
+                self.logger.warning(
+                    f"Error parseando geometry '{saved_geometry}': {parse_e} — fallback a {_DEFAULT_GEOMETRY}"
+                )
                 self.geometry(_DEFAULT_GEOMETRY)
                 self.logger.info(f"Geometry aplicada (fallback parse): {_DEFAULT_GEOMETRY}")
                 return
@@ -1523,7 +1991,9 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
             self.logger.info(f"Geometry aplicada: {saved_geometry}")
             self.logger.debug(f"Geometry restaurada: {saved_geometry}")
         except Exception as e:
-            self.logger.warning(f"No se pudo restaurar geometry: {e} — fallback a {_DEFAULT_GEOMETRY}")
+            self.logger.warning(
+                f"No se pudo restaurar geometry: {e} — fallback a {_DEFAULT_GEOMETRY}"
+            )
             self.geometry(_DEFAULT_GEOMETRY)
             self.logger.info(f"Geometry aplicada (fallback exception): {_DEFAULT_GEOMETRY}")
 
@@ -1532,12 +2002,14 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
         # Solo guardar geometry periódicamente (debounce simple)
         # El evento <Configure> se dispara muchas veces durante redimensionado
         # Guardamos solo cuando el usuario termina de redimensionar (event.width != 1)
-        if not hasattr(self, '_last_resize_time'):
+        if not hasattr(self, "_last_resize_time"):
             import time
+
             self._last_resize_time = 0
             return
 
         import time
+
         current_time = time.time()
         if current_time - self._last_resize_time < 0.5:  # Debounce de 500ms
             return
@@ -1553,26 +2025,36 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
 
     def show_system_tray(self):
         self.logger.debug("Mostrando icono en la bandeja del sistema.")
-        if self.tray_icon and self.tray_icon.visible: 
+        if self.tray_icon and self.tray_icon.visible:
             self.logger.debug("Icono de bandeja ya visible, omitiendo recreación.")
             return
-        image = Image.new('RGB', (64, 64), DesignSystem.COLORS["background"])
-        draw = ImageDraw.Draw(image); draw.ellipse((10, 10, 54, 54), fill=DesignSystem.COLORS["primary"])
-        menu = (item(self.localization_manager.get_string("tray_menu_show"), self.show_window), item(self.localization_manager.get_string("tray_menu_exit"), self.quit_application))
-        self.tray_icon = pystray.Icon("audio2text", image, f"Audio2Text CENF v.{self.config_manager.get('app_version')}", menu); self.tray_icon.run_detached()
+        image = Image.new("RGB", (64, 64), DesignSystem.COLORS["background"])
+        draw = ImageDraw.Draw(image)
+        draw.ellipse((10, 10, 54, 54), fill=DesignSystem.COLORS["primary"])
+        menu = (
+            item(self.localization_manager.get_string("tray_menu_show"), self.show_window),
+            item(self.localization_manager.get_string("tray_menu_exit"), self.quit_application),
+        )
+        self.tray_icon = pystray.Icon(
+            "audio2text", image, f"Audio2Text CENF v.{self.config_manager.get('app_version')}", menu
+        )
+        self.tray_icon.run_detached()
         self.logger.info("Aplicación minimizada a la bandeja del sistema.")
 
     def show_window(self):
         self.logger.info("Restaurando ventana desde la bandeja del sistema.")
-        if self.tray_icon: self.tray_icon.stop()
-        self.deiconify(); self.attributes('-topmost', 1); self.attributes('-topmost', 0)
+        if self.tray_icon:
+            self.tray_icon.stop()
+        self.deiconify()
+        self.attributes("-topmost", 1)
+        self.attributes("-topmost", 0)
 
     def recreate_ui_for_language_change(self):
         self.logger.info("Recreando UI debido a cambio de idioma.")
         # Destroy current main frame
         self.main_frame.destroy()
         self.bottom_frame.destroy()
-        
+
         # Recreate widgets
         self.create_widgets()
         self.update_file_info()
@@ -1590,6 +2072,7 @@ class App(HistoryViewMixin, VocabDialogMixin, ctk.CTk):
                 self.recording_overlay.destroy()
         except Exception as e:
             self.logger.warning(f"Error destruyendo overlay: {e}")
-        if self.tray_icon: self.tray_icon.stop()
+        if self.tray_icon:
+            self.tray_icon.stop()
         self.destroy()
         sys.exit()
