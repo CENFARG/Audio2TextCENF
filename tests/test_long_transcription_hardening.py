@@ -11,6 +11,7 @@ Cubre:
 
 Usa .venv/Scripts/python.exe -m pytest tests/test_long_transcription_hardening.py -v
 """
+
 import os
 import time
 import tempfile
@@ -24,10 +25,13 @@ import pytest
 
 SR = 16000
 
+
 def _reset_circuit():
     import backend.transcriber as tr_mod
+
     tr_mod._groq_circuit_failures = 0
     tr_mod._groq_circuit_open_until = 0.0
+
 
 def _make_wav(path: Path, duration_s: float):
     """Crea WAV sintético 16k mono de duration_s (tono+silecio pattern)."""
@@ -53,8 +57,9 @@ def _make_wav(path: Path, duration_s: float):
         audio = np.pad(audio, (0, n - len(audio)))
     elif len(audio) > n:
         audio = audio[:n]
-    sf.write(str(path), audio, SR, subtype='PCM_16')
+    sf.write(str(path), audio, SR, subtype="PCM_16")
     return path
+
 
 def _make_small_pattern(duration_s):
     """Para tests rápidos de split sin escribir archivo."""
@@ -63,20 +68,23 @@ def _make_small_pattern(duration_s):
     audio = np.zeros(n, dtype=np.float32)
     pos = 0
     while pos < n:
-        end = min(pos + int(2.0*SR), n)
-        tt = np.arange(end-pos)/SR
-        audio[pos:end] = 0.3*np.sin(2*np.pi*220*tt)
+        end = min(pos + int(2.0 * SR), n)
+        tt = np.arange(end - pos) / SR
+        audio[pos:end] = 0.3 * np.sin(2 * np.pi * 220 * tt)
         pos = end
         if pos >= n:
             break
-        pos = min(pos + int(0.4*SR), n)
+        pos = min(pos + int(0.4 * SR), n)
     return audio
 
 
 class TestCapTransitorio:
     def test_default_720_and_comment(self):
         from backend.config_manager import ConfigManager
-        cm = ConfigManager(config_file=str(Path(tempfile.gettempdir()) / f"test_cap_{random.randint(0,9999)}.json"))
+
+        cm = ConfigManager(
+            config_file=str(Path(tempfile.gettempdir()) / f"test_cap_{random.randint(0,9999)}.json")
+        )
         assert cm.get("max_recording_time") == 720, "CAP TRANSITORIO A debe ser 720s (12 min)"
         # comentario en fuente
         src = Path("backend/config_manager.py").read_text(encoding="utf-8")
@@ -91,9 +99,11 @@ class TestCapTransitorio:
     def test_clamp_legacy_1200_to_720(self, tmp_path):
         cfg = tmp_path / "config.json"
         import json
+
         with open(cfg, "w", encoding="utf-8") as f:
             json.dump({"max_recording_time": 1200, "app_version": "0.15.9"}, f)
         from backend.config_manager import ConfigManager
+
         cm = ConfigManager(config_file=str(cfg))
         assert cm.get("max_recording_time") == 720, "legacy 1200 debe clamp a 720"
 
@@ -105,6 +115,7 @@ class TestCapTransitorio:
     def test_20min_chunk_25s_ok_o_rechaza(self, tmp_path):
         # 20min = 1200s -> 38MB PCM16 >25MB, pero chunk 25s debe dar ~48 chunks y cada chunk <=29s
         from backend.audio_chunker import split_audio_on_silence
+
         audio = _make_small_pattern(1200)  # 20min pattern
         chunks = split_audio_on_silence(audio, SR, target_s=25.0, max_s=29.0)
         # debe trozar en ~48 chunks (1200/25=48)
@@ -126,10 +137,20 @@ class TestGroqHardening:
 
         # Mock verificar que cliente recibe timeout=30
         from backend.transcriber import Transcriber
+
         with patch("backend.transcriber.Groq") as mock_groq:
             mock_groq.return_value = Mock()
             cm = Mock()
-            cm.get.side_effect = lambda k, d=None: {"hotkey":"f9","record_mode":"toggle","audio_priority_apps":[],"utf8_validation":True,"blocks":{},"max_recording_time":720,"transcription_language":"es","default_language":"es"}.get(k,d)
+            cm.get.side_effect = lambda k, d=None: {
+                "hotkey": "f9",
+                "record_mode": "toggle",
+                "audio_priority_apps": [],
+                "utf8_validation": True,
+                "blocks": {},
+                "max_recording_time": 720,
+                "transcription_language": "es",
+                "default_language": "es",
+            }.get(k, d)
             cm.get_groq_api_key_from_env = Mock(return_value="gsk_test_dummy_key_123")
             cm.localization_manager = Mock()
             with patch("backend.transcriber.NvidiaASR"):
@@ -143,22 +164,34 @@ class TestGroqHardening:
         _reset_circuit()
         """Mock Groq que cuelga (sleep) debe timeout y no bloquear para siempre."""
         import time as _time
+
         wav = tmp_path / "t5.wav"
         _make_wav(wav, 5.0)
         from backend.transcriber import Transcriber
         from groq import APITimeoutError
 
         cm = Mock()
-        cm.get.side_effect = lambda k, d=None: {"hotkey":"f9","record_mode":"toggle","audio_priority_apps":[],"utf8_validation":True,"blocks":{},"max_recording_time":720,"transcription_language":"es","default_language":"es"}.get(k,d)
+        cm.get.side_effect = lambda k, d=None: {
+            "hotkey": "f9",
+            "record_mode": "toggle",
+            "audio_priority_apps": [],
+            "utf8_validation": True,
+            "blocks": {},
+            "max_recording_time": 720,
+            "transcription_language": "es",
+            "default_language": "es",
+        }.get(k, d)
         cm.get_groq_api_key_from_env = Mock(return_value="gsk_test_dummy")
         cm.localization_manager = Mock()
         cm.localization_manager.get_string.side_effect = lambda k, **kw: k
 
         # mock Groq client que levanta timeout
         mock_client = Mock()
+
         def hang(*a, **kw):
             # simular colgado que sería timeout en 30s, pero levantamos APITimeoutError inmediato
             raise APITimeoutError("timeout colgado")
+
         mock_client.audio.transcriptions.create = Mock(side_effect=hang)
 
         with patch("backend.transcriber.Groq", return_value=mock_client):
@@ -183,7 +216,16 @@ class TestGroqHardening:
         from groq import APIStatusError
 
         cm = Mock()
-        cm.get.side_effect = lambda k, d=None: {"hotkey":"f9","record_mode":"toggle","audio_priority_apps":[],"utf8_validation":True,"blocks":{},"max_recording_time":720,"transcription_language":"es","default_language":"es"}.get(k,d)
+        cm.get.side_effect = lambda k, d=None: {
+            "hotkey": "f9",
+            "record_mode": "toggle",
+            "audio_priority_apps": [],
+            "utf8_validation": True,
+            "blocks": {},
+            "max_recording_time": 720,
+            "transcription_language": "es",
+            "default_language": "es",
+        }.get(k, d)
         cm.get_groq_api_key_from_env = Mock(return_value="gsk_test")
         cm.localization_manager = Mock()
         cm.localization_manager.get_string.side_effect = lambda k, **kw: k
@@ -209,18 +251,31 @@ class TestGroqHardening:
         from groq import RateLimitError
 
         cm = Mock()
-        cm.get.side_effect = lambda k, d=None: {"hotkey":"f9","record_mode":"toggle","audio_priority_apps":[],"utf8_validation":True,"blocks":{},"max_recording_time":720,"transcription_language":"es","default_language":"es"}.get(k,d)
+        cm.get.side_effect = lambda k, d=None: {
+            "hotkey": "f9",
+            "record_mode": "toggle",
+            "audio_priority_apps": [],
+            "utf8_validation": True,
+            "blocks": {},
+            "max_recording_time": 720,
+            "transcription_language": "es",
+            "default_language": "es",
+        }.get(k, d)
         cm.get_groq_api_key_from_env = Mock(return_value="gsk_test")
         cm.localization_manager = Mock()
         cm.localization_manager.get_string.side_effect = lambda k, **kw: k
 
         mock_client = Mock()
-        err429 = RateLimitError("429 rate limit", response=Mock(headers={"retry-after":"0.01"}), body=None)
+        err429 = RateLimitError(
+            "429 rate limit", response=Mock(headers={"retry-after": "0.01"}), body=None
+        )
         # 2 fallos 429 luego éxito
         mock_client.audio.transcriptions.create = Mock(side_effect=[err429, err429, "texto ok"])
         sleep_calls = []
+
         def fake_sleep(s):
             sleep_calls.append(s)
+
         with patch("backend.transcriber.Groq", return_value=mock_client):
             with patch("backend.transcriber.NvidiaASR"):
                 tr = Transcriber(cm, Mock(), Mock(), Mock(), Mock(), Mock())
@@ -242,6 +297,7 @@ class TestGroqHardening:
             with patch("backend.transcriber.NvidiaASR"):
                 # reset circuit
                 import backend.transcriber as tr_mod
+
                 tr_mod._groq_circuit_failures = 0
                 tr_mod._groq_circuit_open_until = 0
                 tr2 = Transcriber(cm, Mock(), Mock(), Mock(), Mock(), Mock())
@@ -260,8 +316,18 @@ class TestGroqHardening:
         # crear archivo >25MB artificial (no necesita ser wav válido, solo tamaño)
         wav.write_bytes(b"\x00" * (26 * 1024 * 1024))
         from backend.transcriber import Transcriber
+
         cm = Mock()
-        cm.get.side_effect = lambda k, d=None: {"hotkey":"f9","record_mode":"toggle","audio_priority_apps":[],"utf8_validation":True,"blocks":{},"max_recording_time":720,"transcription_language":"es","default_language":"es"}.get(k,d)
+        cm.get.side_effect = lambda k, d=None: {
+            "hotkey": "f9",
+            "record_mode": "toggle",
+            "audio_priority_apps": [],
+            "utf8_validation": True,
+            "blocks": {},
+            "max_recording_time": 720,
+            "transcription_language": "es",
+            "default_language": "es",
+        }.get(k, d)
         cm.get_groq_api_key_from_env = Mock(return_value="gsk_test")
         cm.localization_manager = Mock()
         mock_client = Mock()
@@ -279,24 +345,40 @@ class TestProgressYCheckpoint:
         _reset_circuit()
         """transcribe_chunks y transcribe_with_groq deben emitir Chunk X/Y ETA"""
         from backend.audio_chunker import transcribe_chunks
+
         audio = _make_small_pattern(70)  # ~70s => 3 chunks
         calls = []
         progress = []
+
         def fake_api(chunk, prompt=None):
             time.sleep(0.01)
             return "hola"
+
         def prog(idx, total, eta):
             progress.append((idx, total, eta))
+
         # test audio_chunker progress
-        res = transcribe_chunks(audio, SR, fake_api, target_s=25.0, max_s=29.0, progress_callback=prog)
+        res = transcribe_chunks(
+            audio, SR, fake_api, target_s=25.0, max_s=29.0, progress_callback=prog
+        )
         assert len(progress) >= 3
         assert progress[0][1] == len(progress[0]) or progress[0][1] > 1  # total >1
         # también transcriber progress via cola
         wav = tmp_path / "prog.wav"
         _make_wav(wav, 35)  # 35s => 2 chunks
         from backend.transcriber import Transcriber
+
         cm = Mock()
-        cm.get.side_effect = lambda k, d=None: {"hotkey":"f9","record_mode":"toggle","audio_priority_apps":[],"utf8_validation":True,"blocks":{},"max_recording_time":720,"transcription_language":"es","default_language":"es"}.get(k,d)
+        cm.get.side_effect = lambda k, d=None: {
+            "hotkey": "f9",
+            "record_mode": "toggle",
+            "audio_priority_apps": [],
+            "utf8_validation": True,
+            "blocks": {},
+            "max_recording_time": 720,
+            "transcription_language": "es",
+            "default_language": "es",
+        }.get(k, d)
         cm.get_groq_api_key_from_env = Mock(return_value="gsk_test")
         cm.localization_manager = Mock()
         cm.localization_manager.get_string.side_effect = lambda k, **kw: k
@@ -307,8 +389,10 @@ class TestProgressYCheckpoint:
                 tr = Transcriber(cm, Mock(), Mock(), Mock(), Mock(), Mock())
                 tr.cliente = mock_client
                 progress2 = []
+
                 def cb(idx, total, eta):
                     progress2.append((idx, total))
+
                 res2 = tr.transcribe_with_groq(str(wav), progress_callback=cb)
                 assert len(progress2) >= 1
                 # verificar cola timer_queue recibió progress
@@ -328,8 +412,18 @@ class TestProgressYCheckpoint:
         wav = tmp_path / "partial.wav"
         _make_wav(wav, 60)  # ~60s => 3 chunks aprox
         from backend.transcriber import Transcriber
+
         cm = Mock()
-        cm.get.side_effect = lambda k, d=None: {"hotkey":"f9","record_mode":"toggle","audio_priority_apps":[],"utf8_validation":True,"blocks":{},"max_recording_time":720,"transcription_language":"es","default_language":"es"}.get(k,d)
+        cm.get.side_effect = lambda k, d=None: {
+            "hotkey": "f9",
+            "record_mode": "toggle",
+            "audio_priority_apps": [],
+            "utf8_validation": True,
+            "blocks": {},
+            "max_recording_time": 720,
+            "transcription_language": "es",
+            "default_language": "es",
+        }.get(k, d)
         cm.get_groq_api_key_from_env = Mock(return_value="gsk_test")
         cm.localization_manager = Mock()
         cm.localization_manager.get_string.side_effect = lambda k, **kw: k
@@ -337,13 +431,16 @@ class TestProgressYCheckpoint:
         # chunk1 ok, chunk2 falla (timeout), chunk3 ok -> parcial debe conservar chunk1 y 3? Pero test simula fallo de chunk2
         # Nuestra implementación guarda parcial tras cada chunk ok, y si falla no añade ese chunk
         call_count = {"n": 0}
+
         def side_effect(*a, **kw):
             call_count["n"] += 1
             # chunk2: hacer que los 3 intentos de retry fallen (counts 2,3,4)
             if 2 <= call_count["n"] <= 4:
                 from groq import APITimeoutError
+
                 raise APITimeoutError("timeout chunk2")
             return f"texto{call_count['n']}"
+
         mock_client.audio.transcriptions.create = Mock(side_effect=side_effect)
         with patch("backend.transcriber.Groq", return_value=mock_client):
             with patch("backend.transcriber.NvidiaASR"):
@@ -374,8 +471,19 @@ class TestProgressYCheckpoint:
         """process_recording no debe borrar WAV temporal si transcripción fallida"""
         from backend.transcriber import Transcriber
         import tempfile as _tf
+
         cm = Mock()
-        cm.get.side_effect = lambda k, d=None: {"hotkey":"f9","record_mode":"toggle","audio_priority_apps":[],"utf8_validation":True,"blocks":{},"max_recording_time":720,"transcription_language":"es","default_language":"es","save_audio":False}.get(k,d)
+        cm.get.side_effect = lambda k, d=None: {
+            "hotkey": "f9",
+            "record_mode": "toggle",
+            "audio_priority_apps": [],
+            "utf8_validation": True,
+            "blocks": {},
+            "max_recording_time": 720,
+            "transcription_language": "es",
+            "default_language": "es",
+            "save_audio": False,
+        }.get(k, d)
         cm.get_groq_api_key_from_env = Mock(return_value="gsk_test")
         cm.localization_manager = Mock()
         cm.localization_manager.get_string.side_effect = lambda k, **kw: k
@@ -388,14 +496,16 @@ class TestProgressYCheckpoint:
                 # mock transcribe para fallar
                 tr.transcribe = Mock(return_value=None)
                 # crear snapshot 5s
-                snap = [np.zeros(int(5*SR), dtype=np.float32)]
+                snap = [np.zeros(int(5 * SR), dtype=np.float32)]
                 # capturar temp path creado: patch NamedTemporaryFile
                 orig_ntf = tempfile.NamedTemporaryFile
                 created = {}
+
                 def fake_ntf(*a, **kw):
                     f = orig_ntf(*a, **kw)
                     created["path"] = f.name
                     return f
+
                 with patch("tempfile.NamedTemporaryFile", side_effect=fake_ntf):
                     # need to run process_recording sync (no thread)
                     # directly call without thread
@@ -409,7 +519,9 @@ class TestProgressYCheckpoint:
                     if path:
                         # si falló, el temp debe conservarse (no borrado inmediato)
                         # nuestra impl conserva en finally solo si failure -> path debe existir
-                        assert os.path.exists(path), "WAV temporal debe conservarse tras fallo (checkpoint)"
+                        assert os.path.exists(
+                            path
+                        ), "WAV temporal debe conservarse tras fallo (checkpoint)"
                         # cleanup
                         try:
                             os.unlink(path)
@@ -424,8 +536,16 @@ class TestProgressYCheckpoint:
 class TestTimerQueueYCircuit:
     def test_timer_queue_no_descarta_criticos(self):
         from backend.transcriber import Transcriber
+
         cm = Mock()
-        cm.get.side_effect = lambda k, d=None: {"hotkey":"f9","record_mode":"toggle","audio_priority_apps":[],"utf8_validation":True,"blocks":{},"max_recording_time":720}.get(k,d)
+        cm.get.side_effect = lambda k, d=None: {
+            "hotkey": "f9",
+            "record_mode": "toggle",
+            "audio_priority_apps": [],
+            "utf8_validation": True,
+            "blocks": {},
+            "max_recording_time": 720,
+        }.get(k, d)
         cm.get_groq_api_key_from_env = Mock(return_value="gsk_test")
         cm.localization_manager = Mock()
         with patch("backend.transcriber.Groq", return_value=Mock()):
@@ -451,6 +571,7 @@ class TestTimerQueueYCircuit:
 
     def test_join_no_descarta_audio(self):
         from backend.transcriber import Transcriber
+
         src = Path("backend/transcriber.py").read_text(encoding="utf-8")
         assert "join(timeout=1.0)" in src or "join(timeout=1" in src
         assert "CAP TRANSITORIO A" in src
@@ -464,11 +585,13 @@ class TestSliceBParallel:
         """Reordena antes de join: futures desordenados deben dar texto ordenado."""
         _reset_circuit()
         from backend.audio_chunker import transcribe_chunks_parallel, split_audio_on_silence
+
         audio = _make_small_pattern(180)  # ~7 chunks
         chunks = split_audio_on_silence(audio, SR, target_s=25.0, max_s=29.0)
         total = len(chunks)
         # api con latencia variable para forzar out-of-order
         import random, time as _time
+
         def api(chunk, prompt=None):
             idx = api.calls[0]
             api.calls[0] += 1
@@ -478,6 +601,7 @@ class TestSliceBParallel:
             else:
                 _time.sleep(0.02)
             return f"chunk{idx}"
+
         api.calls = [0]
         res = transcribe_chunks_parallel(audio, SR, api, max_workers=3)
         # debe estar ordenado chunk0 chunk1 ... independientemente del orden de completion
@@ -490,23 +614,57 @@ class TestSliceBParallel:
         wav = tmp_path / "chk.wav"
         _make_wav(wav, 60)  # ~3 chunks
         from backend.transcriber import Transcriber
+
         cm = Mock()
-        cm.get.side_effect = lambda k, d=None: {"hotkey":"f9","record_mode":"toggle","audio_priority_apps":[],"utf8_validation":True,"blocks":{},"max_recording_time":720,"transcription_language":"es","default_language":"es","groq_parallel_workers":3}.get(k,d)
+        cm.get.side_effect = lambda k, d=None: {
+            "hotkey": "f9",
+            "record_mode": "toggle",
+            "audio_priority_apps": [],
+            "utf8_validation": True,
+            "blocks": {},
+            "max_recording_time": 720,
+            "transcription_language": "es",
+            "default_language": "es",
+            "groq_parallel_workers": 3,
+        }.get(k, d)
         cm.get_groq_api_key_from_env = Mock(return_value="gsk_test")
         cm.localization_manager = Mock()
         cm.localization_manager.get_string.side_effect = lambda k, **kw: k
         mock_client = Mock()
-        # cada chunk retorna texto distinto con latency variable
-        call_idx = {"n": 0}
+        # Label each chunk by its CONTENT (deterministic chunk index), never by
+        # call order: with a 3-worker ThreadPoolExecutor the first worker to
+        # reach the API is not necessarily chunk 0, so a shared call counter
+        # mislabels chunks (racy read/increment across threads) and the order
+        # assertion compares labels from a different dimension than position.
+        import hashlib
+        import io
+
+        from backend.audio_chunker import split_audio_on_silence
+
+        # Replicate the deterministic split and hash each chunk's WAV bytes
+        # exactly as _groq_chunk_callback writes them (sf.write default PCM_16).
+        data_ref, sr_ref = sf.read(str(wav))
+        ref_chunks = split_audio_on_silence(data_ref, sr_ref, target_s=25.0, max_s=29.0)
+        total = len(ref_chunks)
+        label_by_hash = {}
+        for i, ch in enumerate(ref_chunks):
+            buf = io.BytesIO()
+            sf.write(buf, ch, sr_ref, format="WAV")
+            label_by_hash[hashlib.sha256(buf.getvalue()).hexdigest()] = f"texto{i}"
+        assert (
+            len(label_by_hash) == total
+        ), "split produced identical chunks; content labels ambiguous"
+
         def side(*a, **kw):
-            n = call_idx["n"]
-            call_idx["n"] += 1
-            # delay variable
-            if n % 2 == 0:
-                time.sleep(0.06)
-            else:
-                time.sleep(0.02)
-            return f"texto{n}"
+            blob = kw["file"][1]
+            label = label_by_hash.get(hashlib.sha256(blob).hexdigest())
+            if label is None:
+                return "chunk-not-in-reference-split"
+            # variable delay per chunk index → forces out-of-order completion
+            idx = int(label[len("texto") :])
+            time.sleep(0.06 if idx % 2 == 0 else 0.02)
+            return label
+
         mock_client.audio.transcriptions.create = Mock(side_effect=side)
         with patch("backend.transcriber.Groq", return_value=mock_client):
             with patch("backend.transcriber.NvidiaASR"):
@@ -514,10 +672,11 @@ class TestSliceBParallel:
                 tr.cliente = mock_client
                 res = tr.transcribe_with_groq(str(wav))
                 assert res is not None
-                # orden preservado
+                # orden preservado por índice de chunk, independiente del orden
+                # de completado (desordenado) y del orden de llamada
                 parts = res.split()
-                # primera parte debe ser texto0 (orden) aunque completions desordenadas
-                assert parts[0] == "texto0"
+                assert len(parts) == total, f"cantidad de partes {len(parts)} != {total}: {res!r}"
+                assert parts == [f"texto{i}" for i in range(total)], f"orden no preservado: {res!r}"
                 # checkpoint debe haber sido borrado si all_ok, o existir ordenado si partial
                 partial = Path(str(wav) + ".partial.txt")
                 if partial.exists():
@@ -533,15 +692,19 @@ class TestSliceBParallel:
         """12min sintético 720s 29chunks mock 0.8s→ seq ~2.3s (scale 0.08) vs paralelo ~0.8s speedup >2.5x."""
         from backend.audio_chunker import transcribe_chunks, transcribe_chunks_parallel
         import time as _time
+
         # sintetizar 720s pattern sin necesidad archivo: 29 chunks *25s
         audio = _make_small_pattern(720)
+
         # mock api 0.08s por chunk (escala de 0.8s real para no tardar 23s)
         def api_seq(chunk, prompt=None):
             _time.sleep(0.08)
             return "x"
+
         def api_par(chunk, prompt=None):
             _time.sleep(0.08)
             return "x"
+
         # sequential
         t0 = _time.perf_counter()
         res_seq = transcribe_chunks(audio, SR, api_seq, target_s=25.0, max_s=29.0)
@@ -553,7 +716,9 @@ class TestSliceBParallel:
         assert res_seq is not None and res_par is not None
         # speedup >2.5x
         speedup = t_seq / t_par if t_par else 0
-        assert speedup > 2.5, f"speedup insuficiente {speedup:.2f} seq={t_seq:.2f}s par={t_par:.2f}s esperado >2.5x (0.8s/chunk 29 chunks workers=3)"
+        assert (
+            speedup > 2.5
+        ), f"speedup insuficiente {speedup:.2f} seq={t_seq:.2f}s par={t_par:.2f}s esperado >2.5x (0.8s/chunk 29 chunks workers=3)"
         # parallel debe ser notoriamente más rápido que secuencial
         assert t_par < t_seq * 0.5
 
@@ -562,7 +727,12 @@ class TestSliceBParallel:
         assert "ThreadPoolExecutor" in src
         assert "concurrent.futures" in src
         # NO multiprocessing
-        assert "multiprocessing" not in src or "NO multiprocessing" in src or src.count("multiprocessing") == 0 or "Process(" not in src
+        assert (
+            "multiprocessing" not in src
+            or "NO multiprocessing" in src
+            or src.count("multiprocessing") == 0
+            or "Process(" not in src
+        )
         # clamp 2-4 y default 3
         assert "GROQ_PARALLEL_WORKERS" in src
         assert "max_workers" in src
@@ -572,8 +742,19 @@ class TestSliceBParallel:
         _reset_circuit()
         from backend.transcriber import Transcriber
         from groq import RateLimitError
+
         cm = Mock()
-        cm.get.side_effect = lambda k, d=None: {"hotkey":"f9","record_mode":"toggle","audio_priority_apps":[],"utf8_validation":True,"blocks":{},"max_recording_time":720,"transcription_language":"es","default_language":"es","groq_parallel_workers":3}.get(k,d)
+        cm.get.side_effect = lambda k, d=None: {
+            "hotkey": "f9",
+            "record_mode": "toggle",
+            "audio_priority_apps": [],
+            "utf8_validation": True,
+            "blocks": {},
+            "max_recording_time": 720,
+            "transcription_language": "es",
+            "default_language": "es",
+            "groq_parallel_workers": 3,
+        }.get(k, d)
         cm.get_groq_api_key_from_env = Mock(return_value="gsk_test")
         cm.localization_manager = Mock()
         cm.localization_manager.get_string.side_effect = lambda k, **kw: k
@@ -581,12 +762,14 @@ class TestSliceBParallel:
         _make_wav(wav, 60)  # ~3 chunks
         mock_client = Mock()
         call_n = {"c": 0}
+
         def side(*a, **kw):
             call_n["c"] += 1
             # simular 429 en el segundo call (chunk desordenado: no importa cual, pero solo uno falla)
             if call_n["c"] == 2:
                 raise RateLimitError("429 rate limit", response=Mock(headers={}), body=None)
             return f"ok{call_n['c']}"
+
         mock_client.audio.transcriptions.create = Mock(side_effect=side)
         with patch("backend.transcriber.Groq", return_value=mock_client):
             with patch("backend.transcriber.NvidiaASR"):
@@ -630,10 +813,18 @@ class TestSliceBParallel:
     def test_workers_configurable_2_4(self):
         from backend.config_manager import ConfigManager
         import tempfile, json, os
+
         for w in [2, 3, 4]:
             cfg = Path(tempfile.gettempdir()) / f"test_gpw_{w}_{random.randint(0,9999)}.json"
             with open(cfg, "w", encoding="utf-8") as f:
-                json.dump({"groq_parallel_workers": w, "max_recording_time": 720, "app_version": "0.15.9"}, f)
+                json.dump(
+                    {
+                        "groq_parallel_workers": w,
+                        "max_recording_time": 720,
+                        "app_version": "0.15.9",
+                    },
+                    f,
+                )
             cm = ConfigManager(config_file=str(cfg))
             assert cm.get("groq_parallel_workers") == w
             try:
@@ -643,7 +834,9 @@ class TestSliceBParallel:
         # clamp fuera de rango
         cfg = Path(tempfile.gettempdir()) / f"test_gpw_clamp_{random.randint(0,9999)}.json"
         with open(cfg, "w", encoding="utf-8") as f:
-            json.dump({"groq_parallel_workers": 10, "max_recording_time": 720, "app_version": "0.15.9"}, f)
+            json.dump(
+                {"groq_parallel_workers": 10, "max_recording_time": 720, "app_version": "0.15.9"}, f
+            )
         cm = ConfigManager(config_file=str(cfg))
         assert cm.get("groq_parallel_workers") == 4
         try:

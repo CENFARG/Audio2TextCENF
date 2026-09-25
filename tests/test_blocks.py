@@ -155,7 +155,16 @@ class TestKeywordExtractorBlock:
         assert len(types) > 0
 
     def test_min_length_filter(self):
-        """Test de filtro de longitud mínima."""
+        """Test de filtro de longitud mínima.
+
+        LEFT FAILING ON PURPOSE — real backend bug report (tech-debt batch 1b):
+        the documented ``min_length`` config is only honored in
+        ``_extract_entities`` (proper nouns). ``_extract_by_frequency``
+        hardcodes a ``{4,}`` regex floor and ignores ``self.min_length``, so
+        with min_length=5 the 4-char word "útil" is still returned as a
+        keyword. Backend must apply ``min_length`` in every extraction
+        strategy; do NOT adjust this expectation.
+        """
         block = KeywordExtractorBlock(config={"min_length": 5})
         text = "AI y ML son importantes. Python es útil."
         result = block.process(text, ProcessingStage.TRANSCRIBED_TEXT)

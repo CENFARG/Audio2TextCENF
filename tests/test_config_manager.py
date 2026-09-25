@@ -41,7 +41,9 @@ class TestConfigManagerInitialization:
             assert manager.config_file == config_file
             assert manager.config is not None
             assert "app_version" in manager.config
-            assert manager.config["app_version"] == "0.15.0"
+            # Contract: app_version is always pinned to the shipped default
+            # (load_config overrides it with default_config), never a stale value.
+            assert manager.config["app_version"] == manager.default_config["app_version"]
             assert manager.config["hotkey"] == "f9"  # FIX: default F9 (pedido del usuario)
             assert manager.config["default_language"] == "es"
         finally:
@@ -58,10 +60,14 @@ class TestConfigManagerInitialization:
         try:
             manager = ConfigManager(config_file=config_file)
 
-            # Should override with default version but keep other settings
-            assert manager.config["app_version"] == "0.15.0"
+            # Version is always overridden with the shipped default, but the
+            # other file settings are kept.
+            assert manager.config["app_version"] == manager.default_config["app_version"]
             assert manager.config["hotkey"] == "F10"
-            assert manager.config["default_language"] == "en"
+            # Since v0.15.1 the UI language is forced to Spanish regardless of file
+            assert manager.config["default_language"] == "es"
+            # transcription_language migrates from the file's default_language
+            assert manager.config["transcription_language"] == "en"
         finally:
             if os.path.exists(config_file):
                 os.unlink(config_file)
@@ -246,13 +252,13 @@ class TestLocalization:
 
     def test_get_localized_string(self, manager):
         """Test getting localized strings."""
-        # Mock the localization manager
-        manager.localization_manager.get = Mock(return_value="Translated text")
+        # Mock the localization manager (current API: get_string)
+        manager.localization_manager.get_string = Mock(return_value="Translated text")
 
         result = manager.get_localized_string("test_key")
 
         assert result == "Translated text"
-        manager.localization_manager.get.assert_called_once()
+        manager.localization_manager.get_string.assert_called_once_with("test_key")
 
     def test_set_language(self, manager):
         """Test setting the language."""
@@ -321,9 +327,9 @@ class TestConfigValidation:
         manager.config["app_version"] = "0.12.0"
         manager.save_config()
 
-        # Reload and verify it's back to default
+        # Reload and verify it's back to the shipped default
         manager2 = ConfigManager(config_file=manager.config_file)
-        assert manager2.config["app_version"] == "0.15.0"
+        assert manager2.config["app_version"] == manager2.default_config["app_version"]
 
     def test_audio_priority_apps_default(self, manager):
         """Test that audio_priority_apps has default values."""
