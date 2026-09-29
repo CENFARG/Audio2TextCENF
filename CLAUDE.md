@@ -1,8 +1,10 @@
 # Audio2Text - Memoria del Proyecto para Claude
 
-> **Última actualización:** 2026-04-10
-> **Versión:** 0.14.0
-> **Estado:** Producción estable - LLM Blocks + Dynamic Title + Duration Selector + faster-whisper + Groq API renovada
+> **Última actualización:** 2026-09-25
+> **Versión:** 0.15.12 (canon: pyproject.toml; validar con `python scripts/check_version.py`)
+> **Estado:** Producción estable — CustomTkinter con mixins (`ui/views/`) + Groq API (faster-whisper ERRADICADO en esta línea) + Pestaña Archivos (F1)
+>
+> **Correcciones de estado (2026-09-25):** en la línea activa `fix/v0.15.1-ui-polish`: faster-whisper fue ERRADICADO (solo Groq; NVIDIA Riva oculto), el versionado lo gobiernan `scripts/bump_version.py` (bump atómico) + `scripts/check_version.py` (10 fuentes, canon pyproject.toml, tags SemVer `vX.Y.Z` sin punto), y la Tauri migration está PAUSADA en `feature/audio2text-v0.16.0-tauri-migration` (2 stashes, retomar después).
 
 ---
 
