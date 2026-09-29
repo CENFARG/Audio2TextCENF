@@ -16,8 +16,8 @@ Uso:
 
 Exit code: 0 si todas PASS, 1 si alguna FAIL.
 """
-import re
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -67,7 +67,11 @@ def _read_lang_version(lang_file: Path) -> str | None:
 
 def _read_version_info(path: Path) -> dict:
     """Return dict with filevers, FileVersion, ProductVersion or None values."""
-    result = {"filevers": None, "FileVersion": None, "ProductVersion": None}
+    result: dict[str, str | None] = {
+        "filevers": None,
+        "FileVersion": None,
+        "ProductVersion": None,
+    }
     try:
         text = path.read_text(encoding="utf-8")
         m = re.search(r"filevers\s*=\s*\(([^)]+)\)", text)
@@ -139,16 +143,21 @@ def check_all(expected: str | None = None, verbose: bool = True) -> bool:
             raw_title = json.loads(p.read_text(encoding="utf-8")).get("app_title", "")
         except Exception:
             raw_title = ""
-        has_display = f"v.{expected}" in raw_title
+        has_display = f"v{expected}" in raw_title
         ok = (v == expected) and has_display
         status = "PASS" if ok else "FAIL"
         if verbose:
-            extra = "" if has_display else " (missing display v.{})".format(expected)
+            extra = "" if has_display else f" (missing display v{expected})"
             print(f"[{status}] lang/{lang} (app_title): {v!r} (expected {expected!r}){extra} raw={raw_title!r}")
         all_ok = all_ok and ok
 
-    # 4. config version_info files
-    for name in ["version_info.txt", "version_info_GENERAL.txt"]:
+    # 4. config version_info files (all 4 variants)
+    for name in [
+        "version_info.txt",
+        "version_info_GENERAL.txt",
+        "version_info_CONTRERAS.txt",
+        "version_info_CUTIGNOLA.txt",
+    ]:
         p = PROJECT_ROOT / "config" / name
         info = _read_version_info(p)
         # PASS if all three extracted versions equal expected
@@ -168,6 +177,28 @@ def check_all(expected: str | None = None, verbose: bool = True) -> bool:
     status = "PASS" if ok else "FAIL"
     if verbose:
         print(f"[{status}] scripts/build_GENERAL_v2.py (APP_VERSION): {v!r} (expected {expected!r})")
+    all_ok = all_ok and ok
+
+    # 6. setup.py — dynamic (reads pyproject) or matching literal
+    p = PROJECT_ROOT / "setup.py"
+    try:
+        setup_text = p.read_text(encoding="utf-8")
+    except Exception as e:
+        print(f"  [ERR] reading {p}: {e}")
+        setup_text = ""
+    m = re.search(r'^\s*version\s*=\s*["\']([^"\']+)["\']', setup_text, re.MULTILINE)
+    if m is None:
+        ok = "_read_version" in setup_text
+        status = "PASS" if ok else "FAIL"
+        if verbose:
+            extra = "" if ok else " (no dynamic _read_version and no version literal)"
+            print(f"[{status}] setup.py: dynamic (expected {expected!r}){extra}")
+    else:
+        v = m.group(1).strip()
+        ok = v == expected
+        status = "PASS" if ok else "FAIL"
+        if verbose:
+            print(f"[{status}] setup.py (version literal): {v!r} (expected {expected!r})")
     all_ok = all_ok and ok
 
     if verbose:

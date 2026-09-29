@@ -3,7 +3,7 @@ Audio2Text - Transcripción de Audio en Tiempo Real
 Setup configuration for package distribution
 """
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 from pathlib import Path
 
 # Read the contents of README file
@@ -13,9 +13,18 @@ long_description = (this_directory / "README.md").read_text(encoding='utf-8')
 # Read requirements
 requirements = (this_directory / "requirements.txt").read_text(encoding='utf-8').splitlines()
 
+def _read_version() -> str:
+    """Read canonical version from pyproject.toml (single source of truth)."""
+    import re
+
+    text = (this_directory / "pyproject.toml").read_text(encoding="utf-8")
+    m = re.search(r'^\s*version\s*=\s*["\']([^"\']+)["\']', text, re.MULTILINE)
+    return m.group(1).strip() if m else "0.0.0"
+
+
 setup(
     name="audio2text-cenf",
-    version="0.9.2",
+    version=_read_version(),
     author="CENF",
     author_email="soporte@cenfarg.com.ar",
     description="Aplicación de transcripción de audio en tiempo real usando IA",
