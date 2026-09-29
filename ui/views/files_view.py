@@ -1,13 +1,16 @@
 """
-FilesViewMixin — queue UI + sequential transcription worker for the F1 Files tab.
+FilesViewMixin — queue UI + sequential transcription worker for the F1 files
+queue section (lives inside the main tab since the C4 restructure).
 
-Builds the Files tab (action buttons, pending queue, drop hint, rejection
-report) and runs a SINGLE worker thread transcribing queued files one at a
-time, reusing the proven retranscription flow (transcribe_with_groq →
+Builds the files section (labeled frame below the transcription panel with
+action buttons, pending queue, drop hint, rejection report) and runs a SINGLE
+worker thread transcribing queued files one at a time, reusing the proven
+retranscription flow (transcribe_with_groq →
 display_transcription → save_transcription_entry). Per-file status lives in
-``{path: status}`` (pending / transcribing / done / error); a failed file is
-marked error and the queue continues. Worker → UI updates are scheduled via
-``self.after``. API contract: App inherits this mixin (HC-02 mixin pattern).
+``{path: (state, reason)}`` (pending / transcribing / done / error); every
+failure records its reason and logs exactly one ERROR line. Worker → UI
+updates are scheduled via ``self.after``. API contract: App inherits this
+mixin (HC-02 mixin pattern).
 """
 
 from __future__ import annotations
@@ -33,15 +36,7 @@ except ImportError:  # distributed builds may not ship tkdnd
 
 
 class FilesViewMixin:
-    """Mixin providing the Files tab: import sources + sequential queue."""
-
-    #: per-status i18n keys
-    _STATUS_KEYS = {
-        "pending": "files_status_pending",
-        "transcribing": "files_status_transcribing",
-        "done": "files_status_done",
-        "error": "files_status_error",
-    }
+    """Mixin providing the files queue section: import sources + queue."""
 
     #: status → DesignSystem color (fallbacks match ui.app palette)
     _STATUS_COLORS = {
@@ -51,9 +46,13 @@ class FilesViewMixin:
         "error": "#EF4444",
     }
 
-    # ── Tab construction ──────────────────────────────────────────
-    def create_files_tab(self) -> None:
-        """Build the Files tab: actions row, pending queue and drop hint."""
+    # ── Section construction (inside the main tab, C4) ────────────
+    def create_files_section(self) -> None:
+        """Build the files queue section inside the main tab.
+
+        The section sits below the transcription panel as a bordered,
+        labeled frame; the dedicated Files tab was removed (C4).
+        """
         import customtkinter as ctk
 
         try:
@@ -77,36 +76,43 @@ class FilesViewMixin:
 
         self._ensure_files_queue_state()
         loc = self.localization_manager
-        tab = self.main_frame.tab(loc.get_string("tab_files"))
-        tab.grid_columnconfigure(0, weight=1)
-        tab.grid_rowconfigure(2, weight=1)
+        parent = self.main_frame.tab(loc.get_string("tab_main"))
+        parent.grid_columnconfigure(0, weight=1)
 
-        header = ctk.CTkFrame(tab, fg_color="transparent")
-        header.grid(row=0, column=0, padx=10, pady=(5, 0), sticky="ew")
+        section = ctk.CTkFrame(
+            parent,
+            fg_color="transparent",
+            border_width=1,
+            border_color=DesignSystem.COLORS["text_secondary"],
+        )
+        section.grid(row=4, column=0, padx=10, pady=(0, 10), sticky="ew")
+        section.grid_columnconfigure(0, weight=1)
+
         ctk.CTkLabel(
-            header,
+            section,
             text=loc.get_string("files_title"),
             font=DesignSystem.TYPOGRAPHY["heading_medium"],
-        ).pack(side="left")
+            anchor="w",
+        ).grid(row=0, column=0, padx=10, pady=(5, 0), sticky="ew")
 
-        actions = ctk.CTkFrame(tab, fg_color="transparent")
+        actions = ctk.CTkFrame(section, fg_color="transparent")
         actions.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
         ctk.CTkButton(
             actions,
             text=loc.get_string("files_load"),
-            width=130,
+            width=120,
             command=self._load_files_via_dialog,
         ).pack(side="left", padx=(0, 5))
         ctk.CTkButton(
             actions,
             text=loc.get_string("files_paste"),
-            width=130,
+            width=120,
             command=self.add_files_from_clipboard,
         ).pack(side="left", padx=5)
         ctk.CTkButton(
             actions,
             text=loc.get_string("files_transcribe"),
-            width=150,
+            width=140,
             fg_color=DesignSystem.COLORS["primary"],
             hover_color=DesignSystem.COLORS["primary_hover"],
             command=self.transcribe_all_queue,
@@ -121,7 +127,7 @@ class FilesViewMixin:
         ).pack(side="right")
 
         self.files_rejected_label = ctk.CTkLabel(
-            tab,
+            section,
             text="",
             justify="left",
             anchor="w",
@@ -131,8 +137,8 @@ class FilesViewMixin:
         )
         self.files_rejected_label.grid(row=3, column=0, padx=10, pady=(0, 5), sticky="ew")
 
-        self.files_queue_frame = ctk.CTkScrollableFrame(tab, fg_color="transparent")
-        self.files_queue_frame.grid(row=2, column=0, padx=10, pady=5, sticky="nsew")
+        self.files_queue_frame = ctk.CTkScrollableFrame(section, fg_color="transparent", height=110)
+        self.files_queue_frame.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
 
         if self._dnd_available and _TKDND_AVAILABLE:
             self.files_drop_hint = ctk.CTkLabel(
@@ -141,7 +147,7 @@ class FilesViewMixin:
                 font=DesignSystem.TYPOGRAPHY["body_medium"],
                 text_color=DesignSystem.COLORS["text_secondary"],
             )
-            self.files_drop_hint.pack(pady=30, fill="x", expand=True)
+            self.files_drop_hint.pack(pady=20, fill="x", expand=True)
 
     # ── Queue state ───────────────────────────────────────────────
     def _ensure_files_queue_state(self) -> None:
@@ -149,7 +155,7 @@ class FilesViewMixin:
         if hasattr(self, "_files_queue"):
             return
         self._files_queue: list[str] = []
-        self._files_status: dict[str, str] = {}
+        self._files_status: dict[str, tuple[str, str]] = {}
         self._files_status_labels: dict[str, object] = {}
         self._files_worker_running = False
         self._files_worker_lock = threading.Lock()
@@ -163,17 +169,30 @@ class FilesViewMixin:
     def add_files_to_queue(self, paths: Iterable[str]) -> tuple[list[str], list[tuple[str, str]]]:
         """Validate candidates and append new ones to the pending queue.
 
+        Files passing extension/existence validation are additionally probed
+        with soundfile (C1/LT-2): unreadable containers are rejected with the
+        stable ``unreadable`` reason instead of entering the queue.
+
         Returns:
             Tuple ``(added, rejected)``: newly enqueued paths and rejected
             ``(path, reason)`` entries.
         """
         self._ensure_files_queue_state()
         accepted, rejected = filter_audio_paths(paths, self._files_extensions())
+        readable: list[str] = []
+        for path in accepted:
+            ok, detail = file_import.probe_audio_readable(path)
+            if ok:
+                readable.append(path)
+            else:
+                rejected.append((path, file_import.REASON_UNREADABLE))
+                logger.warning("Audio file rejected as unreadable: %s (%s)", path, detail)
+        accepted = readable
         already = {os.path.normcase(p) for p in self._files_queue}
         added = [p for p in accepted if os.path.normcase(p) not in already]
         for path in added:
             self._files_queue.append(path)
-            self._files_status[path] = "pending"
+            file_import.record_file_status(self._files_status, path, "pending")
         if added or rejected:
             self.after(0, self._append_queue_rows, added, rejected)
         if rejected:
@@ -199,13 +218,13 @@ class FilesViewMixin:
         Returns:
             ``"break"`` to stop event propagation.
         """
-        if self.main_frame.get() != self.localization_manager.get_string("tab_files"):
+        if self.main_frame.get() != self.localization_manager.get_string("tab_main"):
             return "break"
         self.add_files_to_queue(file_import.split_drop_data(event.data))
         return "break"
 
     def _on_files_paste_hotkey(self, event=None) -> str | None:
-        """Ctrl-V handler: paste paths only while the Files tab is active.
+        """Ctrl-V handler: paste paths only while the main tab is active.
 
         Args:
             event: Tk key event (unused).
@@ -213,7 +232,7 @@ class FilesViewMixin:
         Returns:
             ``"break"`` when handled, ``None`` to let default paste proceed.
         """
-        if self.main_frame.get() != self.localization_manager.get_string("tab_files"):
+        if self.main_frame.get() != self.localization_manager.get_string("tab_main"):
             return None
         self.add_files_from_clipboard()
         return "break"
@@ -257,7 +276,10 @@ class FilesViewMixin:
             status_label = ctk.CTkLabel(row, text="", anchor="e")
             status_label.pack(side="right", padx=5)
             self._files_status_labels[path] = status_label
-            self._set_file_status(path, self._files_status.get(path, "pending"))
+            entry = self._files_status.get(path) or file_import.record_file_status(
+                self._files_status, path, "pending"
+            )
+            self._set_file_status(path, entry)
         self._show_rejected(rejected)
 
     def _show_rejected(self, rejected: list[tuple[str, str]]) -> None:
@@ -271,29 +293,47 @@ class FilesViewMixin:
         if not rejected:
             self.files_rejected_label.configure(text="")
             return
-        shown = [f"{path} ({reason})" for path, reason in rejected[:5]]
+        loc = self.localization_manager
+        shown = [
+            f"{path} ({file_import.file_reason_text(loc, reason)})" for path, reason in rejected[:5]
+        ]
         if len(rejected) > 5:
             shown.append(f"+{len(rejected) - 5}")
         self.files_rejected_label.configure(
             text=self.localization_manager.get_string("files_rejected", items="; ".join(shown))
         )
 
-    def _set_file_status_threadsafe(self, path: str, status: str) -> None:
-        """Record a status change from any thread and schedule the UI update.
+    def _set_file_state_threadsafe(self, path: str, state: str) -> None:
+        """Record a non-error state change from any thread; schedule the UI.
 
         Args:
             path: Queued file path.
-            status: One of pending / transcribing / done / error.
+            state: One of pending / transcribing / done.
         """
-        self._files_status[path] = status
-        self.after(0, self._set_file_status, path, status)
+        entry = file_import.record_file_status(self._files_status, path, state)
+        self.after(0, self._set_file_status, path, entry)
 
-    def _set_file_status(self, path: str, status: str) -> None:
+    def _mark_file_error(self, path: str, reason: str) -> None:
+        """Mark one file failed: record the reason, log ONE ERROR, update UI.
+
+        Single choke point for every queue failure so each failed file
+        produces exactly one clear ERROR log line carrying its reason
+        (LT-4 observability).
+
+        Args:
+            path: Queued file path.
+            reason: Stable reason id or free-form exception summary.
+        """
+        entry = file_import.record_file_status(self._files_status, path, "error", reason)
+        logger.error("Queued file failed (%s): %s", entry[1], path)
+        self.after(0, self._set_file_status, path, entry)
+
+    def _set_file_status(self, path: str, entry: tuple[str, str]) -> None:
         """Update one queue row status label (main thread only).
 
         Args:
             path: Queued file path.
-            status: One of pending / transcribing / done / error.
+            entry: ``(state, reason)`` pair from the per-file status map.
         """
         label = self._files_status_labels.get(path)
         if label is None:
@@ -303,8 +343,8 @@ class FilesViewMixin:
                 self._files_status_labels.pop(path, None)
                 return
             label.configure(
-                text=self.localization_manager.get_string(self._STATUS_KEYS[status]),
-                text_color=self._STATUS_COLORS[status],
+                text=file_import.file_status_label_text(self.localization_manager, entry),
+                text_color=self._STATUS_COLORS[entry[0]],
             )
         except Exception as exc:
             logger.debug("Status label update skipped: %s", exc)
@@ -365,7 +405,7 @@ class FilesViewMixin:
         """
         with self._files_worker_lock:
             for path in self._files_queue:
-                if self._files_status.get(path) == "pending":
+                if (self._files_status.get(path) or ("", ""))[0] == "pending":
                     return path
         return None
 
@@ -375,7 +415,8 @@ class FilesViewMixin:
         Mirrors ``App._retranscribe_thread``: transcribe_with_groq →
         display_transcription → save_transcription_entry (same entry keys).
         UI updates are scheduled on the main thread; a failure marks only
-        this file as error and never stops the queue.
+        this file as error (with its reason, via ``_mark_file_error``) and
+        never stops the queue.
 
         Args:
             path: Audio file path to transcribe.
@@ -383,15 +424,14 @@ class FilesViewMixin:
         Returns:
             True when the file was transcribed and saved successfully.
         """
-        self._set_file_status_threadsafe(path, "transcribing")
+        self._set_file_state_threadsafe(path, "transcribing")
         try:
             text = self.transcriber.transcribe_with_groq(path)
         except Exception as exc:
-            logger.error("Queued file transcription failed: %s", exc)
-            self._set_file_status_threadsafe(path, "error")
+            self._mark_file_error(path, f"{type(exc).__name__}: {exc}")
             return False
         if not text:
-            self._set_file_status_threadsafe(path, "error")
+            self._mark_file_error(path, file_import.REASON_EMPTY_RESULT)
             return False
         try:
             self.after(0, self.display_transcription, text)
@@ -407,10 +447,10 @@ class FilesViewMixin:
                 }
             )
         except Exception as exc:
-            logger.error("Queued file result could not be saved: %s", exc)
-            self._set_file_status_threadsafe(path, "error")
+            logger.debug("Save failure detail for %s: %s", path, exc)
+            self._mark_file_error(path, file_import.REASON_SAVE_FAILED)
             return False
-        self._set_file_status_threadsafe(path, "done")
+        self._set_file_state_threadsafe(path, "done")
         return True
 
     def _files_queue_finished(self, done_count: int) -> None:

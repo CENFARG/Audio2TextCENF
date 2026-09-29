@@ -314,14 +314,15 @@ class App(FilesViewMixin, HistoryViewMixin, VocabDialogMixin, _FilesDndBase, ctk
         self.main_frame = ctk.CTkTabview(self)
         self.main_frame.grid(row=1, column=0, padx=10, pady=(10, 5), sticky="nsew")
         self.main_frame.add(self.localization_manager.get_string("tab_main"))
-        self.main_frame.add(self.localization_manager.get_string("tab_files"))
         self.main_frame.add(self.localization_manager.get_string("tab_settings"))
         self.main_frame.add(self.localization_manager.get_string("tab_info"))
         self.main_frame.add(self.localization_manager.get_string("tab_history"))
         self.main_frame.add(self.localization_manager.get_string("tab_updates"))
 
         self.create_main_tab()
-        self.create_files_tab()
+        # C4: the files queue lives inside the main tab as a labeled section
+        # below the transcription panel; the dedicated tab was removed.
+        self.create_files_section()
         self.create_config_tab()
         self.create_info_tab()
         self.create_history_tab()
@@ -1413,9 +1414,7 @@ class App(FilesViewMixin, HistoryViewMixin, VocabDialogMixin, _FilesDndBase, ctk
         if charset_issue == "non_ascii":
             friendly = self.localization_manager.get_string("api_key_charset_error")
             self.logger.warning(f"API Key de Groq con caracteres no válidos: {friendly}")
-            self.api_key_status_label.configure(
-                text="●", text_color=DesignSystem.COLORS["error"]
-            )
+            self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["error"])
             self._api_key_last_valid = False
             self.update_status(f"❌ {friendly}", "red")
             if show_popup:
