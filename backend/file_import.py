@@ -1,11 +1,14 @@
 """
-Pure file-import helpers for the F1 Files tab.
+Pure file-import helpers for the F1 Files queue.
 
 This module contains NO UI imports and never logs user paths at INFO
 (privacy). It provides:
 
 - the documented default audio extension allowlist,
 - single-path and batch validation (extension allowlist + existence),
+- a soundfile readability probe (extension-valid but undecodable files,
+  e.g. WhatsApp OGG/Opus),
+- per-file queue status recording and reason localization helpers,
 - tkinterdnd2 drop-data parsing (braced / plain / quoted paths),
 - clipboard path extraction: Windows CF_HDROP first (via win32clipboard
   when available), text-path fallback everywhere else.
@@ -19,6 +22,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Iterable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +36,32 @@ REASON_INVALID_TYPE = "invalid_type"
 
 #: Rejection reason: extension allowed but the file does not exist.
 REASON_MISSING = "missing"
+
+#: Rejection reason: file exists with an allowed extension but its audio
+#: container cannot be opened by soundfile (e.g. WhatsApp OGG/Opus).
+REASON_UNREADABLE = "unreadable"
+
+#: Queue failure reason: the transcription service returned no text.
+REASON_EMPTY_RESULT = "empty_result"
+
+#: Queue failure reason: the transcription result could not be saved.
+REASON_SAVE_FAILED = "save_failed"
+
+#: Queue failure reason: placeholder when no specific cause is known.
+REASON_UNKNOWN = "unknown"
+
+#: Stable error reasons that ship a ``files_reason_<reason>`` i18n key.
+LOCALIZED_ERROR_REASONS: frozenset[str] = frozenset(
+    {REASON_UNREADABLE, REASON_EMPTY_RESULT, REASON_SAVE_FAILED, REASON_UNKNOWN}
+)
+
+#: Queue state → ``files_status_*`` i18n key (single source of truth).
+FILES_STATUS_KEYS: dict[str, str] = {
+    "pending": "files_status_pending",
+    "transcribing": "files_status_transcribing",
+    "done": "files_status_done",
+    "error": "files_status_error",
+}
 
 
 def _normalize_extensions(extensions: Iterable[str] | None) -> frozenset[str]:
@@ -47,6 +77,104 @@ def _normalize_extensions(extensions: Iterable[str] | None) -> frozenset[str]:
     if extensions is None:
         return DEFAULT_AUDIO_EXTENSIONS
     return frozenset(str(ext).strip().lstrip(".").lower() for ext in extensions if str(ext).strip())
+
+
+def probe_audio_readable(path: str) -> tuple[bool, str]:
+    """Probe whether ``path`` opens as readable audio via soundfile.
+
+    Catches files whose extension looks valid but whose container cannot
+    be decoded (LT-2: WhatsApp OGG/Opus recordings). Best effort by
+    design: when soundfile itself cannot be imported the probe fails OPEN
+    so the queue keeps its pre-probe behavior.
+
+    Args:
+        path: Filesystem path to an existing audio file.
+
+    Returns:
+        Tuple ``(readable, detail)``: ``(True, "")`` when soundfile opens
+        the file cleanly, ``(False, "<error summary>")`` otherwise. Never
+        raises for string inputs.
+
+    Raises:
+        TypeError: If ``path`` is not a string.
+    """
+    if not isinstance(path, str):
+        raise TypeError(f"path must be a string, got {type(path).__name__}")
+    if not path:
+        return False, "empty path"
+    try:
+        import soundfile as sf
+    except Exception as exc:  # pragma: no cover - soundfile is a hard dependency
+        logger.debug("soundfile unavailable; readability probe skipped: %s", exc)
+        return True, ""
+    try:
+        sf.info(path)
+    except Exception as exc:
+        return False, f"{type(exc).__name__}: {exc}"
+    return True, ""
+
+
+def record_file_status(
+    status_map: dict[str, tuple[str, str]],
+    path: str,
+    state: str,
+    reason: str | None = None,
+) -> tuple[str, str]:
+    """Record one per-file queue status with its failure reason.
+
+    Args:
+        status_map: Shared per-file status map ``{path: (state, reason)}``.
+        path: Queued file path.
+        state: Queue state: pending / transcribing / done / error.
+        reason: Failure cause; normalized to :data:`REASON_UNKNOWN` for
+            errors recorded without one, and to ``""`` for non-errors.
+
+    Returns:
+        The recorded ``(state, reason)`` entry.
+    """
+    entry = (state, (reason or REASON_UNKNOWN) if state == "error" else "")
+    status_map[path] = entry
+    return entry
+
+
+def file_reason_text(loc: Any, reason: str) -> str:
+    """Map a stable rejection/failure reason to localized user text.
+
+    Args:
+        loc: Localization manager exposing ``get_string(key, **kwargs)``.
+        reason: Stable technical reason (e.g. ``unreadable``) or free-form
+            detail such as an exception summary.
+
+    Returns:
+        Localized text when ``reason`` is a known stable reason with a
+        translation key; otherwise the raw ``reason`` untouched (free-form
+        text is never routed through ``format``).
+    """
+    if reason in LOCALIZED_ERROR_REASONS:
+        text = loc.get_string(f"files_reason_{reason}")
+        if not text.startswith("MISSING_TRANSLATION_"):
+            return text
+    return reason
+
+
+def file_status_label_text(loc: Any, entry: tuple[str, str]) -> str:
+    """Compose the queue label text for one per-file status entry.
+
+    Args:
+        loc: Localization manager exposing ``get_string(key, **kwargs)``.
+        entry: ``(state, reason)`` pair as stored by
+            :func:`record_file_status`.
+
+    Returns:
+        Localized state name, plus a parenthesized reason for error
+        entries (localized when stable, raw when free-form).
+    """
+    state, reason = entry
+    key = FILES_STATUS_KEYS.get(state)
+    text = loc.get_string(key) if key else state
+    if state == "error" and reason:
+        return f"{text} ({file_reason_text(loc, reason)})"
+    return text
 
 
 def is_audio_file(path: str, extensions: Iterable[str] | None = None) -> bool:

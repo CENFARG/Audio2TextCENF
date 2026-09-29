@@ -14,6 +14,7 @@ Author: Audio2Text Development Team
 
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -136,9 +137,7 @@ class TestFilterAudioPaths:
         audio.write_bytes(b"x")
 
         # Act
-        accepted, rejected = filter_audio_paths(
-            [str(audio), str(audio), str(audio)]
-        )
+        accepted, rejected = filter_audio_paths([str(audio), str(audio), str(audio)])
 
         # Assert
         assert accepted == [str(audio)]
@@ -161,9 +160,7 @@ class TestFilterAudioPaths:
         custom.write_bytes(b"x")
 
         # Act
-        accepted, rejected = filter_audio_paths(
-            [str(custom)], frozenset({"xyz"})
-        )
+        accepted, rejected = filter_audio_paths([str(custom)], frozenset({"xyz"}))
 
         # Assert
         assert accepted == [str(custom)]
@@ -262,9 +259,7 @@ class TestPathsFromClipboardText:
         # Arrange
         audio = tmp_path / "a.mp3"
         audio.write_bytes(b"x")
-        monkeypatch.setattr(
-            file_import.os.path, "expanduser", lambda p: str(audio)
-        )
+        monkeypatch.setattr(file_import.os.path, "expanduser", lambda p: str(audio))
 
         # Act
         result = paths_from_clipboard_text("~/a.mp3\n")
@@ -292,12 +287,8 @@ class TestPathsFromClipboard:
         # Arrange
         audio = tmp_path / "a.mp3"
         audio.write_bytes(b"x")
-        monkeypatch.setattr(
-            file_import, "_read_clipboard_hdrop", lambda: [str(audio)]
-        )
-        monkeypatch.setattr(
-            file_import, "_read_clipboard_text", lambda: "ignored.mp3"
-        )
+        monkeypatch.setattr(file_import, "_read_clipboard_hdrop", lambda: [str(audio)])
+        monkeypatch.setattr(file_import, "_read_clipboard_text", lambda: "ignored.mp3")
 
         # Act
         result = paths_from_clipboard()
@@ -309,10 +300,8 @@ class TestPathsFromClipboard:
         # Arrange
         audio = tmp_path / "a.mp3"
         audio.write_bytes(b"x")
-        monkeypatch.setattr(file_import, "_read_clipboard_hdrop", lambda: [])
-        monkeypatch.setattr(
-            file_import, "_read_clipboard_text", lambda: str(audio) + "\n"
-        )
+        monkeypatch.setattr(file_import, "_read_clipboard_hdrop", list)
+        monkeypatch.setattr(file_import, "_read_clipboard_text", lambda: str(audio) + "\n")
 
         # Act
         result = paths_from_clipboard()
@@ -322,7 +311,7 @@ class TestPathsFromClipboard:
 
     def test_returns_empty_list_when_both_sources_empty(self, monkeypatch):
         # Arrange
-        monkeypatch.setattr(file_import, "_read_clipboard_hdrop", lambda: [])
+        monkeypatch.setattr(file_import, "_read_clipboard_hdrop", list)
         monkeypatch.setattr(file_import, "_read_clipboard_text", lambda: "")
 
         # Act
@@ -338,6 +327,76 @@ class TestDefaultAudioExtensions:
 
     def test_default_allowlist_matches_spec(self):
         # Assert
-        assert DEFAULT_AUDIO_EXTENSIONS == frozenset(
-            {"mp3", "wav", "m4a", "ogg", "flac", "webm", "opus", "aac"}
+        assert (
+            frozenset({"mp3", "wav", "m4a", "ogg", "flac", "webm", "opus", "aac"})
+            == DEFAULT_AUDIO_EXTENSIONS
         )
+
+
+@pytest.mark.unit
+class TestProbeAudioReadable:
+    """Tests for the soundfile readability probe (C1 / LT-2).
+
+    WhatsApp OGG/Opus files pass extension validation but cannot be
+    opened by soundfile; the probe must catch them before enqueue.
+    """
+
+    def test_readable_file_reports_ok(self, tmp_path, monkeypatch):
+        # Arrange
+        audio = tmp_path / "a.ogg"
+        audio.write_bytes(b"x")
+        info = SimpleNamespace(samplerate=48000, channels=1, frames=100)
+        monkeypatch.setattr("soundfile.info", lambda p: info)
+
+        # Act
+        readable, detail = file_import.probe_audio_readable(str(audio))
+
+        # Assert
+        assert readable is True
+        assert detail == ""
+
+    def test_unreadable_file_reports_failure_with_detail(self, tmp_path, monkeypatch):
+        # Arrange
+        audio = tmp_path / "whatsapp.ogg"
+        audio.write_bytes(b"x")
+
+        def boom(path):
+            raise RuntimeError("Format not recognised")
+
+        monkeypatch.setattr("soundfile.info", boom)
+
+        # Act
+        readable, detail = file_import.probe_audio_readable(str(audio))
+
+        # Assert
+        assert readable is False
+        assert "Format not recognised" in detail
+
+    def test_missing_soundfile_fails_open(self, tmp_path, monkeypatch):
+        # Arrange: soundfile import fails -> probe must not reject everything
+        audio = tmp_path / "a.mp3"
+        audio.write_bytes(b"x")
+        monkeypatch.setitem(sys.modules, "soundfile", None)
+
+        # Act
+        readable, _ = file_import.probe_audio_readable(str(audio))
+
+        # Assert
+        assert readable is True
+
+    def test_empty_path_is_not_readable(self):
+        # Act
+        readable, detail = file_import.probe_audio_readable("")
+
+        # Assert
+        assert readable is False
+        assert detail
+
+    def test_non_string_path_raises_type_error(self):
+        # Act / Assert
+        with pytest.raises(TypeError):
+            file_import.probe_audio_readable(None)  # type: ignore[arg-type]
+
+    def test_unreadable_reason_constant_value(self):
+        # Assert: stable rejection reason id used by the enqueue path
+        assert file_import.REASON_UNREADABLE == "unreadable"
