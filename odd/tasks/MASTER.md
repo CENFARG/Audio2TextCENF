@@ -9,16 +9,10 @@
 Fuentes de versión detectadas: config.json `app_version` (canon runtime), pyproject.toml,
 config/version_info.txt (+3 variantes), setup.py, config/version.json (manifest updater).
 
-- [ ] A1. Inventariar TODAS las ocurrencias hardcodeadas de versión (grep 0.15/0.10/0.9) y
-      eliminar duplicados: una sola fuente canónica + derivados generados
-- [ ] A2. Corregir setup.py (0.9.2) o deprecarlo si pyproject es el canon del packaging
-- [ ] A3. scripts/check_version.py: extender a validador de consistencia entre las 5 fuentes
-- [ ] A4. Script de bump atómico (scripts/bump_version.py): actualiza las 5 fuentes en un
-      commit + crea tag `vX.Y.Z` (formato sin punto: v0.16.0, NO v.0.16.0)
-- [ ] A5. Taguear retroactivamente los hitos que falten (v0.15.12 en el commit de release)
-- [ ] A6. CLAUDE.md: refrescar a estado real (v0.15.12, faster-whisper ERRADICADO en esta
-      línea, arquitectura mixins, F1/F2)
-- [ ] A7. version.json de main: se actualiza SOLO al publicar release (procedure en A4)
+- [x] A1-A4. Inventario + setup.py dinámico + check_version 10 fuentes + scripts/bump_version.py atómico (8d4700d; dry-run 0.16.0 verificado; --release para version.json documentado)
+- [x] A5. Tag v0.15.12 retroactivo en 3b11fcc (formato vX.Y.Z sin punto)
+- [x] A6. CLAUDE.md refrescado a estado real (6270dce)
+- [x] A7. Procedimiento version.json documentado en bump_version.py (solo con --release al publicar)
 
 ## B — Batch 2: bug fixes (aprobado GR 2026-09-25)
 
@@ -34,14 +28,11 @@ config/version_info.txt (+3 variantes), setup.py, config/version.json (manifest 
 
 ## C — F1 seguimiento
 
-- [ ] C1. LT-2: validar legibilidad del archivo AL IMPORTAR (soundfile probe) — WhatsApp
-      OGG/Opus se rechaza con razón clara en la UI, no a mitad de transcripción
-- [ ] C2. LT-4: estado por archivo en la cola debe mostrar la razón de error (no solo
-      "1 succeeded" con 1 log)
-- [ ] C3. (decisión GR) fallback ffmpeg para OGG/Opus: transcodificar o rechazar
-- [ ] C4. F1.1 RESTRUCTURE: mover la sección Archivos DENTRO de la pestaña principal
-      (debajo, separada del área de texto) — elimina la pestaña dedicada
-- [ ] C5. Prueba en vivo final de GR (3 vías + OGG WhatsApp + cola multi-archivo)
+- [x] C1. LT-2: probe_audio_readable (soundfile.info) rechaza no-legibles al importar con razón localizada (3db3af8; C3: sin ffmpeg, rechazo-only)
+- [x] C2. LT-4: estado por archivo es (estado, razón) con choke point _mark_file_error — un solo ERROR por archivo, razón visible en UI (8fbdcff)
+- [x] C4. F1.1: sección Archivos dentro de pestaña principal (fila 4, bajo transcripción); pestaña dedicada eliminada (8fbdcff)
+- [ ] C5. Prueba en vivo final de GR (3 vías + OGG WhatsApp rechazado con razón + cola multi-archivo)
+- [ ] C6. (futuro, decisión GR) fallback ffmpeg OGG/Opus como transcodificación opcional
 
 ## D — Deuda técnica (restante)
 
@@ -53,6 +44,8 @@ config/version_info.txt (+3 variantes), setup.py, config/version.json (manifest 
 - [ ] D8. (cubierto en A6)
 - [ ] D9. 91 findings legacy en ui/app.py: DESPUÉS de suite verde, por zona (bare excepts,
       int() sin guard); contratos primero
+- [ ] D11. Triaje de 2 flakes order-dependent: test_12min_real_repro, test_429_retry_backoff
+      (pasan en aislado; fallan por orden/carga — estabilizar o aislar con marker)
 - [ ] D10. Limpieza scripts/ (logs de build 0.10.0, _raw_*.json, __pycache__, subcarpetas
       stray audio/backend dentro de scripts/)
 
@@ -82,8 +75,9 @@ config/version_info.txt (+3 variantes), setup.py, config/version.json (manifest 
 ## Estado
 
 - Batch 1 deuda: ✅ (18F→5F, cov 61.29%)
-- F1: ✅ implementada y verificada en vivo
-- Batch 2 (B1-B6): ✅ suite 100% verde (307P/0F/0E, cov 61.93%)
-- F1.1 restructure (C4): ⏳ próximo
-- Versionado (A): ⏳ auditado, falta ejecutar
-- F2/F3/G: ⏳ cola
+- F1: ✅ implementada y verificada en vivo; C1/C2/C4 ✅ (3db3af8, 8fbdcff); C5 pendiente GR
+- Batch 2 (B1-B6): ✅ suite 100% verde (307P/0F/0E)
+- Track A versionado: ✅ (8d4700d, 6270dce, tag v0.15.12; 10 fuentes PASS)
+- Batch C: ✅ (3db3af8, 8fbdcff) — 330P, cov 62.12%
+- style: transcriber.py formateado con AST idéntico (a3de9e7) — fin del churn
+- Siguiente: E (F2 Supervisor spec SDD) → F3 → G consolidación (v0.16.0)
