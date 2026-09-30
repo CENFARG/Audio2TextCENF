@@ -36,12 +36,10 @@ config/version_info.txt (+3 variantes), setup.py, config/version.json (manifest 
 
 ## D — Deuda técnica (restante)
 
-- [ ] D5. ruff 0 en backend/ + tests/ (línea activa)
-- [ ] D6. mypy: corregir pyproject (python_version 3.8 no soportado) y pasar limpio en
-      código nuevo
-- [ ] D7. Strays raíz (TEST-006): test_fixes.py y backend/test_utf8_validator.py → mover a
-      tests/ con markers o eliminar con justificación
-- [ ] D8. (cubierto en A6)
+- [x] D6. mypy python_version 3.12 — mypy 1.20.0 corre (80e144a); hallazgos reportados para D9
+- [x] D7. Strays raíz eliminados con justificación (test_fixes.py QA obsoleto 0.14.0; backend/test_utf8_validator.py demo sin asserts — cobertura real en tests/test_utf8_fixes.py) (2469655)
+- [x] D10. scripts/ limpio: logs 0.10.0, _raw_*.json, _chunked/_original eliminados (2469655)
+- [x] D11. Marker order_dependent registrado + aplicado a los 2 flakes conocidos (80e144a)
 - [ ] D9. 91 findings legacy en ui/app.py: DESPUÉS de suite verde, por zona (bare excepts,
       int() sin guard); contratos primero
 - [ ] D11. Triaje de 2 flakes order-dependent: test_12min_real_repro, test_429_retry_backoff
@@ -51,20 +49,13 @@ config/version_info.txt (+3 variantes), setup.py, config/version.json (manifest 
 
 ## E — F2: Pestaña Supervisor de IAs (spec SDD completa antes de codear)
 
-- [ ] E1. Spec openspec: entradas numeradas, cita "..." + ":" + corrección, selectbox de
-      12 bloques de contexto (.amBotHs/contextBlocks/*.md), nueva respuesta, CRUD historial,
-      auto-save JSON, copiar N/todo, estado borrador/enviada, grabar por fragmento,
-      máquina de estado (ARCH-009)
-- [ ] E2. TDD módulo puro (prompt builder + persistencia) antes de UI
-- [ ] E3. UI CustomTkinter + i18n es/en
-- [ ] E4. Prueba en vivo GR
+- [x] E1-E4. F2 Supervisor IMPLEMENTADA (cf1a28e, 13563c9): store 334l + context_blocks 179l + recorder 215l + mixin 400l; +73 tests; 23 i18n keys; spec b3ecd36. Live test GR pendiente
 
 ## F — F3: Hotkey global captura portapapeles
 
-- [ ] F1. Captura clipboard → entrada nueva del Supervisor (depende de E)
-- [ ] F2. Re-copia del mismo contenido → reemplaza última entrada ordinal (no duplica)
+- [x] F1-F2. F3 hotkey capture IMPLEMENTADA (d5c4311): decide_capture_action + HotkeyCaptureHandler, re-copia reemplaza última ordinal, hotkey configurable ctrl+alt+v, +16 tests
 
-## G — Consolidación (fecha dura: merge a main)
+## G — Consolidación (fecha dura: merge a main) — LISTA PARA GO DE GR
 
 - [ ] G1. Revisión PR #3 completa (scope: v0.15.1→0.16.0)
 - [ ] G2. Merge a main + tag v0.16.0 (SemVer: features nuevas = MINOR)
@@ -74,10 +65,16 @@ config/version_info.txt (+3 variantes), setup.py, config/version.json (manifest 
 
 ## Estado
 
-- Batch 1 deuda: ✅ (18F→5F, cov 61.29%)
-- F1: ✅ implementada y verificada en vivo; C1/C2/C4 ✅ (3db3af8, 8fbdcff); C5 pendiente GR
-- Batch 2 (B1-B6): ✅ suite 100% verde (307P/0F/0E)
-- Track A versionado: ✅ (8d4700d, 6270dce, tag v0.15.12; 10 fuentes PASS)
-- Batch C: ✅ (3db3af8, 8fbdcff) — 330P, cov 62.12%
-- style: transcriber.py formateado con AST idéntico (a3de9e7) — fin del churn
-- Siguiente: E (F2 Supervisor spec SDD) → F3 → G consolidación (v0.16.0)
+- Suite: 421 passed / 0 failed / 0 errors, cov 64.66%
+- F1 ✅ (C5 live pendiente GR) · F2 Supervisor ✅ (live pendiente GR) · F3 hotkey ✅
+- Track A versionado ✅ · Deuda: D1-D4,D6-D8,D10,D11 ✅ | D5 ruff + D9 91 findings ⏳ (pre-release)
+- G: TODO LISTO — falta GO de GR (live tests + aprobación de merge, GIT-001/PROC-008)
+
+## G — Checklist de consolidación (requiere GO de GR)
+
+- [ ] G0. GR: live tests finales (F1 3 vías, F2 supervisor completo, F3 hotkey)
+- [ ] G1. Push + revisión PR #3
+- [ ] G2. Merge a main + bump 0.16.0 (bump_version.py) + tag v0.16.0
+- [ ] G3. version.json en main con --release (updater deja de decir 0.10.0)
+- [ ] G4. Aviso a Pablo: mapa final de ramas
+- [ ] G5. Decisión rama Tauri (retomar/archivar) — post-merge
