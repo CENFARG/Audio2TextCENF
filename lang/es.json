@@ -43,6 +43,8 @@
   "supervisor_transcription_failed": "⚠️ La transcripción falló o no devolvió texto",
   "supervisor_mark_sent": "✓ Marcar enviada",
   "supervisor_reopen": "↩ Reabrir",
+  "supervisor_captured_new": "✅ Respuesta #{number} capturada desde el portapapeles",
+  "supervisor_captured_replaced": "🔁 Respuesta #{number} reemplazada con el portapapeles",
   "files_filetype_audio": "Audio",
   "files_filetype_all": "Todos los archivos",
   "status_ready": "🎤 Listo para grabar",

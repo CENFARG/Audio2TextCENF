@@ -35,9 +35,11 @@ def validate_api_key_charset(api_key: str | None) -> tuple[str, str | None]:
         return cleaned, "non_ascii"
     return cleaned, None
 
+
 # Optional keyring support — graceful fallback if not installed
 try:
     import keyring as _keyring
+
     _KEYRING_AVAILABLE = True
 except ImportError:
     _keyring = None
@@ -66,14 +68,15 @@ class ConfigManager:
             "save_logs": True,
             "hotkey": "f9",  # FIX: default F9 (estaba f12) — pedido del usuario
             "hotkey_modifier": "",  # DEPRECATED: Usar formato "ctrl+f9" en hotkey
-            "record_mode": "toggle", # Opciones: "hold" o "toggle"
+            "supervisor_capture_hotkey": "ctrl+alt+v",  # F3: hotkey global que captura el portapapeles al Supervisor
+            "record_mode": "toggle",  # Opciones: "hold" o "toggle"
             "default_language": "es",  # Idioma de INTERFAZ (siempre es)
             "transcription_language": "es",  # Idioma de TRANSCRIPCIÓN (es/en, configurable por el usuario)
             "max_audio_files": 100,
             "max_log_entries": 1000,
             "max_recording_time": 720,  # CAP TRANSITORIO A - reevaluar post B (12 min = 720s, evita pérdida 20min mientras B/C llegan)
             "max_transcription_age_days": 30,  # Días antes de limpiar transcripciones antiguas
-            "auto_cleanup_enabled": True,      # Limpieza automática de archivos antiguos
+            "auto_cleanup_enabled": True,  # Limpieza automática de archivos antiguos
             # HC-01 FIX: placeholder vacío — key real via GROQ_API_KEY env o keyring, nunca hardcodeada
             "groq_api_key": "",
             "gift_key_encoded": "",  # DEPRECATED: removido por seguridad, mantener clave vacía para compat
@@ -83,10 +86,10 @@ class ConfigManager:
             "autostart_windows": False,  # FIX: desactivado por defecto
             "client_logo_path": "",
             "utf8_validation": True,  # Validación y corrección UTF-8 para caracteres españoles
-            "asr_provider": "groq",   # Servicio de transcripción: "groq" o "nvidia"
+            "asr_provider": "groq",  # Servicio de transcripción: "groq" o "nvidia"
             "nvidia_enabled": False,  # Habilitar NVIDIA Riva ASR
-            "nvidia_api_key": "",     # API key de NVIDIA (se ofuscará al guardar)
-            "nvidia_mode": "cloud",   # Modo NVIDIA: "cloud" (API) o "local" (Docker)
+            "nvidia_api_key": "",  # API key de NVIDIA (se ofuscará al guardar)
+            "nvidia_mode": "cloud",  # Modo NVIDIA: "cloud" (API) o "local" (Docker)
             "window_geometry": "590x590+200+100",  # FIX v0.15.7: default cuadrado — pisa config vieja si no existe
             "sound_enabled": True,  # FIX v0.15.8: sonido ON por defecto — switch omnipresente
             "groq_parallel_workers": 3,  # Slice B: pool Groq 3 workers (configurable 2-4), speedup 2.5x
@@ -94,7 +97,9 @@ class ConfigManager:
         }
         # Cargar configuración ANTES de inicializar localization_manager
         self.config = self.load_config()
-        self.localization_manager = LocalizationManager(lang_code=self.config.get("default_language"))
+        self.localization_manager = LocalizationManager(
+            lang_code=self.config.get("default_language")
+        )
 
     def load_config(self):
         """Cargar configuración desde archivo."""
@@ -103,7 +108,7 @@ class ConfigManager:
         needs_save = False
         try:
             if os.path.exists(self.config_file):
-                with open(self.config_file, encoding='utf-8') as f:
+                with open(self.config_file, encoding="utf-8") as f:
                     loaded_config = json.load(f)
                     config.update(loaded_config)
 
@@ -117,7 +122,9 @@ class ConfigManager:
                         break
 
         except Exception as e:
-            self.logger.error(f"Error al cargar configuración desde {self.config_file}: {e}, usando configuración por defecto.")
+            self.logger.error(
+                f"Error al cargar configuración desde {self.config_file}: {e}, usando configuración por defecto."
+            )
 
         # Migración: si el archivo no tenía transcription_language, copiar desde su default_language
         if "transcription_language" not in loaded_config:
@@ -157,11 +164,19 @@ class ConfigManager:
         _GEOMETRY_DEFAULT = self.default_config["window_geometry"]
         _GEOMETRY_PATTERN = re.compile(r"^\d+x\d+(\+\d+\+\d+)?$")
         _LEGACY_PREFIXES = ("650x550", "1536x793", "160x160", "800x600", "1024x768", "1280x720")
-        saved_geo = loaded_config.get("window_geometry") if isinstance(loaded_config, dict) else None
+        saved_geo = (
+            loaded_config.get("window_geometry") if isinstance(loaded_config, dict) else None
+        )
         current_geo = config.get("window_geometry", "")
         # 1) Validación de formato — si no matchea regex, reset a default
-        if not isinstance(current_geo, str) or not current_geo.strip() or not _GEOMETRY_PATTERN.match(current_geo.strip()):
-            self.logger.warning(f"window_geometry inválida '{current_geo}' — reseteando a default {_GEOMETRY_DEFAULT}")
+        if (
+            not isinstance(current_geo, str)
+            or not current_geo.strip()
+            or not _GEOMETRY_PATTERN.match(current_geo.strip())
+        ):
+            self.logger.warning(
+                f"window_geometry inválida '{current_geo}' — reseteando a default {_GEOMETRY_DEFAULT}"
+            )
             config["window_geometry"] = _GEOMETRY_DEFAULT
             needs_save = True
         else:
@@ -171,17 +186,30 @@ class ConfigManager:
             #    y el flag _geometry_migrated no existe. Usamos saved_geo (lo que vino del archivo)
             #    para decidir, no current_geo normalizado, para respetar custom del usuario.
             if isinstance(loaded_config, dict):
-                already_migrated = config.get("_geometry_migrated") is True or loaded_config.get("_geometry_migrated") is True
+                already_migrated = (
+                    config.get("_geometry_migrated") is True
+                    or loaded_config.get("_geometry_migrated") is True
+                )
             else:
                 already_migrated = config.get("_geometry_migrated") is True
-            is_legacy = any(str(saved_geo).strip().startswith(p) for p in _LEGACY_PREFIXES) if isinstance(saved_geo, str) and saved_geo.strip() else False
+            is_legacy = (
+                any(str(saved_geo).strip().startswith(p) for p in _LEGACY_PREFIXES)
+                if isinstance(saved_geo, str) and saved_geo.strip()
+                else False
+            )
             # Para no pisar custom, NO usamos "not startswith 590x590" genérico — solo legacy list.
             if is_legacy and not already_migrated:
-                self.logger.info(f"QA migration: window_geometry legacy '{saved_geo}' -> {_GEOMETRY_DEFAULT} (one-shot)")
+                self.logger.info(
+                    f"QA migration: window_geometry legacy '{saved_geo}' -> {_GEOMETRY_DEFAULT} (one-shot)"
+                )
                 config["window_geometry"] = _GEOMETRY_DEFAULT
                 config["_geometry_migrated"] = True
                 needs_save = True
-            elif current_geo.startswith("590x590") and not already_migrated and os.path.exists(self.config_file):
+            elif (
+                current_geo.startswith("590x590")
+                and not already_migrated
+                and os.path.exists(self.config_file)
+            ):
                 # Ya está en 590x590 pero sin flag — sellar migración para que futuros customs no se re-migren
                 config["_geometry_migrated"] = True
                 needs_save = True
@@ -200,7 +228,9 @@ class ConfigManager:
                 # Si decodificación produjo valor válido, usarlo; si no, mantener original (ya podría ser plain)
                 # _decode_gift_key ya maneja el caso plain retornando original
                 config[key] = decoded_value
-                self.logger.debug(f"Decoded {key}: {original_value[:20]}... -> {decoded_value[:20]}...")
+                self.logger.debug(
+                    f"Decoded {key}: {original_value[:20]}... -> {decoded_value[:20]}..."
+                )
 
         # También decodificar gift_key_encoded si existe (compatibilidad con instalaciones viejas)
         if config.get("gift_key_encoded"):
@@ -211,7 +241,9 @@ class ConfigManager:
                     if not config.get("groq_api_key"):
                         config["groq_api_key"] = decoded_gift
                         needs_save = True
-                    self.logger.warning("gift_key_encoded está DEPRECATED — migrando a groq_api_key y limpiar gift_key_encoded")
+                    self.logger.warning(
+                        "gift_key_encoded está DEPRECATED — migrando a groq_api_key y limpiar gift_key_encoded"
+                    )
                 # Limpiar gift_key_encoded en memoria para no exponerla
                 # No guardar gift_key_encoded en config salva (ver save_config)
             except Exception:
@@ -226,9 +258,13 @@ class ConfigManager:
             _mrt_int = _CAP_A
         if _mrt_int > _CAP_A or _mrt_int <= 0:
             if _mrt_int > _CAP_A:
-                self.logger.warning(f"max_recording_time {_mrt_int} > CAP TRANSITORIO A ({_CAP_A}s) — clamping a {_CAP_A}s")
+                self.logger.warning(
+                    f"max_recording_time {_mrt_int} > CAP TRANSITORIO A ({_CAP_A}s) — clamping a {_CAP_A}s"
+                )
             else:
-                self.logger.warning(f"max_recording_time inválido '{_mrt}' — usando CAP TRANSITORIO A {_CAP_A}s")
+                self.logger.warning(
+                    f"max_recording_time inválido '{_mrt}' — usando CAP TRANSITORIO A {_CAP_A}s"
+                )
             config["max_recording_time"] = _CAP_A
             needs_save = True
         elif _mrt_int != _mrt:
@@ -270,7 +306,7 @@ class ConfigManager:
                 if config_to_save.get(key):
                     config_to_save[key] = self._encode_key(config_to_save[key])
 
-            with open(self.config_file, 'w', encoding='utf-8') as f:
+            with open(self.config_file, "w", encoding="utf-8") as f:
                 json.dump(config_to_save, f, indent=2, ensure_ascii=False)
             self.logger.info(f"Configuración guardada en {self.config_file}")
         except Exception as e:
@@ -289,9 +325,7 @@ class ConfigManager:
         if "groq_api_key" in new_settings:
             new_settings = {
                 **new_settings,
-                "groq_api_key": self._sanitize_groq_api_key(
-                    new_settings["groq_api_key"]
-                ),
+                "groq_api_key": self._sanitize_groq_api_key(new_settings["groq_api_key"]),
             }
         self.config.update(new_settings)
         self.save_config()
@@ -375,7 +409,9 @@ class ConfigManager:
             except Exception:
                 pass
 
-        self.logger.warning("GROQ_API_KEY no encontrada en env / keyring / config. Configurala en Configuración o via GROQ_API_KEY.")
+        self.logger.warning(
+            "GROQ_API_KEY no encontrada en env / keyring / config. Configurala en Configuración o via GROQ_API_KEY."
+        )
         return None
 
     def get_groq_api_key_from_env(self):
@@ -398,9 +434,7 @@ class ConfigManager:
         """
         cleaned, issue = validate_api_key_charset(api_key)
         if issue == "non_ascii":
-            self.logger.warning(
-                self.localization_manager.get_string("api_key_charset_error")
-            )
+            self.logger.warning(self.localization_manager.get_string("api_key_charset_error"))
         return cleaned
 
     def set_groq_api_key(self, api_key: str, use_keyring: bool = True):
@@ -423,30 +457,43 @@ class ConfigManager:
     def _encode_key(self, key):
         """Ofusca una clave (Base64 + XOR simple)."""
         import base64
+
         xor_key = "CENF_SECRET"
         xor_result = bytes([ord(c) ^ ord(xor_key[i % len(xor_key)]) for i, c in enumerate(key)])
-        return base64.b64encode(xor_result).decode('utf-8')
+        return base64.b64encode(xor_result).decode("utf-8")
 
     def _decode_gift_key(self, encoded_key):
         """Decodifica una clave obfuscada (Base64 + XOR simple)."""
-        if not encoded_key: return ""
+        if not encoded_key:
+            return ""
 
         # SI YA ESTÁ DECODIFICADA (Empieza con gsk_, sk- o nvapi_), NO HACER NADA
-        if encoded_key.startswith("gsk_") or encoded_key.startswith("sk-") or encoded_key.startswith("nvapi-"):
+        if (
+            encoded_key.startswith("gsk_")
+            or encoded_key.startswith("sk-")
+            or encoded_key.startswith("nvapi-")
+        ):
             return encoded_key
 
         import base64
+
         try:
             # Check if it looks like base64
             decoded_bytes = base64.b64decode(encoded_key)
             # Simple XOR con una clave fija 'CENF_SECRET'
             xor_key = "CENF_SECRET"
-            result = "".join(chr(b ^ ord(xor_key[i % len(xor_key)])) for i, b in enumerate(decoded_bytes))
+            result = "".join(
+                chr(b ^ ord(xor_key[i % len(xor_key)])) for i, b in enumerate(decoded_bytes)
+            )
 
             # Si el resultado no empieza con los prefijos esperados, es probable que no fuera base64
-            if not (result.startswith("gsk_") or result.startswith("sk-") or result.startswith("nvapi-")):
-                 self.logger.debug("La clave decodificada no tiene el formato esperado, devolviendo original.")
-                 return encoded_key
+            if not (
+                result.startswith("gsk_") or result.startswith("sk-") or result.startswith("nvapi-")
+            ):
+                self.logger.debug(
+                    "La clave decodificada no tiene el formato esperado, devolviendo original."
+                )
+                return encoded_key
             return result
         except Exception as e:
             # If fails, maybe it's not encoded or corrupted

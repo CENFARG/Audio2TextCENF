@@ -43,6 +43,8 @@
   "supervisor_transcription_failed": "⚠️ Transcription failed or returned no text",
   "supervisor_mark_sent": "✓ Mark sent",
   "supervisor_reopen": "↩ Reopen",
+  "supervisor_captured_new": "✅ Response #{number} captured from clipboard",
+  "supervisor_captured_replaced": "🔁 Response #{number} replaced from clipboard",
   "files_filetype_audio": "Audio",
   "files_filetype_all": "All files",
   "status_ready": "🎤 Ready to record",

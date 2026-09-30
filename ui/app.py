@@ -21,6 +21,7 @@ from datetime import datetime
 # Backend imports
 from backend.config_manager import ConfigManager, validate_api_key_charset
 from backend.file_manager import FileManager
+from backend.hotkey_capture import HotkeyCaptureHandler
 from backend.sound_manager import SoundManager
 from backend.transcriber import Transcriber
 from backend.updater import Updater
@@ -303,6 +304,10 @@ class App(
         self.create_widgets()
         self.update_file_info()
         self.after(1000, self._check_api_key)
+
+        # F3: hotkey global que captura el portapapeles al Supervisor (solo si el
+        # store existe). Si el registro falla, se loggea warning y la app continúa.
+        self._register_supervisor_capture_hotkey()
 
         # Tutorial deshabilitado — no iniciar
 
@@ -1813,6 +1818,41 @@ class App(
             except Exception:
                 pass
         self._status_after_id = self.after(0, self._update_status_on_main_thread, message, color)
+
+    # F3: captura global del portapapeles al Supervisor (hotkey, sin threads nuevos)
+    def _register_supervisor_capture_hotkey(self):
+        """F3: register the supervisor capture hotkey at boot.
+
+        Only registers when the supervisor store exists. The ``keyboard``
+        listener only hops to the Tk main thread via ``after``; a registration
+        failure logs a warning and the app continues without the hotkey.
+        """
+        store = getattr(self, "supervisor_store", None)
+        if store is None:
+            self.logger.info("Supervisor capture hotkey omitted: no supervisor store.")
+            return
+        combo = self.config_manager.get("supervisor_capture_hotkey", default="ctrl+alt+v")
+        self._supervisor_capture_handler = HotkeyCaptureHandler(store, pyperclip.paste)
+        try:
+            keyboard.add_hotkey(combo, self._on_supervisor_capture_hotkey)
+        except Exception as e:
+            self.logger.warning(f"Supervisor capture hotkey '{combo}' no registrada: {e}")
+            return
+        self.logger.info(f"Supervisor capture hotkey registrada: {combo}")
+
+    def _on_supervisor_capture_hotkey(self):
+        """keyboard-listener callback: defer the capture to the Tk main thread."""
+        self.after(0, self._supervisor_capture_from_clipboard)
+
+    def _supervisor_capture_from_clipboard(self):
+        """Capture the clipboard into the Supervisor workbench (main thread)."""
+        result = self._supervisor_capture_handler.on_trigger()
+        if result is None:
+            return
+        self.update_status(
+            self.localization_manager.get_string(result.message_key, number=result.entry.number)
+        )
+        self._supervisor_rebuild_rows()
 
     def _safe_display_transcription_on_main_thread(self, text):
         self.logger.info(f"Mostrando transcripcion (truncada): {text[:100]}...")
