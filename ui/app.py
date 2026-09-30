@@ -41,6 +41,7 @@ from ui.update_tab import UpdateTab
 # HC-02 god-class extraction — mixins delegados (single source en ui/views + ui/dialogs)
 from ui.views.history_view import HistoryViewMixin
 from ui.views.files_view import FilesViewMixin
+from ui.views.supervisor_view import SupervisorViewMixin
 from ui.dialogs.vocab_dialog import VocabDialogMixin
 
 # F1 Files tab: documented default audio import allowlist
@@ -172,7 +173,9 @@ class DesignSystem:
     }
 
 
-class App(FilesViewMixin, HistoryViewMixin, VocabDialogMixin, _FilesDndBase, ctk.CTk):
+class App(
+    SupervisorViewMixin, FilesViewMixin, HistoryViewMixin, VocabDialogMixin, _FilesDndBase, ctk.CTk
+):
     """HC-02: God-class descompuesta vía mixins. Ver ui/views/history_view.py y ui/dialogs/vocab_dialog.py."""
 
     def __init__(self, config_manager=None):
@@ -314,6 +317,9 @@ class App(FilesViewMixin, HistoryViewMixin, VocabDialogMixin, _FilesDndBase, ctk
         self.main_frame = ctk.CTkTabview(self)
         self.main_frame.grid(row=1, column=0, padx=10, pady=(10, 5), sticky="nsew")
         self.main_frame.add(self.localization_manager.get_string("tab_main"))
+        # F2: Supervisor tab sits right after the main tab (proposal: workbench
+        # next to the transcription panel).
+        self.main_frame.add(self.localization_manager.get_string("tab_supervisor"))
         self.main_frame.add(self.localization_manager.get_string("tab_settings"))
         self.main_frame.add(self.localization_manager.get_string("tab_info"))
         self.main_frame.add(self.localization_manager.get_string("tab_history"))
@@ -323,6 +329,8 @@ class App(FilesViewMixin, HistoryViewMixin, VocabDialogMixin, _FilesDndBase, ctk
         # C4: the files queue lives inside the main tab as a labeled section
         # below the transcription panel; the dedicated tab was removed.
         self.create_files_section()
+        # F2: AI-response supervisor workbench (own tab after main).
+        self.create_supervisor_tab()
         self.create_config_tab()
         self.create_info_tab()
         self.create_history_tab()
