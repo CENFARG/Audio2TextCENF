@@ -688,6 +688,7 @@ class TestSliceBParallel:
                     except Exception:
                         pass
 
+    @pytest.mark.order_dependent
     def test_parallel_speedup_vs_sequential(self):
         """12min sintético 720s 29chunks mock 0.8s→ seq ~2.3s (scale 0.08) vs paralelo ~0.8s speedup >2.5x."""
         from backend.audio_chunker import transcribe_chunks, transcribe_chunks_parallel

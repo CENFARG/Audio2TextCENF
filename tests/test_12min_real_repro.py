@@ -258,6 +258,7 @@ class Test12MinRealRepro:
 class TestSliceBRealRepro:
     """Slice B smoke paralelo: orden, speedup, no race checkpoint, 429 aislado."""
 
+    @pytest.mark.order_dependent
     def test_parallel_720s_preserves_order_under_load(self, tmp_path):
         """Reproduce 720s 28chunks con latencia variable — join debe reordenar."""
         _reset_circuit()
