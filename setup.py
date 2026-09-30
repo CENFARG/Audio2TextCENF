@@ -8,10 +8,11 @@ from pathlib import Path
 
 # Read the contents of README file
 this_directory = Path(__file__).parent
-long_description = (this_directory / "README.md").read_text(encoding='utf-8')
+long_description = (this_directory / "README.md").read_text(encoding="utf-8")
 
 # Read requirements
-requirements = (this_directory / "requirements.txt").read_text(encoding='utf-8').splitlines()
+requirements = (this_directory / "requirements.txt").read_text(encoding="utf-8").splitlines()
+
 
 def _read_version() -> str:
     """Read canonical version from pyproject.toml (single source of truth)."""
@@ -36,7 +37,9 @@ setup(
         "Documentation": "https://github.com/CENFARG/Audio2Text/blob/main/docs/",
         "Source Code": "https://github.com/CENFARG/Audio2Text",
     },
-    packages=find_packages(exclude=["tests", "tests.*", "scripts", "_build_artifacts", "_old_versions_archive"]),
+    packages=find_packages(
+        exclude=["tests", "tests.*", "scripts", "_build_artifacts", "_old_versions_archive"]
+    ),
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: End Users/Desktop",

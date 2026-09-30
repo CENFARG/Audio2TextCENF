@@ -16,6 +16,7 @@ Uso:
 
 Exit code: 0 si todas PASS, 1 si alguna FAIL.
 """
+
 import json
 import re
 import sys
@@ -129,7 +130,7 @@ def check_all(expected: str | None = None, verbose: bool = True) -> bool:
 
     # 2. backend/config_manager.py
     v = _read_config_manager_version()
-    ok = (v == expected)
+    ok = v == expected
     status = "PASS" if ok else "FAIL"
     if verbose:
         print(f"[{status}] backend/config_manager.py (app_version): {v!r} (expected {expected!r})")
@@ -148,7 +149,9 @@ def check_all(expected: str | None = None, verbose: bool = True) -> bool:
         status = "PASS" if ok else "FAIL"
         if verbose:
             extra = "" if has_display else f" (missing display v{expected})"
-            print(f"[{status}] lang/{lang} (app_title): {v!r} (expected {expected!r}){extra} raw={raw_title!r}")
+            print(
+                f"[{status}] lang/{lang} (app_title): {v!r} (expected {expected!r}){extra} raw={raw_title!r}"
+            )
         all_ok = all_ok and ok
 
     # 4. config version_info files (all 4 variants)
@@ -161,22 +164,29 @@ def check_all(expected: str | None = None, verbose: bool = True) -> bool:
         p = PROJECT_ROOT / "config" / name
         info = _read_version_info(p)
         # PASS if all three extracted versions equal expected
-        ok = all(val == expected for val in info.values() if val is not None) and info["filevers"] is not None
+        ok = (
+            all(val == expected for val in info.values() if val is not None)
+            and info["filevers"] is not None
+        )
         if not ok:
             # Debug: show what was found
             pass
         status = "PASS" if ok else "FAIL"
         if verbose:
-            print(f"[{status}] config/{name}: filevers={info['filevers']!r} FileVersion={info['FileVersion']!r} ProductVersion={info['ProductVersion']!r} (expected {expected!r})")
+            print(
+                f"[{status}] config/{name}: filevers={info['filevers']!r} FileVersion={info['FileVersion']!r} ProductVersion={info['ProductVersion']!r} (expected {expected!r})"
+            )
         all_ok = all_ok and ok
 
     # 5. scripts/build_GENERAL_v2.py
     p = PROJECT_ROOT / "scripts" / "build_GENERAL_v2.py"
     v = _read_build_version(p)
-    ok = (v == expected)
+    ok = v == expected
     status = "PASS" if ok else "FAIL"
     if verbose:
-        print(f"[{status}] scripts/build_GENERAL_v2.py (APP_VERSION): {v!r} (expected {expected!r})")
+        print(
+            f"[{status}] scripts/build_GENERAL_v2.py (APP_VERSION): {v!r} (expected {expected!r})"
+        )
     all_ok = all_ok and ok
 
     # 6. setup.py — dynamic (reads pyproject) or matching literal

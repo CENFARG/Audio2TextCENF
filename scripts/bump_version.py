@@ -29,6 +29,7 @@ Usage:
 
 After bumping, always run: python scripts/check_version.py
 """
+
 from __future__ import annotations
 
 import argparse
@@ -57,9 +58,7 @@ def _load_json(p: Path) -> dict:
 
 def _save_json(p: Path, data: dict, indent: int) -> None:
     try:
-        p.write_text(
-            json.dumps(data, ensure_ascii=False, indent=indent) + "\n", encoding="utf-8"
-        )
+        p.write_text(json.dumps(data, ensure_ascii=False, indent=indent) + "\n", encoding="utf-8")
     except OSError as e:
         raise SystemExit(f"[ERR] writing {p}: {e}") from e
 
@@ -98,9 +97,7 @@ def bump_pyproject(new: str) -> int:
 def bump_config_manager(new: str) -> int:
     p = PROJECT_ROOT / "backend" / "config_manager.py"
     text = p.read_text(encoding="utf-8")
-    text, n = re.subn(
-        r'("app_version"\s*:\s*")[^"]+(")', rf"\g<1>{new}\g<2>", text, count=1
-    )
+    text, n = re.subn(r'("app_version"\s*:\s*")[^"]+(")', rf"\g<1>{new}\g<2>", text, count=1)
     p.write_text(text, encoding="utf-8")
     return n
 
@@ -126,12 +123,8 @@ def bump_info_files(new: str) -> int:
     for p in INFO_FILES:
         text = p.read_text(encoding="utf-8")
         text, n1 = re.subn(r"filevers=\(\d+, \d+, \d+, \d+\)", f"filevers={tuple_ver}", text)
-        text, n2 = re.subn(
-            r"(u'FileVersion',\s*u')[^']+(')", rf"\g<1>{new}.0\g<2>", text
-        )
-        text, n3 = re.subn(
-            r"(u'ProductVersion',\s*u')[^']+(')", rf"\g<1>{new}\g<2>", text
-        )
+        text, n2 = re.subn(r"(u'FileVersion',\s*u')[^']+(')", rf"\g<1>{new}.0\g<2>", text)
+        text, n3 = re.subn(r"(u'ProductVersion',\s*u')[^']+(')", rf"\g<1>{new}\g<2>", text)
         p.write_text(text, encoding="utf-8")
         total += n1 + n2 + n3
     return total
