@@ -109,10 +109,12 @@ jobs:
       # Suite is green — pytest now GATES the pipeline (no continue-on-error,
       # no || fallback). Failures must fail CI.
       - name: Run pytest with coverage
+        shell: bash
         run: |
-          # order_dependent: flakes de orden/carga documentados (aislado OK).
-          # Excluidos del gate hasta su hardening (deuda D11).
-          pytest -m "not order_dependent" --cov=backend --cov=tests \
+          # order_dependent: flakes de orden/carga documentados (aislado OK);
+          # excluidos del gate hasta su hardening (deuda D11).
+          pytest -m "not order_dependent" \
+            --cov=backend --cov=tests \
             --cov-report=xml --cov-report=term-missing \
             --cov-report=html --verbose
 
