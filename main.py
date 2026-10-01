@@ -78,6 +78,35 @@ try:
     patch_canvas_methods()
 except Exception as e:
     print(f"Warning: Could not apply tkinter.Canvas monkeypatch: {e}")
+
+# --- MONKEY PATCH: Fix CustomTkinter float pad values (TclError: bad pad value "2.0") ---
+# Cause: builds nuevos de Tcl/Tk (Python 3.12.13 uv) rechazan paddings flotantes que
+# CustomTkinter produce al escalar padx/pady por DPI. Forzamos enteros post-escalado
+# para pack/grid/place de TODOS los widgets CTk.
+try:
+    from customtkinter.windows.widgets.scaling import scaling_base_class as _ctk_scaling
+
+    _orig_apply_argument_scaling = _ctk_scaling.CTkScalingBaseClass._apply_argument_scaling
+
+    def _int_pad(value):
+        """Convertir paddings flotantes escalados a enteros (tolerado por todo Tcl)."""
+        if isinstance(value, float):
+            return int(round(value))
+        if isinstance(value, (tuple, list)):
+            return type(value)(_int_pad(v) for v in value)
+        return value
+
+    def _apply_argument_scaling_int(self, kwargs):
+        scaled = _orig_apply_argument_scaling(self, kwargs)
+        for key in ("padx", "pady", "ipadx", "ipady"):
+            if key in scaled:
+                scaled[key] = _int_pad(scaled[key])
+        return scaled
+
+    _ctk_scaling.CTkScalingBaseClass._apply_argument_scaling = _apply_argument_scaling_int
+    patch_pad_methods_applied = True
+except Exception as e:
+    print(f"Warning: Could not apply CTk pad scaling monkeypatch: {e}")
 # --- END MONKEY PATCH ---
 
 from ui.app import App
