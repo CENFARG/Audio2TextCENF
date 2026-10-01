@@ -10,13 +10,14 @@ Soporta:
 
 import logging
 import keyboard
-from typing import Dict, List, Tuple, Optional, Callable
+from typing import Dict, List, Optional, Callable
 from dataclasses import dataclass, field
 
 
 @dataclass
 class Hotkey:
     """Representa un hotkey completo."""
+
     key: str  # Tecla principal: "f1", "a", "1", etc.
     modifiers: List[str]  # Modificadores: ["ctrl", "shift"], ["alt"], etc.
     mouse_button: Optional[str] = None  # Botón mouse: "left", "right", "middle", etc.
@@ -92,7 +93,8 @@ class HotkeyManager:
         # que is_hotkey_valid rechace el hotkey. Antes estos tokens se
         # descartaban silenciosamente y la validación fallaba abierta (B4/BUG-1).
         invalid_modifiers = [
-            p for p in parts[:-1]
+            p
+            for p in parts[:-1]
             if p not in self.MODIFIERS and p not in self.MOUSE_BUTTONS
         ]
 
@@ -103,7 +105,9 @@ class HotkeyManager:
             invalid_modifiers=invalid_modifiers,
         )
 
-    def format_hotkey_string(self, key: str, modifiers: List[str], mouse_button: Optional[str] = None) -> str:
+    def format_hotkey_string(
+        self, key: str, modifiers: List[str], mouse_button: Optional[str] = None
+    ) -> str:
         """
         Formatear componentes de hotkey a string.
 
@@ -143,7 +147,7 @@ class HotkeyManager:
                 return False
 
             # Validar tecla
-            valid_keys = self.F_KEYS + [chr(i) for i in range(ord('a'), ord('z') + 1)]
+            valid_keys = self.F_KEYS + [chr(i) for i in range(ord("a"), ord("z") + 1)]
             valid_keys += [str(i) for i in range(10)]
 
             if hotkey.key not in valid_keys:
@@ -168,10 +172,7 @@ class HotkeyManager:
             return False
 
     def register_hotkey(
-        self,
-        hotkey_str: str,
-        callback: Callable,
-        suppress: bool = True
+        self, hotkey_str: str, callback: Callable, suppress: bool = True
     ) -> bool:
         """
         Registrar un hotkey con keyboard library.
@@ -188,11 +189,7 @@ class HotkeyManager:
             return False
 
         try:
-            keyboard.add_hotkey(
-                hotkey_str,
-                callback,
-                suppress=suppress
-            )
+            keyboard.add_hotkey(hotkey_str, callback, suppress=suppress)
             self.logger.info(f"Hotkey registrado: {hotkey_str}")
             return True
         except Exception as e:

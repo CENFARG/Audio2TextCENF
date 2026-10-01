@@ -43,8 +43,12 @@ class TestConfigManagerInitialization:
             assert "app_version" in manager.config
             # Contract: app_version is always pinned to the shipped default
             # (load_config overrides it with default_config), never a stale value.
-            assert manager.config["app_version"] == manager.default_config["app_version"]
-            assert manager.config["hotkey"] == "f9"  # FIX: default F9 (pedido del usuario)
+            assert (
+                manager.config["app_version"] == manager.default_config["app_version"]
+            )
+            assert (
+                manager.config["hotkey"] == "f9"
+            )  # FIX: default F9 (pedido del usuario)
             assert manager.config["default_language"] == "es"
         finally:
             if os.path.exists(config_file):
@@ -54,7 +58,11 @@ class TestConfigManagerInitialization:
         """Test initialization loads existing configuration file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             config_file = f.name
-            test_config = {"app_version": "0.12.0", "hotkey": "F10", "default_language": "en"}
+            test_config = {
+                "app_version": "0.12.0",
+                "hotkey": "F10",
+                "default_language": "en",
+            }
             json.dump(test_config, f)
 
         try:
@@ -62,7 +70,9 @@ class TestConfigManagerInitialization:
 
             # Version is always overridden with the shipped default, but the
             # other file settings are kept.
-            assert manager.config["app_version"] == manager.default_config["app_version"]
+            assert (
+                manager.config["app_version"] == manager.default_config["app_version"]
+            )
             assert manager.config["hotkey"] == "F10"
             # Since v0.15.1 the UI language is forced to Spanish regardless of file
             assert manager.config["default_language"] == "es"
@@ -277,7 +287,9 @@ class TestEnvironmentVariables:
     def test_get_groq_api_key_from_env(self):
         """Test getting Groq API key from environment variable."""
         with patch.dict(os.environ, {"GROQ_API_KEY": "gsk_env_key_123"}):
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as f:
                 config_file = f.name
 
             try:
@@ -292,7 +304,9 @@ class TestEnvironmentVariables:
     def test_get_groq_api_key_from_env_not_set(self):
         """Test getting Groq API key when environment variable is not set."""
         with patch.dict(os.environ, {}, clear=True):
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as f:
                 config_file = f.name
 
             try:
@@ -369,7 +383,7 @@ class TestConfigIntegrity:
 
         assert manager2.get("hotkey") == "F8"
         assert manager2.get("max_audio_files") == 75
-        assert manager2.get("auto_cleanup_enabled") == False
+        assert not manager2.get("auto_cleanup_enabled")
 
     def test_multiple_save_load_cycles(self, manager):
         """Test that multiple save/load cycles maintain integrity."""

@@ -6,12 +6,13 @@ Covers:
 - invalid geometry in config.json is corrected to default
 - App._load_window_geometry fallback to 590x590 on invalid without crash
 """
+
 import json
 import os
 import tempfile
 import sys
 from pathlib import Path
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock
 
 import pytest
 
@@ -50,7 +51,9 @@ def test_invalid_geometry_fallback():
         cm = ConfigManager(config_file=tmp)
         geo = cm.get("window_geometry")
         # debe corregir a default 590x590+200+100
-        assert geo == "590x590+200+100" or geo.startswith("590x590"), f"fallback failed, got {geo!r}"
+        assert geo == "590x590+200+100" or geo.startswith("590x590"), (
+            f"fallback failed, got {geo!r}"
+        )
         # también probar otro inválido: vacío
         # escribir vacío y recargar
         with open(tmp, "w", encoding="utf-8") as fh:
@@ -61,10 +64,14 @@ def test_invalid_geometry_fallback():
         with open(tmp, "w", encoding="utf-8") as fh:
             json.dump({"window_geometry": "650x550+100+100"}, fh)
         cm3 = ConfigManager(config_file=tmp)
-        assert cm3.get("window_geometry") == "590x590+200+100", f"legacy migration failed, got {cm3.get('window_geometry')!r}"
+        assert cm3.get("window_geometry") == "590x590+200+100", (
+            f"legacy migration failed, got {cm3.get('window_geometry')!r}"
+        )
         # custom válido no legacy no debe pisarse
         with open(tmp, "w", encoding="utf-8") as fh:
-            json.dump({"window_geometry": "700x800+50+50", "_geometry_migrated": True}, fh)
+            json.dump(
+                {"window_geometry": "700x800+50+50", "_geometry_migrated": True}, fh
+            )
         cm4 = ConfigManager(config_file=tmp)
         assert cm4.get("window_geometry") == "700x800+50+50"
     finally:
@@ -95,13 +102,17 @@ def test_app_load_geometry_fallback():
     # Caso 1: geometry inválida
     app.config_manager.get.return_value = "invalid"
     app._load_window_geometry()
-    assert applied.get("geometry") == "590x590", f"expected fallback 590x590, got {applied.get('geometry')!r}"
+    assert applied.get("geometry") == "590x590", (
+        f"expected fallback 590x590, got {applied.get('geometry')!r}"
+    )
 
     # Caso 2: geometry muy pequeña < minsize
     applied.clear()
     app.config_manager.get.return_value = "100x100+0+0"
     app._load_window_geometry()
-    assert applied.get("geometry") == "590x590", f"minsize fallback failed, got {applied.get('geometry')!r}"
+    assert applied.get("geometry") == "590x590", (
+        f"minsize fallback failed, got {applied.get('geometry')!r}"
+    )
 
     # Caso 3: geometry válida 590 debe aplicarse tal cual
     applied.clear()

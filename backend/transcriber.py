@@ -17,7 +17,6 @@ from groq import Groq
 from .logger import (
     ensure_transcription_debug_handler,
     get_transcription_logger,
-    log_transcription_event,
 )
 
 # CAP TRANSITORIO A - reevaluar post B: hardening Groq (ver _call_groq_api)
@@ -31,7 +30,6 @@ except Exception:  # compat si groq no expone
     _GroqAPIStatusError = Exception
     _GroqTimeoutError = Exception
     _GroqRateLimitError = Exception
-from .localization_manager import LocalizationManager
 from .utf8_validator import UTF8Validator
 from .custom_vocabulary import CustomVocabulary
 from .blocks import BlockManager, ProcessingStage
@@ -41,7 +39,6 @@ from .blocks.keyword_extractor_block import KeywordExtractorBlock
 from .nvidia_asr import NvidiaASR
 from .transcription_metadata import TranscriptionMetadata
 from .transcription_metadata_generator import TranscriptionMetadataGenerator
-from .audio_chunker import transcribe_chunks
 
 MIN_AUDIO_DURATION = 0.5
 CHUNK_THRESHOLD_S = 28.0  # Audio >= 28s se troza para evitar pérdida en costuras de Groq
@@ -2117,7 +2114,7 @@ class Transcriber:
                                 pass
                             part = ""
                             all_ok = False
-                        except Exception as ce:
+                        except Exception:
                             part = ""
                             all_ok = False
                         # guardar en posición ordenada

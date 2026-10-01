@@ -6,6 +6,7 @@ import shutil
 from datetime import datetime
 import sys
 
+
 class FileManager:
     """Gestor de archivos de audio y transcripciones usaando soundfile"""
 
@@ -15,18 +16,22 @@ class FileManager:
         # Obtener directorio base del ejecutable/script
         # Si está compilado con PyInstaller, usar el directorio del .exe
         # Si es desarrollo, usar el directorio del script
-        if getattr(sys, 'frozen', False):
+        if getattr(sys, "frozen", False):
             # HC-04 FIX: usar sys.executable dir en frozen para que WorkingDir del acceso directo no desvíe paths
             # Fallback a cwd si executable no existe (tests con mock)
             try:
-                exe = getattr(sys, 'executable', None)
-                if exe and os.path.exists(os.path.dirname(exe) if os.path.dirname(exe) else exe):
+                exe = getattr(sys, "executable", None)
+                if exe and os.path.exists(
+                    os.path.dirname(exe) if os.path.dirname(exe) else exe
+                ):
                     # os.path.dirname('') -> '' para exe sin dir, fallback a cwd
                     exe_dir = os.path.dirname(exe)
                     self.base_dir = exe_dir if exe_dir else os.getcwd()
                 else:
                     # sys.frozen mock sin executable real (tests) -> cwd
-                    self.base_dir = os.path.dirname(sys.executable) if exe else os.getcwd()
+                    self.base_dir = (
+                        os.path.dirname(sys.executable) if exe else os.getcwd()
+                    )
                     if not self.base_dir:
                         self.base_dir = os.getcwd()
             except Exception:
@@ -45,18 +50,23 @@ class FileManager:
             self.audio_path = audio_path_rel
         else:
             # Unir y normalizar para eliminar ./ o ../
-            self.audio_path = os.path.normpath(os.path.join(self.base_dir, audio_path_rel))
+            self.audio_path = os.path.normpath(
+                os.path.join(self.base_dir, audio_path_rel)
+            )
 
         if os.path.isabs(transcriptions_path_rel):
             self.transcriptions_path = transcriptions_path_rel
         else:
             # Unir y normalizar para eliminar ./ o ../
-            self.transcriptions_path = os.path.normpath(os.path.join(self.base_dir, transcriptions_path_rel))
+            self.transcriptions_path = os.path.normpath(
+                os.path.join(self.base_dir, transcriptions_path_rel)
+            )
 
         # Log para debugging
         import logging
+
         logger = logging.getLogger(__name__)
-        logger.info(f"FileManager inicializado:")
+        logger.info("FileManager inicializado:")
         logger.info(f"  Base dir: {self.base_dir}")
         logger.info(f"  Audio path: {self.audio_path}")
         logger.info(f"  Transcriptions path: {self.transcriptions_path}")
@@ -67,7 +77,9 @@ class FileManager:
 
         # Límites de archivos
         self.max_audio_files = self.config.get("max_audio_files", 100)
-        self.max_transcription_age_days = self.config.get("max_transcription_age_days", 30)
+        self.max_transcription_age_days = self.config.get(
+            "max_transcription_age_days", 30
+        )
 
         # Perf: cache duración {filepath: (mtime, duration)} — lazy invalidado por mtime
         self._duration_cache: dict = {}
@@ -75,7 +87,8 @@ class FileManager:
         self._duration_cache_max = 512
 
     def save_audio_file(self, audio_data, sample_rate=16000):
-        if not self.config.get("save_audio", True): return None
+        if not self.config.get("save_audio", True):
+            return None
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"audio_{timestamp}.wav"
@@ -84,9 +97,9 @@ class FileManager:
             # Ensure audio_data is a numpy array
             if isinstance(audio_data, list):
                 if len(audio_data) > 0:
-                     audio_data = np.concatenate(audio_data, axis=0)
+                    audio_data = np.concatenate(audio_data, axis=0)
                 else:
-                     return None
+                    return None
 
             sf.write(filepath, audio_data, sample_rate)
 
@@ -117,19 +130,22 @@ class FileManager:
             return None
 
     def save_transcription_entry(self, transcription_data):
-        if not self.config.get("save_logs", True): return
+        if not self.config.get("save_logs", True):
+            return
         try:
-            log_file = os.path.join(self.transcriptions_path, "transcriptions_log.jsonl")
+            log_file = os.path.join(
+                self.transcriptions_path, "transcriptions_log.jsonl"
+            )
             log_entry = {
                 "timestamp": datetime.now().isoformat(),
                 "duration": transcription_data.get("duration", 0),
                 "language": transcription_data.get("language", "es"),
                 "text_length": len(transcription_data.get("text", "")),
                 "audio_file": transcription_data.get("audio_file", ""),
-                "transcription": transcription_data.get("text", "")
+                "transcription": transcription_data.get("text", ""),
             }
-            with open(log_file, 'a', encoding='utf-8') as f:
-                f.write(json.dumps(log_entry, ensure_ascii=False) + '\n')
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
             self.maintain_log_size()
         except Exception as e:
             print(f"Error al guardar transcripción: {e}")
@@ -137,19 +153,24 @@ class FileManager:
     def maintain_log_size(self):
         max_entries = self.config.get("max_log_entries", 1000)
         log_file = os.path.join(self.transcriptions_path, "transcriptions_log.jsonl")
-        if not os.path.exists(log_file): return
+        if not os.path.exists(log_file):
+            return
         try:
-            with open(log_file, 'r', encoding='utf-8') as f:
+            with open(log_file, "r", encoding="utf-8") as f:
                 lines = f.readlines()
             if len(lines) > max_entries:
-                with open(log_file, 'w', encoding='utf-8') as f:
+                with open(log_file, "w", encoding="utf-8") as f:
                     f.writelines(lines[-max_entries:])
         except Exception as e:
             print(f"Error al mantener tamaño del log: {e}")
 
     def get_audio_files_size(self):
         try:
-            total_size = sum(os.path.getsize(os.path.join(self.audio_path, f)) for f in os.listdir(self.audio_path) if f.endswith('.wav'))
+            total_size = sum(
+                os.path.getsize(os.path.join(self.audio_path, f))
+                for f in os.listdir(self.audio_path)
+                if f.endswith(".wav")
+            )
             return total_size
         except Exception as e:
             print(f"Error al calcular tamaño de audio: {e}")
@@ -157,7 +178,9 @@ class FileManager:
 
     def get_transcriptions_size(self):
         try:
-            log_file = os.path.join(self.transcriptions_path, "transcriptions_log.jsonl")
+            log_file = os.path.join(
+                self.transcriptions_path, "transcriptions_log.jsonl"
+            )
             return os.path.getsize(log_file) if os.path.exists(log_file) else 0
         except Exception as e:
             print(f"Error al obtener tamaño de transcripciones: {e}")
@@ -166,7 +189,8 @@ class FileManager:
     def clear_audio_files(self):
         try:
             for filename in os.listdir(self.audio_path):
-                if filename.endswith('.wav'): os.remove(os.path.join(self.audio_path, filename))
+                if filename.endswith(".wav"):
+                    os.remove(os.path.join(self.audio_path, filename))
             # Perf: limpiar cache — todos los archivos eliminados
             self._duration_cache.clear()
             return True
@@ -176,8 +200,11 @@ class FileManager:
 
     def clear_transcriptions(self):
         try:
-            log_file = os.path.join(self.transcriptions_path, "transcriptions_log.jsonl")
-            if os.path.exists(log_file): os.remove(log_file)
+            log_file = os.path.join(
+                self.transcriptions_path, "transcriptions_log.jsonl"
+            )
+            if os.path.exists(log_file):
+                os.remove(log_file)
             return True
         except Exception as e:
             print(f"Error al eliminar transcripciones: {e}")
@@ -202,11 +229,12 @@ class FileManager:
 
         try:
             import time
+
             cutoff_time = time.time() - (days_old * 24 * 60 * 60)
             deleted_count = 0
 
             for filename in os.listdir(self.audio_path):
-                if filename.endswith('.wav'):
+                if filename.endswith(".wav"):
                     filepath = os.path.join(self.audio_path, filename)
                     file_mtime = os.path.getmtime(filepath)
 
@@ -228,7 +256,7 @@ class FileManager:
             int: Número de archivos eliminados
         """
         try:
-            audio_files = [f for f in os.listdir(self.audio_path) if f.endswith('.wav')]
+            audio_files = [f for f in os.listdir(self.audio_path) if f.endswith(".wav")]
 
             if len(audio_files) <= self.max_audio_files:
                 return 0
@@ -238,7 +266,9 @@ class FileManager:
                 (f, os.path.getmtime(os.path.join(self.audio_path, f)))
                 for f in audio_files
             ]
-            audio_files_with_mtime.sort(key=lambda x: x[1])  # Ascendente (antiguos primero)
+            audio_files_with_mtime.sort(
+                key=lambda x: x[1]
+            )  # Ascendente (antiguos primero)
 
             # Eliminar archivos excedentes (empezando por los más antiguos)
             files_to_delete = len(audio_files) - self.max_audio_files
@@ -259,6 +289,7 @@ class FileManager:
         """Obtener duración en segundos de un WAV sin cargar todo el audio en memoria."""
         try:
             import soundfile as sf
+
             info = sf.info(filepath)
             if info.samplerate and info.frames:
                 return info.frames / float(info.samplerate)
@@ -266,7 +297,8 @@ class FileManager:
             pass
         try:
             import wave
-            with wave.open(filepath, 'rb') as wf:
+
+            with wave.open(filepath, "rb") as wf:
                 frames = wf.getnframes()
                 rate = wf.getframerate()
                 if rate:
@@ -305,7 +337,7 @@ class FileManager:
             list: Lista de archivos (nombre, filepath, mtime, duration)
         """
         try:
-            audio_files = [f for f in os.listdir(self.audio_path) if f.endswith('.wav')]
+            audio_files = [f for f in os.listdir(self.audio_path) if f.endswith(".wav")]
 
             # Agregar metadatos — perf: duración via cache mtime
             files_with_metadata = []
@@ -322,15 +354,19 @@ class FileManager:
                 else:
                     duration = self._get_wav_duration(filepath)
                     if len(self._duration_cache) >= self._duration_cache_max:
-                        for k in list(self._duration_cache.keys())[: self._duration_cache_max // 5]:
+                        for k in list(self._duration_cache.keys())[
+                            : self._duration_cache_max // 5
+                        ]:
                             self._duration_cache.pop(k, None)
                     self._duration_cache[filepath] = (mtime, duration)
-                files_with_metadata.append({
-                    "name": filename,
-                    "path": filepath,
-                    "mtime": mtime,
-                    "duration": duration
-                })
+                files_with_metadata.append(
+                    {
+                        "name": filename,
+                        "path": filepath,
+                        "mtime": mtime,
+                        "duration": duration,
+                    }
+                )
             # Limpiar entradas huérfanas (archivos ya borrados) para no acumular
             if len(self._duration_cache) > len(audio_files) + 10:
                 valid_paths = {os.path.join(self.audio_path, f) for f in audio_files}

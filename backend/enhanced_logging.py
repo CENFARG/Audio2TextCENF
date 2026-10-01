@@ -14,7 +14,6 @@ import os
 import sys
 from pathlib import Path
 from datetime import datetime
-from typing import Optional
 import json
 
 
@@ -41,7 +40,7 @@ class EnhancedLoggingSystem:
         self.handlers = {}
 
         # Determinar directorio base
-        if getattr(sys, 'frozen', False):
+        if getattr(sys, "frozen", False):
             # Ejecutándose como .exe compilado
             base_dir = os.getcwd()
         else:
@@ -75,8 +74,8 @@ class EnhancedLoggingSystem:
 
         # Crear formatter
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
         )
 
         # Handler para consola (stdout)
@@ -84,24 +83,26 @@ class EnhancedLoggingSystem:
         console_handler.setLevel(log_level)
         console_handler.setFormatter(formatter)
         root_logger.addHandler(console_handler)
-        self.handlers['console'] = console_handler
+        self.handlers["console"] = console_handler
 
         # Handler para archivo (con rotación)
         try:
             file_handler = logging.handlers.RotatingFileHandler(
                 self.log_file,
-                maxBytes=10*1024*1024,  # 10MB
+                maxBytes=10 * 1024 * 1024,  # 10MB
                 backupCount=5,
-                encoding='utf-8'
+                encoding="utf-8",
             )
             file_handler.setLevel(log_level)
             file_handler.setFormatter(formatter)
             root_logger.addHandler(file_handler)
-            self.handlers['file'] = file_handler
+            self.handlers["file"] = file_handler
         except Exception as e:
             print(f"Error creando file handler: {e}")
 
-        logging.info(f"Sistema de logging inicializado - Nivel: {log_level_str}, Archivo: {self.log_file}")
+        logging.info(
+            f"Sistema de logging inicializado - Nivel: {log_level_str}, Archivo: {self.log_file}"
+        )
 
     def _get_config(self, key: str, default=None):
         """Obtener valor de configuración."""
@@ -153,7 +154,7 @@ class EnhancedLoggingSystem:
         output_path = Path(output_path)
 
         try:
-            with open(output_path, 'w', encoding='utf-8') as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 # Header
                 f.write("=" * 80 + "\n")
                 f.write("Audio2Text - Log Export para Soporte Técnico\n")
@@ -165,7 +166,7 @@ class EnhancedLoggingSystem:
 
                 # Contenido del log
                 if self.log_file.exists():
-                    with open(self.log_file, 'r', encoding='utf-8') as log_file:
+                    with open(self.log_file, "r", encoding="utf-8") as log_file:
                         f.write(log_file.read())
                 else:
                     f.write("(No hay archivo de log disponible)\n")
@@ -176,13 +177,18 @@ class EnhancedLoggingSystem:
                 f.write("=" * 80 + "\n")
                 f.write(f"Python: {sys.version}\n")
                 f.write(f"Plataforma: {sys.platform}\n")
-                f.write(f"Executándose como: {'Compilado' if getattr(sys, 'frozen', False) else 'Script'}\n")
+                f.write(
+                    f"Executándose como: {'Compilado' if getattr(sys, 'frozen', False) else 'Script'}\n"
+                )
 
                 # Config
                 if self.config_manager:
                     f.write("\nConfiguración:\n")
-                    config_safe = {k: v for k, v in self.config_manager.config.items()
-                                   if not any(x in k.lower() for x in ['key', 'password', 'token'])}
+                    config_safe = {
+                        k: v
+                        for k, v in self.config_manager.config.items()
+                        if not any(x in k.lower() for x in ["key", "password", "token"])
+                    }
                     f.write(json.dumps(config_safe, indent=2, ensure_ascii=False))
 
             logging.info(f"Logs exportados a: {output_path}")
@@ -207,14 +213,16 @@ class EnhancedLoggingSystem:
             return []
 
         try:
-            with open(self.log_file, 'r', encoding='utf-8') as f:
+            with open(self.log_file, "r", encoding="utf-8") as f:
                 lines = f.readlines()
 
             # Tomar últimas N líneas
             lines = lines[-last_n_lines:] if len(lines) > last_n_lines else lines
 
             # Filtrar por nivel
-            filtered = [line.strip() for line in lines if f"- {level.upper()} -" in line]
+            filtered = [
+                line.strip() for line in lines if f"- {level.upper()} -" in line
+            ]
 
             return filtered
 
@@ -237,7 +245,7 @@ class EnhancedLoggingSystem:
         """
         try:
             if self.log_file.exists():
-                with open(self.log_file, 'w') as f:
+                with open(self.log_file, "w") as f:
                     f.write("")
                 logging.info("Log limpiado")
                 return True

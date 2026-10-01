@@ -17,7 +17,7 @@ import sys
 import time
 import threading
 from pathlib import Path
-from unittest.mock import Mock, MagicMock
+from unittest.mock import Mock
 
 import numpy as np
 import pytest
@@ -44,9 +44,14 @@ def make_transcriber(**overrides):
     t.logger = Mock()
     t.config_manager = mock_deps["config_manager"]
     # Default de max_recording_time para que el loop no corte (si el test no lo overridea)
-    if not isinstance(t.config_manager.get, Mock) or t.config_manager.get is mock_deps["config_manager"].get:
+    if (
+        not isinstance(t.config_manager.get, Mock)
+        or t.config_manager.get is mock_deps["config_manager"].get
+    ):
         pass
-    t.config_manager.get = Mock(side_effect=lambda k, d=None: {"max_recording_time": 300}.get(k, d))
+    t.config_manager.get = Mock(
+        side_effect=lambda k, d=None: {"max_recording_time": 300}.get(k, d)
+    )
     t.sound_manager = mock_deps["sound_manager"]
     t.file_manager = mock_deps["file_manager"]
     t.update_status = mock_deps["update_status_callback"]
@@ -90,7 +95,7 @@ class FakeInputStream:
     def read(self, frames):
         self.reads += 1
         # Contract de sounddevice.InputStream.read(): devuelve (data, overflowed)
-        return np.zeros(frames, dtype='float32'), False
+        return np.zeros(frames, dtype="float32"), False
 
 
 @pytest.mark.unit
@@ -127,7 +132,9 @@ class TestCapturaNoPierdeFrames:
         with t.audio_lock:
             total_frames = sum(len(chunk) for chunk in t.audio_data)
         expected_frames = 1.2 * t.freq
-        min_acceptable = expected_frames - 2 * stream.block_size  # 2 bloques de tolerancia
+        min_acceptable = (
+            expected_frames - 2 * stream.block_size
+        )  # 2 bloques de tolerancia
 
         assert total_frames >= min_acceptable, (
             f"Se perdieron frames: capturados {total_frames}, "
@@ -166,7 +173,9 @@ class TestMaxRecordingTime:
         """Al superar el límite, el audio capturado incluye lo producido hasta el corte."""
         t = make_transcriber()
         # max_recording_time muy corto: 0.15s
-        t.config_manager.get = Mock(side_effect=lambda k, d=None: 0.15 if k == "max_recording_time" else d)
+        t.config_manager.get = Mock(
+            side_effect=lambda k, d=None: 0.15 if k == "max_recording_time" else d
+        )
         # get_string para status
         t.localization_manager.get_string = Mock(return_value="Grabando")
 
@@ -209,12 +218,13 @@ class TestDisplayJSONLConsistencia:
         )
 
         # Simular lo que hace process_recording: mismo string a ambos
-        transcription = "Hola, esta es una prueba con acentos: áéíóúñ y palabras largas."
+        transcription = (
+            "Hola, esta es una prueba con acentos: áéíóúñ y palabras largas."
+        )
         t.transcription_callback(transcription)
-        t.file_manager.save_transcription_entry({
-            "text": transcription, "duration": 5.0,
-            "language": "es", "audio_file": ""
-        })
+        t.file_manager.save_transcription_entry(
+            {"text": transcription, "duration": 5.0, "language": "es", "audio_file": ""}
+        )
 
         assert len(texts_received) == 2
         assert texts_received[0] == texts_received[1] == transcription

@@ -10,7 +10,7 @@ Version: 0.11.0
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ class CustomVocabulary:
         """Cargar correcciones desde archivo."""
         if self.vocab_path.exists():
             try:
-                with open(self.vocab_path, 'r', encoding='utf-8') as f:
+                with open(self.vocab_path, "r", encoding="utf-8") as f:
                     self.corrections = json.load(f)
                 logger.info(f"Correcciones cargadas: {len(self.corrections)} términos")
             except Exception as e:
@@ -52,7 +52,7 @@ class CustomVocabulary:
                 "cemf": "CENF",
                 "senf": "CENF",
                 "gro": "Groq",
-                "grog": "Groq"
+                "grog": "Groq",
             }
             self._save_vocab()
 
@@ -60,7 +60,7 @@ class CustomVocabulary:
         """Guardar correcciones a archivo."""
         try:
             self.vocab_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.vocab_path, 'w', encoding='utf-8') as f:
+            with open(self.vocab_path, "w", encoding="utf-8") as f:
                 json.dump(self.corrections, f, indent=4, ensure_ascii=False)
             logger.info(f"Correcciones guardadas: {len(self.corrections)} términos")
         except Exception as e:
@@ -141,14 +141,16 @@ class CustomVocabulary:
             return 0
 
         if fmt == "auto":
-            fmt = "json" if content.startswith('{') else "lineas"
+            fmt = "json" if content.startswith("{") else "lineas"
 
         nuevos = {}
         if fmt == "json":
             try:
                 data = _json.loads(content)
                 if not isinstance(data, dict):
-                    logger.error("Import: el JSON debe ser un objeto {incorrecta: correcta}")
+                    logger.error(
+                        "Import: el JSON debe ser un objeto {incorrecta: correcta}"
+                    )
                     return 0
                 for k, v in data.items():
                     k = str(k).strip()
@@ -161,11 +163,11 @@ class CustomVocabulary:
         else:
             for line in content.splitlines():
                 line = line.strip()
-                if not line or line.startswith(('#', '//', ';')):
+                if not line or line.startswith(("#", "//", ";")):
                     continue
                 # Separadores soportados
                 sep = None
-                for candidate in ('→', '->', '=', ':'):
+                for candidate in ("→", "->", "=", ":"):
                     if candidate in line:
                         sep = candidate
                         break
@@ -199,9 +201,9 @@ class CustomVocabulary:
 
         ext = path.suffix.lower()
         try:
-            content = path.read_text(encoding='utf-8')
+            content = path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
-            content = path.read_text(encoding='latin-1')
+            content = path.read_text(encoding="latin-1")
 
         fmt = "json" if ext == ".json" else "lineas"
         return self.import_from_text(content, fmt=fmt)
@@ -229,12 +231,18 @@ class CustomVocabulary:
             if ext == ".json":
                 # JSON determinista: objeto directo, ensure_ascii=False, indent=2
                 import json as _json
-                path.write_text(_json.dumps(self.corrections, ensure_ascii=False, indent=2), encoding='utf-8')
+
+                path.write_text(
+                    _json.dumps(self.corrections, ensure_ascii=False, indent=2),
+                    encoding="utf-8",
+                )
             else:
                 # TXT/MD: formato  incorrecta=correcta  sin espacios
                 lines = [f"{k}={v}" for k, v in self.corrections.items()]
-                path.write_text("\n".join(lines), encoding='utf-8')
-            logger.info(f"Export: {len(self.corrections)} correcciones exportadas a {file_path} ({ext or 'txt'})")
+                path.write_text("\n".join(lines), encoding="utf-8")
+            logger.info(
+                f"Export: {len(self.corrections)} correcciones exportadas a {file_path} ({ext or 'txt'})"
+            )
             return True
         except Exception as e:
             logger.error(f"Export: error {e}")
@@ -268,7 +276,7 @@ class CustomVocabulary:
 
             # Crear patrón con word boundary (case-insensitive para encontrar
             # cualquier variante de caso que haya escrito el modelo)
-            pattern = r'\b' + re.escape(incorrect) + r'\b'
+            pattern = r"\b" + re.escape(incorrect) + r"\b"
 
             # Buscar todas las ocurrencias (case-insensitive)
             matches = list(re.finditer(pattern, corrected_text, re.IGNORECASE))
@@ -283,7 +291,9 @@ class CustomVocabulary:
                     # FIX: reemplazo SIEMPRE con el caso definido por el usuario.
                     # Sin derivaciones por el caso del texto transcrito.
                     replacement = correct
-                    corrected_text = corrected_text[:start] + replacement + corrected_text[end:]
+                    corrected_text = (
+                        corrected_text[:start] + replacement + corrected_text[end:]
+                    )
                     corrections_applied.append(f"{matched_text} → {replacement}")
 
         if corrections_applied:
@@ -323,6 +333,6 @@ class CustomVocabulary:
     def get_stats(self) -> Dict[str, any]:
         """Obtener estadísticas del vocabulario."""
         return {
-            'total_corrections': len(self.corrections),
-            'corrections': self.corrections.copy()
+            "total_corrections": len(self.corrections),
+            "corrections": self.corrections.copy(),
         }

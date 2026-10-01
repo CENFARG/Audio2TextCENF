@@ -17,7 +17,7 @@ import time
 import tempfile
 import random
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock, patch
 
 import numpy as np
 import soundfile as sf
@@ -83,9 +83,13 @@ class TestCapTransitorio:
         from backend.config_manager import ConfigManager
 
         cm = ConfigManager(
-            config_file=str(Path(tempfile.gettempdir()) / f"test_cap_{random.randint(0,9999)}.json")
+            config_file=str(
+                Path(tempfile.gettempdir()) / f"test_cap_{random.randint(0, 9999)}.json"
+            )
         )
-        assert cm.get("max_recording_time") == 720, "CAP TRANSITORIO A debe ser 720s (12 min)"
+        assert cm.get("max_recording_time") == 720, (
+            "CAP TRANSITORIO A debe ser 720s (12 min)"
+        )
         # comentario en fuente
         src = Path("backend/config_manager.py").read_text(encoding="utf-8")
         assert "CAP TRANSITORIO A" in src
@@ -133,7 +137,11 @@ class TestGroqHardening:
         # Verificar que Groq se inicializa con timeout=30
         src = Path("backend/transcriber.py").read_text(encoding="utf-8")
         assert "Groq(api_key" in src and "timeout" in src
-        assert "GROQ_TIMEOUT_S" in src or "timeout=30" in src or "timeout=GROQ_TIMEOUT_S" in src
+        assert (
+            "GROQ_TIMEOUT_S" in src
+            or "timeout=30" in src
+            or "timeout=GROQ_TIMEOUT_S" in src
+        )
 
         # Mock verificar que cliente recibe timeout=30
         from backend.transcriber import Transcriber
@@ -231,7 +239,9 @@ class TestGroqHardening:
         cm.localization_manager.get_string.side_effect = lambda k, **kw: k
         mock_client = Mock()
         # crear error 413
-        err = APIStatusError("413 Payload Too Large", response=Mock(headers={}), body=None)
+        err = APIStatusError(
+            "413 Payload Too Large", response=Mock(headers={}), body=None
+        )
         err.status_code = 413
         mock_client.audio.transcriptions.create = Mock(side_effect=err)
         with patch("backend.transcriber.Groq", return_value=mock_client):
@@ -270,7 +280,9 @@ class TestGroqHardening:
             "429 rate limit", response=Mock(headers={"retry-after": "0.01"}), body=None
         )
         # 2 fallos 429 luego éxito
-        mock_client.audio.transcriptions.create = Mock(side_effect=[err429, err429, "texto ok"])
+        mock_client.audio.transcriptions.create = Mock(
+            side_effect=[err429, err429, "texto ok"]
+        )
         sleep_calls = []
 
         def fake_sleep(s):
@@ -403,7 +415,9 @@ class TestProgressYCheckpoint:
                         break
                     events.append(ev)
                 prog_events = [e for e in events if e[0] == "progress"]
-                assert len(prog_events) >= 1, f"timer_queue debe tener progress, got {events}"
+                assert len(prog_events) >= 1, (
+                    f"timer_queue debe tener progress, got {events}"
+                )
                 assert prog_events[0][1] >= 1  # cur
 
     def test_partial_no_pierde_datos(self, tmp_path):
@@ -456,7 +470,9 @@ class TestProgressYCheckpoint:
                 partial = Path(str(wav) + ".partial.txt")
                 # si hay fallo debe quedar parcial
                 # Si nuestra impl borra parcial solo si all_ok, debe existir
-                assert partial.exists() or "texto1" in res, "parcial debe conservar datos"
+                assert partial.exists() or "texto1" in res, (
+                    "parcial debe conservar datos"
+                )
                 # verificar que no se pierde todo
                 assert len(res) > 0
                 # cleanup
@@ -470,7 +486,6 @@ class TestProgressYCheckpoint:
         _reset_circuit()
         """process_recording no debe borrar WAV temporal si transcripción fallida"""
         from backend.transcriber import Transcriber
-        import tempfile as _tf
 
         cm = Mock()
         cm.get.side_effect = lambda k, d=None: {
@@ -519,9 +534,9 @@ class TestProgressYCheckpoint:
                     if path:
                         # si falló, el temp debe conservarse (no borrado inmediato)
                         # nuestra impl conserva en finally solo si failure -> path debe existir
-                        assert os.path.exists(
-                            path
-                        ), "WAV temporal debe conservarse tras fallo (checkpoint)"
+                        assert os.path.exists(path), (
+                            "WAV temporal debe conservarse tras fallo (checkpoint)"
+                        )
                         # cleanup
                         try:
                             os.unlink(path)
@@ -570,7 +585,6 @@ class TestTimerQueueYCircuit:
                 assert found
 
     def test_join_no_descarta_audio(self):
-        from backend.transcriber import Transcriber
 
         src = Path("backend/transcriber.py").read_text(encoding="utf-8")
         assert "join(timeout=1.0)" in src or "join(timeout=1" in src
@@ -584,13 +598,16 @@ class TestSliceBParallel:
     def test_parallel_preserves_order(self, tmp_path):
         """Reordena antes de join: futures desordenados deben dar texto ordenado."""
         _reset_circuit()
-        from backend.audio_chunker import transcribe_chunks_parallel, split_audio_on_silence
+        from backend.audio_chunker import (
+            transcribe_chunks_parallel,
+            split_audio_on_silence,
+        )
 
         audio = _make_small_pattern(180)  # ~7 chunks
         chunks = split_audio_on_silence(audio, SR, target_s=25.0, max_s=29.0)
         total = len(chunks)
         # api con latencia variable para forzar out-of-order
-        import random, time as _time
+        import time as _time
 
         def api(chunk, prompt=None):
             idx = api.calls[0]
@@ -606,7 +623,9 @@ class TestSliceBParallel:
         res = transcribe_chunks_parallel(audio, SR, api, max_workers=3)
         # debe estar ordenado chunk0 chunk1 ... independientemente del orden de completion
         expected = " ".join(f"chunk{i}" for i in range(total))
-        assert res == expected, f"orden no preservado: got {res!r} expected {expected!r}"
+        assert res == expected, (
+            f"orden no preservado: got {res!r} expected {expected!r}"
+        )
 
     def test_checkpoint_thread_safe(self, tmp_path):
         """Checkpoint parcial con lock: no race, orden preservado."""
@@ -651,9 +670,9 @@ class TestSliceBParallel:
             buf = io.BytesIO()
             sf.write(buf, ch, sr_ref, format="WAV")
             label_by_hash[hashlib.sha256(buf.getvalue()).hexdigest()] = f"texto{i}"
-        assert (
-            len(label_by_hash) == total
-        ), "split produced identical chunks; content labels ambiguous"
+        assert len(label_by_hash) == total, (
+            "split produced identical chunks; content labels ambiguous"
+        )
 
         def side(*a, **kw):
             blob = kw["file"][1]
@@ -675,8 +694,12 @@ class TestSliceBParallel:
                 # orden preservado por índice de chunk, independiente del orden
                 # de completado (desordenado) y del orden de llamada
                 parts = res.split()
-                assert len(parts) == total, f"cantidad de partes {len(parts)} != {total}: {res!r}"
-                assert parts == [f"texto{i}" for i in range(total)], f"orden no preservado: {res!r}"
+                assert len(parts) == total, (
+                    f"cantidad de partes {len(parts)} != {total}: {res!r}"
+                )
+                assert parts == [f"texto{i}" for i in range(total)], (
+                    f"orden no preservado: {res!r}"
+                )
                 # checkpoint debe haber sido borrado si all_ok, o existir ordenado si partial
                 partial = Path(str(wav) + ".partial.txt")
                 if partial.exists():
@@ -712,14 +735,16 @@ class TestSliceBParallel:
         t_seq = _time.perf_counter() - t0
         # parallel 3 workers
         t0 = _time.perf_counter()
-        res_par = transcribe_chunks_parallel(audio, SR, api_par, max_workers=3, timeout_s=5)
+        res_par = transcribe_chunks_parallel(
+            audio, SR, api_par, max_workers=3, timeout_s=5
+        )
         t_par = _time.perf_counter() - t0
         assert res_seq is not None and res_par is not None
         # speedup >2.5x
         speedup = t_seq / t_par if t_par else 0
-        assert (
-            speedup > 2.5
-        ), f"speedup insuficiente {speedup:.2f} seq={t_seq:.2f}s par={t_par:.2f}s esperado >2.5x (0.8s/chunk 29 chunks workers=3)"
+        assert speedup > 2.5, (
+            f"speedup insuficiente {speedup:.2f} seq={t_seq:.2f}s par={t_par:.2f}s esperado >2.5x (0.8s/chunk 29 chunks workers=3)"
+        )
         # parallel debe ser notoriamente más rápido que secuencial
         assert t_par < t_seq * 0.5
 
@@ -768,7 +793,9 @@ class TestSliceBParallel:
             call_n["c"] += 1
             # simular 429 en el segundo call (chunk desordenado: no importa cual, pero solo uno falla)
             if call_n["c"] == 2:
-                raise RateLimitError("429 rate limit", response=Mock(headers={}), body=None)
+                raise RateLimitError(
+                    "429 rate limit", response=Mock(headers={}), body=None
+                )
             return f"ok{call_n['c']}"
 
         mock_client.audio.transcriptions.create = Mock(side_effect=side)
@@ -813,10 +840,15 @@ class TestSliceBParallel:
 
     def test_workers_configurable_2_4(self):
         from backend.config_manager import ConfigManager
-        import tempfile, json, os
+        import tempfile
+        import json
+        import os
 
         for w in [2, 3, 4]:
-            cfg = Path(tempfile.gettempdir()) / f"test_gpw_{w}_{random.randint(0,9999)}.json"
+            cfg = (
+                Path(tempfile.gettempdir())
+                / f"test_gpw_{w}_{random.randint(0, 9999)}.json"
+            )
             with open(cfg, "w", encoding="utf-8") as f:
                 json.dump(
                     {
@@ -833,10 +865,18 @@ class TestSliceBParallel:
             except Exception:
                 pass
         # clamp fuera de rango
-        cfg = Path(tempfile.gettempdir()) / f"test_gpw_clamp_{random.randint(0,9999)}.json"
+        cfg = (
+            Path(tempfile.gettempdir())
+            / f"test_gpw_clamp_{random.randint(0, 9999)}.json"
+        )
         with open(cfg, "w", encoding="utf-8") as f:
             json.dump(
-                {"groq_parallel_workers": 10, "max_recording_time": 720, "app_version": "0.15.9"}, f
+                {
+                    "groq_parallel_workers": 10,
+                    "max_recording_time": 720,
+                    "app_version": "0.15.9",
+                },
+                f,
             )
         cm = ConfigManager(config_file=str(cfg))
         assert cm.get("groq_parallel_workers") == 4
