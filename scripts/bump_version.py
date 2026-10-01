@@ -195,10 +195,22 @@ def main() -> None:
     if args.release:
         steps.append(("config/version.json (RELEASE)", bump_release_manifest(new)))
 
+    bumped = [
+        "pyproject.toml",
+        "backend/config_manager.py",
+        "lang/es.json",
+        "lang/en.json",
+        *[str(p.relative_to(PROJECT_ROOT)) for p in INFO_FILES],
+        "scripts/build_GENERAL_v2.py",
+    ]
+    if args.release:
+        bumped.append("config/version.json")
+
     for name, count in steps:
         print(f"  [{'OK' if count else '!!'}] {name}: {count} replacement(s)")
 
-    run_git("add", "-A")
+    # Stage ONLY the bumped files: nunca `add -A` (arrastraria residuo no relacionado)
+    run_git("add", *bumped)
     tag = f"v{new}"
     run_git("commit", "-m", f"chore(version): atomic bump {old} -> {new}")
     if not args.no_tag:

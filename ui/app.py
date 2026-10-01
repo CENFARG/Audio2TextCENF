@@ -1284,8 +1284,8 @@ class App(
                 self.after(0, lambda: self._reset_play_button(file_path))
 
             except Exception as e:
-                # Capturar el mensaje ANTES de programar lambdas: la variable `e` se
-                # elimina al salir del except y la lambda diferida lanzaría NameError.
+                # Capturar el mensaje ANTES de programar lambdas: `e` se elimina
+                # al salir del except y la lambda diferida lanzaria NameError.
                 err = f"❌ Error reproduciendo audio: {e}"
                 self.logger.error(err)
                 self.after(100, lambda: self.update_status(err, "red"))

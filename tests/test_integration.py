@@ -134,6 +134,7 @@ class TestTranscriberWorkflow:
         assert transcriber.block_manager is not None
         assert transcriber.custom_vocab is not None
 
+    @pytest.mark.order_dependent  # timing-flake bajo carga de suite (3/3 verde en aislado)
     def test_transcriber_recording_workflow(self, transcriber):
         """Test complete recording workflow: start → stop → process."""
         with patch("backend.transcriber.sd.InputStream"):
