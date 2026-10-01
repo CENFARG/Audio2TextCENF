@@ -134,7 +134,7 @@ Responde SOLO con el JSON, nada más."""
                 max_tokens=500,
             )
 
-            result_text = response.choices[0].message.content.strip()
+            result_text = (response.choices[0].message.content or "").strip()
 
             # Limpiar respuesta (quitar markdown ```json si existe)
             if result_text.startswith("```"):
@@ -143,7 +143,7 @@ Responde SOLO con el JSON, nada más."""
                     result_text = result_text[4:]
                 result_text = result_text.strip()
 
-            metadata = json.loads(result_text)
+            metadata: dict = json.loads(result_text)
             metadata["method"] = "llm"
 
             return metadata

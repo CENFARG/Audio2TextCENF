@@ -10,7 +10,7 @@ Version: 0.11.0
 
 import json
 from pathlib import Path
-from typing import Dict
+from typing import Any, Dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -330,7 +330,7 @@ class CustomVocabulary:
 
         return ". ".join(prompts) + "."
 
-    def get_stats(self) -> Dict[str, any]:
+    def get_stats(self) -> Dict[str, Any]:
         """Obtener estadísticas del vocabulario."""
         return {
             "total_corrections": len(self.corrections),

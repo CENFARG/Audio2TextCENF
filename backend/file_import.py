@@ -153,7 +153,7 @@ def file_reason_text(loc: Any, reason: str) -> str:
     if reason in LOCALIZED_ERROR_REASONS:
         text = loc.get_string(f"files_reason_{reason}")
         if not text.startswith("MISSING_TRANSLATION_"):
-            return text
+            return str(text)
     return reason
 
 

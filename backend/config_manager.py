@@ -42,7 +42,7 @@ try:
 
     _KEYRING_AVAILABLE = True
 except ImportError:
-    _keyring = None
+    _keyring = None  # type: ignore[assignment]
     _KEYRING_AVAILABLE = False
 
 _KEYRING_SERVICE = "audio2text-cenf"
@@ -130,7 +130,9 @@ class ConfigManager:
         if "transcription_language" not in loaded_config:
             # Si el archivo tenía default_language (ej: "en"), respetarlo para transcripción
             if "default_language" in loaded_config:
-                config["transcription_language"] = loaded_config.get("default_language", "es")
+                config["transcription_language"] = loaded_config.get(
+                    "default_language", "es"
+                )
             # Si no, ya tiene el default "es"
             needs_save = True
 
@@ -163,9 +165,18 @@ class ConfigManager:
         # migración, el flag evita re-migrar aunque el usuario luego customice.
         _GEOMETRY_DEFAULT = self.default_config["window_geometry"]
         _GEOMETRY_PATTERN = re.compile(r"^\d+x\d+(\+\d+\+\d+)?$")
-        _LEGACY_PREFIXES = ("650x550", "1536x793", "160x160", "800x600", "1024x768", "1280x720")
+        _LEGACY_PREFIXES = (
+            "650x550",
+            "1536x793",
+            "160x160",
+            "800x600",
+            "1024x768",
+            "1280x720",
+        )
         saved_geo = (
-            loaded_config.get("window_geometry") if isinstance(loaded_config, dict) else None
+            loaded_config.get("window_geometry")
+            if isinstance(loaded_config, dict)
+            else None
         )
         current_geo = config.get("window_geometry", "")
         # 1) Validación de formato — si no matchea regex, reset a default
@@ -277,7 +288,9 @@ class ConfigManager:
         except Exception:
             _gpw_int = 3
         if _gpw_int < 2 or _gpw_int > 4:
-            self.logger.warning(f"groq_parallel_workers {_gpw_int} fuera de rango [2,4] — clamping")
+            self.logger.warning(
+                f"groq_parallel_workers {_gpw_int} fuera de rango [2,4] — clamping"
+            )
             _gpw_int = max(2, min(4, _gpw_int))
             config["groq_parallel_workers"] = _gpw_int
             needs_save = True
@@ -288,7 +301,9 @@ class ConfigManager:
 
         # Force save if it was plain text to obfuscate it inmediatamente
         if needs_save:
-            self.logger.info("Detectada clave en texto plano. Ofuscando automáticamente...")
+            self.logger.info(
+                "Detectada clave en texto plano. Ofuscando automáticamente..."
+            )
             self.save_config()
 
         return config
@@ -310,7 +325,9 @@ class ConfigManager:
                 json.dump(config_to_save, f, indent=2, ensure_ascii=False)
             self.logger.info(f"Configuración guardada en {self.config_file}")
         except Exception as e:
-            self.logger.error(f"Error al guardar configuración en {self.config_file}: {e}")
+            self.logger.error(
+                f"Error al guardar configuración en {self.config_file}: {e}"
+            )
 
     def get(self, key, default=None):
         return self.config.get(key, default)
@@ -325,7 +342,9 @@ class ConfigManager:
         if "groq_api_key" in new_settings:
             new_settings = {
                 **new_settings,
-                "groq_api_key": self._sanitize_groq_api_key(new_settings["groq_api_key"]),
+                "groq_api_key": self._sanitize_groq_api_key(
+                    new_settings["groq_api_key"]
+                ),
             }
         self.config.update(new_settings)
         self.save_config()
@@ -434,7 +453,9 @@ class ConfigManager:
         """
         cleaned, issue = validate_api_key_charset(api_key)
         if issue == "non_ascii":
-            self.logger.warning(self.localization_manager.get_string("api_key_charset_error"))
+            self.logger.warning(
+                self.localization_manager.get_string("api_key_charset_error")
+            )
         return cleaned
 
     def set_groq_api_key(self, api_key: str, use_keyring: bool = True):
@@ -459,7 +480,9 @@ class ConfigManager:
         import base64
 
         xor_key = "CENF_SECRET"
-        xor_result = bytes([ord(c) ^ ord(xor_key[i % len(xor_key)]) for i, c in enumerate(key)])
+        xor_result = bytes(
+            [ord(c) ^ ord(xor_key[i % len(xor_key)]) for i, c in enumerate(key)]
+        )
         return base64.b64encode(xor_result).decode("utf-8")
 
     def _decode_gift_key(self, encoded_key):
@@ -483,12 +506,15 @@ class ConfigManager:
             # Simple XOR con una clave fija 'CENF_SECRET'
             xor_key = "CENF_SECRET"
             result = "".join(
-                chr(b ^ ord(xor_key[i % len(xor_key)])) for i, b in enumerate(decoded_bytes)
+                chr(b ^ ord(xor_key[i % len(xor_key)]))
+                for i, b in enumerate(decoded_bytes)
             )
 
             # Si el resultado no empieza con los prefijos esperados, es probable que no fuera base64
             if not (
-                result.startswith("gsk_") or result.startswith("sk-") or result.startswith("nvapi-")
+                result.startswith("gsk_")
+                or result.startswith("sk-")
+                or result.startswith("nvapi-")
             ):
                 self.logger.debug(
                     "La clave decodificada no tiene el formato esperado, devolviendo original."
@@ -497,5 +523,7 @@ class ConfigManager:
             return result
         except Exception as e:
             # If fails, maybe it's not encoded or corrupted
-            self.logger.debug(f"Error decodificando key (podría no estar codificada): {e}")
+            self.logger.debug(
+                f"Error decodificando key (podría no estar codificada): {e}"
+            )
             return encoded_key

@@ -56,15 +56,16 @@ def _silence_threshold_db(db: np.ndarray) -> float:
     return float(np.clip(thr, -60.0, -25.0))
 
 
-def _silence_cut_points(audio: np.ndarray, sr: int, frame_ms: float,
-                        min_silence_ms: float) -> List[int]:
+def _silence_cut_points(
+    audio: np.ndarray, sr: int, frame_ms: float, min_silence_ms: float
+) -> List[int]:
     """Centros (en samples) de las zonas de silencio ≥ min_silence_ms."""
     frame = max(1, int(sr * frame_ms / 1000.0))
     n = len(audio) // frame
     if n == 0:
         return []
-    frames = audio[:n * frame].reshape(n, frame)
-    rms = np.sqrt((frames ** 2).mean(axis=1))
+    frames = audio[: n * frame].reshape(n, frame)
+    rms = np.sqrt((frames**2).mean(axis=1))
     db = 20.0 * np.log10(rms + 1e-9)
     silent = db < _silence_threshold_db(db)
 
@@ -85,13 +86,16 @@ def _silence_cut_points(audio: np.ndarray, sr: int, frame_ms: float,
     return points
 
 
-def split_audio_on_silence(audio: np.ndarray, sr: int,
-                           target_s: float = DEFAULT_TARGET_S,
-                           max_s: float = DEFAULT_MAX_S,
-                           min_chunk_s: float = 5.0,
-                           min_tail_s: float = 1.0,
-                           frame_ms: float = 20.0,
-                           min_silence_ms: float = 140.0) -> List[np.ndarray]:
+def split_audio_on_silence(
+    audio: np.ndarray,
+    sr: int,
+    target_s: float = DEFAULT_TARGET_S,
+    max_s: float = DEFAULT_MAX_S,
+    min_chunk_s: float = 5.0,
+    min_tail_s: float = 1.0,
+    frame_ms: float = 20.0,
+    min_silence_ms: float = 140.0,
+) -> List[np.ndarray]:
     """Trozar audio en chunks ≤ max_s cortando en silencios.
 
     Estrategia por chunk: buscar el centro de silencio más cercano al
@@ -142,7 +146,7 @@ def split_audio_on_silence(audio: np.ndarray, sr: int,
         bounds.append(cut)
         pos = cut
 
-    chunks = [audio[bounds[i]:bounds[i + 1]] for i in range(len(bounds) - 1)]
+    chunks = [audio[bounds[i] : bounds[i + 1]] for i in range(len(bounds) - 1)]
 
     # Cola corta: fusionarla con el chunk anterior si no rompe el límite.
     if len(chunks) >= 2 and len(chunks[-1]) < int(min_tail_s * sr):
@@ -153,12 +157,15 @@ def split_audio_on_silence(audio: np.ndarray, sr: int,
     return chunks
 
 
-def transcribe_chunks(audio: np.ndarray, sr: int,
-                      api_call: Callable[[np.ndarray, Optional[str]], str],
-                      target_s: float = DEFAULT_TARGET_S,
-                      max_s: float = DEFAULT_MAX_S,
-                      prompt_chars: int = 300,
-                      progress_callback: Optional[Callable[[int, int, float], None]] = None) -> str:
+def transcribe_chunks(
+    audio: np.ndarray,
+    sr: int,
+    api_call: Callable[..., str],
+    target_s: float = DEFAULT_TARGET_S,
+    max_s: float = DEFAULT_MAX_S,
+    prompt_chars: int = 300,
+    progress_callback: Optional[Callable[[int, int, float], None]] = None,
+) -> str:
     """Transcribir audio largo troceado, uniendo los textos de cada chunk.
 
     Encadena un `prompt` con el final del texto anterior en cada llamada:
@@ -179,6 +186,7 @@ def transcribe_chunks(audio: np.ndarray, sr: int,
         Texto unido de todos los chunks.
     """
     import time as _time
+
     chunks = split_audio_on_silence(audio, sr, target_s=target_s, max_s=max_s)
     total = len(chunks)
     texts: List[str] = []
@@ -217,7 +225,7 @@ def transcribe_chunks(audio: np.ndarray, sr: int,
 def transcribe_chunks_parallel(
     audio: np.ndarray,
     sr: int,
-    api_call: Callable[[np.ndarray, Optional[str]], str],
+    api_call: Callable[..., str],
     target_s: float = DEFAULT_TARGET_S,
     max_s: float = DEFAULT_MAX_S,
     prompt_chars: int = 300,
@@ -252,9 +260,7 @@ def transcribe_chunks_parallel(
         return ""
     if total == 1:
         # single chunk — secuencial directo
-        t0 = _time.perf_counter()
         part = api_call(chunks[0], prompt=None)
-        t1 = _time.perf_counter()
         if progress_callback:
             try:
                 progress_callback(1, 1, 0.0)
@@ -278,7 +284,9 @@ def transcribe_chunks_parallel(
 
     # submit all at once — pool limita concurrencia a max_workers (3*25MB safe)
     futures = {}
-    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="groq-w") as executor:
+    with ThreadPoolExecutor(
+        max_workers=max_workers, thread_name_prefix="groq-w"
+    ) as executor:
         for idx0, chunk in enumerate(chunks):
             fut = executor.submit(_call_one, idx0, chunk)
             futures[fut] = idx0

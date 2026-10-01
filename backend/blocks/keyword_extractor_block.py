@@ -45,15 +45,15 @@ class KeywordExtractorBlock(BaseBlock):
             description="Extrae palabras clave de transcripciones",
             block_type=BlockType.POST_TRANSCRIPTION,
             enabled=True,
-            config=config or {}
+            config=config or {},
         )
 
         # Configuración con defaults
-        self.max_keywords = self.get_config('max_keywords', 10)
-        self.min_length = self.get_config('min_length', 4)
-        self.include_numbers = self.get_config('include_numbers', True)
-        self.include_entities = self.get_config('include_entities', True)
-        self.use_vocabulary = self.get_config('use_vocabulary', True)
+        self.max_keywords = self.get_config("max_keywords", 10)
+        self.min_length = self.get_config("min_length", 4)
+        self.include_numbers = self.get_config("include_numbers", True)
+        self.include_entities = self.get_config("include_entities", True)
+        self.use_vocabulary = self.get_config("use_vocabulary", True)
 
     def validate_input(self, data: Any, stage: ProcessingStage) -> bool:
         """Validar que el input sea texto."""
@@ -81,21 +81,17 @@ class KeywordExtractorBlock(BaseBlock):
         try:
             # Validar input
             if not self.validate_input(data, stage):
-                return BlockResult(
-                    success=False,
-                    data=[],
-                    error="Input inválido"
-                )
+                return BlockResult(success=False, data=[], error="Input inválido")
 
             # Extraer palabras clave
             keywords = self._extract_keywords(data)
 
             # Ordenar por score y limitar
-            keywords = sorted(keywords, key=lambda k: k['score'], reverse=True)
-            keywords = keywords[:self.max_keywords]
+            keywords = sorted(keywords, key=lambda k: k["score"], reverse=True)
+            keywords = keywords[: self.max_keywords]
 
             # Actualizar estadísticas
-            self.stats['processed'] += 1
+            self.stats["processed"] += 1
 
             logger.info(f"KeywordExtractor: Extraídas {len(keywords)} palabras clave")
 
@@ -103,25 +99,21 @@ class KeywordExtractorBlock(BaseBlock):
                 success=True,
                 data=keywords,
                 metadata={
-                    'total_keywords': len(keywords),
-                    'unique_terms': len({k['keyword'] for k in keywords}),
-                    'max_score': keywords[0]['score'] if keywords else 0
-                }
+                    "total_keywords": len(keywords),
+                    "unique_terms": len({k["keyword"] for k in keywords}),
+                    "max_score": keywords[0]["score"] if keywords else 0,
+                },
             )
 
         except Exception as e:
             logger.error(f"KeywordExtractor: Error procesando: {e}")
-            self.stats['failed'] += 1
+            self.stats["failed"] += 1
 
-            return BlockResult(
-                success=False,
-                data=[],
-                error=str(e)
-            )
+            return BlockResult(success=False, data=[], error=str(e))
 
     def _extract_keywords(self, text: str) -> list[dict[str, Any]]:
         """Extraer palabras clave usando múltiples estrategias."""
-        keywords = {}
+        keywords: dict[str, float] = {}
 
         # 1. Extracción por frecuencia
         freq_keywords = self._extract_by_frequency(text)
@@ -151,15 +143,10 @@ class KeywordExtractorBlock(BaseBlock):
         # de control sobre el dict combinado (frecuencia, entidades, vocabulario,
         # números). Antes solo _extract_entities respetaba self.min_length.
         filtered = {
-            kw: score for kw, score in keywords.items()
-            if len(kw) >= self.min_length
+            kw: score for kw, score in keywords.items() if len(kw) >= self.min_length
         }
         return [
-            {
-                'keyword': kw,
-                'score': score,
-                'type': self._classify_keyword(kw)
-            }
+            {"keyword": kw, "score": score, "type": self._classify_keyword(kw)}
             for kw, score in filtered.items()
         ]
 
@@ -167,19 +154,51 @@ class KeywordExtractorBlock(BaseBlock):
         """Extraer palabras por frecuencia (TF simplificado)."""
         # Stopwords en español
         stopwords = {
-            'el', 'la', 'de', 'en', 'que', 'y', 'a', 'los', 'se', 'del',
-            'las', 'un', 'por', 'con', 'una', 'su', 'para', 'es', 'al',
-            'lo', 'como', 'más', 'pero', 'sus', 'le', 'ya', 'o', 'fue',
-            'este', 'esta', 'esto', 'estos', 'estas', 'ese', 'esa', 'eso'
+            "el",
+            "la",
+            "de",
+            "en",
+            "que",
+            "y",
+            "a",
+            "los",
+            "se",
+            "del",
+            "las",
+            "un",
+            "por",
+            "con",
+            "una",
+            "su",
+            "para",
+            "es",
+            "al",
+            "lo",
+            "como",
+            "más",
+            "pero",
+            "sus",
+            "le",
+            "ya",
+            "o",
+            "fue",
+            "este",
+            "esta",
+            "esto",
+            "estos",
+            "estas",
+            "ese",
+            "esa",
+            "eso",
         }
 
         # Tokenizar — BUG-2 fix: el piso de longitud sale de la configuración
         # (self.min_length), no del {4,} hardcodeado.
         min_len = max(1, int(self.min_length))
-        words = re.findall(rf'\b[a-záéíóúñ]{{{min_len},}}\b', text.lower())
+        words = re.findall(rf"\b[a-záéíóúñ]{{{min_len},}}\b", text.lower())
 
         # Contar frecuencia
-        freq = {}
+        freq: dict[str, int] = {}
         for word in words:
             if word not in stopwords:
                 freq[word] = freq.get(word, 0) + 1
@@ -196,22 +215,22 @@ class KeywordExtractorBlock(BaseBlock):
         entities = []
 
         # Nombres propios (palabras que empiezan con mayúscula)
-        proper_nouns = re.findall(r'\b[A-Z][a-záéíóúñ]+\b', text)
+        proper_nouns = re.findall(r"\b[A-Z][a-záéíóúñ]+\b", text)
         for noun in set(proper_nouns):
             if len(noun) >= self.min_length:
                 entities.append((noun, 0.8))
 
         # Fechas
         dates = re.findall(
-            r'\b(?:\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)(?:\s+de\s+\d{4})?)\b',
+            r"\b(?:\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|(?:enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)(?:\s+de\s+\d{4})?)\b",
             text,
-            re.IGNORECASE
+            re.IGNORECASE,
         )
         for date in set(dates):
             entities.append((date, 0.7))
 
         # Horas
-        times = re.findall(r'\b\d{1,2}:\d{2}(?:\s*(?:AM|PM|am|pm))?\b', text)
+        times = re.findall(r"\b\d{1,2}:\d{2}(?:\s*(?:AM|PM|am|pm))?\b", text)
         for time in set(times):
             entities.append((time, 0.6))
 
@@ -226,8 +245,8 @@ class KeywordExtractorBlock(BaseBlock):
 
         # Cargar vocabularios
         vocab_paths = [
-            'backend/vocabulary/ia_tech.json',
-            'backend/vocabulary/general.json'
+            "backend/vocabulary/ia_tech.json",
+            "backend/vocabulary/general.json",
         ]
 
         for vocab_path in vocab_paths:
@@ -235,7 +254,7 @@ class KeywordExtractorBlock(BaseBlock):
                 continue
 
             try:
-                with open(vocab_path, 'r', encoding='utf-8') as f:
+                with open(vocab_path, "r", encoding="utf-8") as f:
                     vocab = json.load(f)
 
                 # Buscar términos en el texto
@@ -253,21 +272,21 @@ class KeywordExtractorBlock(BaseBlock):
         numbers = []
 
         # Porcentajes
-        percentages = re.findall(r'\b\d+(?:\.\d+)?%\b', text)
+        percentages = re.findall(r"\b\d+(?:\.\d+)?%\b", text)
         for pct in set(percentages):
             numbers.append((pct, 0.7))
 
         # Cantidades con unidades
         quantities = re.findall(
-            r'\b\d+(?:\.\d+)?\s*(?:USD|euros|dólares|pesos|KB|MB|GB|km|hs|horas)\b',
+            r"\b\d+(?:\.\d+)?\s*(?:USD|euros|dólares|pesos|KB|MB|GB|km|hs|horas)\b",
             text,
-            re.IGNORECASE
+            re.IGNORECASE,
         )
         for qty in set(quantities):
             numbers.append((qty, 0.8))
 
         # Números grandes (más de 3 dígitos)
-        large_numbers = re.findall(r'\b\d{4,}\b', text)
+        large_numbers = re.findall(r"\b\d{4,}\b", text)
         for num in set(large_numbers):
             numbers.append((num, 0.5))
 
@@ -276,28 +295,32 @@ class KeywordExtractorBlock(BaseBlock):
     def _classify_keyword(self, keyword: str) -> str:
         """Clasificar palabra clave por tipo."""
         # Número
-        if re.match(r'^\d+(?:\.\d+)?%?$', keyword):
-            return 'number'
+        if re.match(r"^\d+(?:\.\d+)?%?$", keyword):
+            return "number"
 
         # Fecha
-        if re.search(r'(?:\d{1,2}[-/]\d{1,2}|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)', keyword, re.IGNORECASE):
-            return 'date'
+        if re.search(
+            r"(?:\d{1,2}[-/]\d{1,2}|enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)",
+            keyword,
+            re.IGNORECASE,
+        ):
+            return "date"
 
         # Hora
-        if re.search(r'\d{1,2}:\d{2}', keyword):
-            return 'time'
+        if re.search(r"\d{1,2}:\d{2}", keyword):
+            return "time"
 
         # Moneda
-        if re.search(r'(?:USD|euros|dólares|pesos)', keyword, re.IGNORECASE):
-            return 'currency'
+        if re.search(r"(?:USD|euros|dólares|pesos)", keyword, re.IGNORECASE):
+            return "currency"
 
         # Nombre propio (empieza con mayúscula)
         if keyword[0].isupper() and keyword[1:].islower():
-            return 'proper_noun'
+            return "proper_noun"
 
         # Término técnico (contiene mayúsculas en medio)
         if any(c.isupper() for c in keyword[1:-1]):
-            return 'technical'
+            return "technical"
 
         # Palabra común
-        return 'common'
+        return "common"

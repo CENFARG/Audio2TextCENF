@@ -348,7 +348,7 @@ class VocabularyExtractor:
         Returns:
             Diccionario con estadísticas
         """
-        categories = {}
+        categories: dict = {}
         for term_data in self.custom_vocab.values():
             cat = term_data.get("category", "general")
             categories[cat] = categories.get(cat, 0) + 1

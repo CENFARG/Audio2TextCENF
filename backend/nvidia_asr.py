@@ -25,7 +25,12 @@ class NvidiaASR:
     Modelo: parakeet-ctc-0.6b-es (español optimizado)
     """
 
-    def __init__(self, api_key: Optional[str] = None, server: str = None, mode: str = "cloud"):
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        server: Optional[str] = None,
+        mode: str = "cloud",
+    ):
         """
         Inicializar cliente NVIDIA ASR.
 
@@ -36,11 +41,14 @@ class NvidiaASR:
         """
         self.api_key = api_key or os.environ.get("NVIDIA_API_KEY")
         self.mode = mode
+        self.function_id: Optional[str] = None
 
         if mode == "cloud":
             self.server = server or "grpc.nvcf.nvidia.com:443"
             self.use_ssl = True
-            self.function_id = "a9eeee8f-b509-4712-b19d-194361fa5f31"  # parakeet-ctc-0.6b-es
+            self.function_id = (
+                "a9eeee8f-b509-4712-b19d-194361fa5f31"  # parakeet-ctc-0.6b-es
+            )
         else:
             self.server = server or "localhost:50051"
             self.use_ssl = False
@@ -55,17 +63,23 @@ class NvidiaASR:
         try:
             import riva.client
 
-            logger.info(f"NvidiaASR: Iniciando cliente (mode={self.mode}, server={self.server})")
+            logger.info(
+                f"NvidiaASR: Iniciando cliente (mode={self.mode}, server={self.server})"
+            )
 
             # Configurar metadata para autenticación
             metadata = []
             if self.mode == "cloud" and self.api_key:
                 metadata.append(("function-id", self.function_id))
                 metadata.append(("authorization", f"Bearer {self.api_key}"))
-                logger.info(f"NvidiaASR: Metadata configurada (function-id={self.function_id}, api_key={self.api_key[:20]}...)")
+                logger.info(
+                    f"NvidiaASR: Metadata configurada (function-id={self.function_id}, api_key={self.api_key[:20]}...)"
+                )
 
             # Crear autenticación
-            logger.info(f"NvidiaASR: Creando Auth (use_ssl={self.use_ssl}, uri={self.server})")
+            logger.info(
+                f"NvidiaASR: Creando Auth (use_ssl={self.use_ssl}, uri={self.server})"
+            )
             self.auth = riva.client.Auth(
                 use_ssl=self.use_ssl,
                 uri=self.server,
@@ -78,7 +92,9 @@ class NvidiaASR:
             self.asr_service = riva.client.ASRService(self.auth)
             logger.info(f"NvidiaASR: ASRService creada - {type(self.asr_service)}")
 
-            logger.info(f"NvidiaASR: Cliente inicializado correctamente (mode={self.mode}, server={self.server})")
+            logger.info(
+                f"NvidiaASR: Cliente inicializado correctamente (mode={self.mode}, server={self.server})"
+            )
 
         except ImportError as e:
             logger.error(f"NvidiaASR: ImportError - {e}")
@@ -86,8 +102,11 @@ class NvidiaASR:
             self.auth = None
             self.asr_service = None
         except Exception as e:
-            logger.error(f"NvidiaASR: Exception en _init_client - {type(e).__name__}: {e}")
+            logger.error(
+                f"NvidiaASR: Exception en _init_client - {type(e).__name__}: {e}"
+            )
             import traceback
+
             logger.error(f"NvidiaASR: Traceback:\n{traceback.format_exc()}")
             self.auth = None
             self.asr_service = None
@@ -96,7 +115,9 @@ class NvidiaASR:
         """Verificar si el cliente está disponible."""
         return self.asr_service is not None
 
-    def transcribe(self, audio_path: str, language_code: str = "es-US") -> Optional[str]:
+    def transcribe(
+        self, audio_path: str, language_code: str = "es-US"
+    ) -> Optional[str]:
         """
         Transcribir archivo de audio usando NVIDIA Riva gRPC.
 
@@ -136,7 +157,7 @@ class NvidiaASR:
                 audio_chunks=riva.client.AudioChunkFileIterator(
                     audio_path,
                     1600,  # chunk_size (frames)
-                    None   # delay_callback (simular realtime)
+                    None,  # delay_callback (simular realtime)
                 ),
                 streaming_config=config,
             )
@@ -159,7 +180,9 @@ class NvidiaASR:
             full_transcript = " ".join(transcript_parts).strip()
 
             if full_transcript:
-                logger.info(f"NvidiaASR: Transcripción exitosa ({len(full_transcript)} chars)")
+                logger.info(
+                    f"NvidiaASR: Transcripción exitosa ({len(full_transcript)} chars)"
+                )
                 return full_transcript
             else:
                 logger.warning("NvidiaASR: Transcripción vacía")
@@ -168,6 +191,7 @@ class NvidiaASR:
         except Exception as e:
             logger.error(f"NvidiaASR: Error transcribiendo: {e}")
             import traceback
+
             logger.error(traceback.format_exc())
             return None
 
@@ -184,7 +208,9 @@ class NvidiaASR:
                 riva.client.proto.riva_asr_pb2.RivaSpeechRecognitionConfigRequest()
             )
 
-            logger.info(f"NvidiaASR: Servidor disponible - {len(config_response.model_config)} modelos")
+            logger.info(
+                f"NvidiaASR: Servidor disponible - {len(config_response.model_config)} modelos"
+            )
             return True
 
         except Exception as e:
@@ -221,8 +247,8 @@ class NvidiaASRBuilder:
             if local_client.test_connection():
                 logger.info("NvidiaASR: Usando modo local (detectado)")
                 return local_client
-        except:
-            pass
+        except Exception as exc:
+            logger.debug("NvidiaASR auto(): intento local no disponible: %s", exc)
 
         # Probar cloud
         if os.environ.get("NVIDIA_API_KEY"):

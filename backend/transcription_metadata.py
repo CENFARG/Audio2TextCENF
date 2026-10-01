@@ -10,7 +10,7 @@ Guarda información adicional sobre transcripciones como:
 
 import json
 import os
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional, cast
 from datetime import datetime
 
 
@@ -32,7 +32,7 @@ class TranscriptionMetadata:
         """Cargar metadata desde archivo."""
         if os.path.exists(self.metadata_file):
             try:
-                with open(self.metadata_file, 'r', encoding='utf-8') as f:
+                with open(self.metadata_file, "r", encoding="utf-8") as f:
                     self.metadata = json.load(f)
             except Exception as e:
                 print(f"Error cargando metadata: {e}")
@@ -43,7 +43,7 @@ class TranscriptionMetadata:
     def _save_metadata(self):
         """Guardar metadata a archivo."""
         try:
-            with open(self.metadata_file, 'w', encoding='utf-8') as f:
+            with open(self.metadata_file, "w", encoding="utf-8") as f:
                 json.dump(self.metadata, f, indent=2, ensure_ascii=False)
         except Exception as e:
             print(f"Error guardando metadata: {e}")
@@ -60,7 +60,7 @@ class TranscriptionMetadata:
             Emoji a mostrar
         """
         if filename in self.metadata:
-            return self.metadata[filename].get("emoji", default)
+            return cast(str, self.metadata[filename].get("emoji", default))
         return default
 
     def set_emoji(self, filename: str, emoji: str):
@@ -119,7 +119,7 @@ class TranscriptionMetadata:
             Lista de etiquetas
         """
         if filename in self.metadata:
-            return self.metadata[filename].get("tags", [])
+            return cast(list, self.metadata[filename].get("tags", []))
         return []
 
     def set_tags(self, filename: str, tags: list):
@@ -214,10 +214,18 @@ class TranscriptionMetadata:
                     if len(parts) >= 3:
                         date_part = parts[1]  # YYYYMMDD
                         time_part = parts[2]  # HHMMSS
-                        formatted_date = f"{date_part[6:8]}/{date_part[4:6]}/{date_part[0:4]}"
-                        formatted_time = f"{time_part[0:2]}:{time_part[2:4]}:{time_part[4:6]}"
-                        return f"{emoji} {formatted_date} {formatted_time}" if emoji else f"{formatted_date} {formatted_time}"
-                except:
+                        formatted_date = (
+                            f"{date_part[6:8]}/{date_part[4:6]}/{date_part[0:4]}"
+                        )
+                        formatted_time = (
+                            f"{time_part[0:2]}:{time_part[2:4]}:{time_part[4:6]}"
+                        )
+                        return (
+                            f"{emoji} {formatted_date} {formatted_time}"
+                            if emoji
+                            else f"{formatted_date} {formatted_time}"
+                        )
+                except (KeyError, ValueError, TypeError):
                     pass
             return f"{emoji} {filename}" if emoji else filename
 
@@ -248,7 +256,7 @@ class TranscriptionMetadata:
             Metadatos automáticos o dict vacío
         """
         if filename in self.metadata:
-            return self.metadata[filename].get("auto", {})
+            return cast(dict, self.metadata[filename].get("auto", {}))
         return {}
 
     def clear_all(self):
@@ -278,5 +286,6 @@ if __name__ == "__main__":
 
     # Cleanup
     import os
+
     if os.path.exists("test_metadata.json"):
         os.remove("test_metadata.json")

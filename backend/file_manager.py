@@ -292,7 +292,7 @@ class FileManager:
 
             info = sf.info(filepath)
             if info.samplerate and info.frames:
-                return info.frames / float(info.samplerate)
+                return float(info.frames) / float(info.samplerate)
         except Exception:
             pass
         try:
@@ -302,7 +302,7 @@ class FileManager:
                 frames = wf.getnframes()
                 rate = wf.getframerate()
                 if rate:
-                    return frames / float(rate)
+                    return float(frames) / float(rate)
         except Exception:
             pass
         return 0.0
@@ -315,7 +315,7 @@ class FileManager:
             return 0.0
         cached = self._duration_cache.get(filepath)
         if cached is not None and cached[0] == mtime:
-            return cached[1]
+            return float(cached[1])
         duration = self._get_wav_duration(filepath)
         # Evicción simple FIFO si excede max
         if len(self._duration_cache) >= self._duration_cache_max:

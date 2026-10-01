@@ -24,7 +24,7 @@ class NvidiaASR:
     """
 
     def __init__(
-        self, api_key: Optional[str] = None, server: str = None, mode: str = "cloud"
+        self, api_key: Optional[str] = None, server: str | None = None, mode: str = "cloud"
     ):
         """
         Inicializar cliente NVIDIA ASR.
@@ -36,6 +36,7 @@ class NvidiaASR:
         """
         self.api_key = api_key or os.environ.get("NVIDIA_API_KEY")
         self.mode = mode
+        self.function_id: str | None = None
 
         if mode == "cloud":
             self.server = server or "grpc.nvcf.nvidia.com:443"
@@ -106,7 +107,7 @@ class NvidiaASR:
                 metadata.append(("authorization", f"Bearer {self.api_key}"))
 
             # Crear solicitud de transcripción
-            config = riva.client.AudioEncoding(
+            riva.client.AudioEncoding(
                 encoding=riva.client.AudioEncoding.ENCODING_WAV,
                 sample_rate_hertz=16000,
                 audio_channel_count=1,
@@ -114,7 +115,7 @@ class NvidiaASR:
 
             # Leer archivo de audio
             with open(audio_path, "rb") as audio_file:
-                audio_content = audio_file.read()
+                audio_file.read()
 
             # Transcribir
             logger.info(f"NvidiaASR: Transcribiendo {audio_path} con {self.server}")
@@ -145,7 +146,7 @@ class NvidiaASR:
                 )
                 is_ready = response.json().get("ready", False)
                 logger.info(f"NvidiaASR: Servidor local ready={is_ready}")
-                return is_ready
+                return bool(is_ready)
             except Exception as e:
                 logger.error(f"NvidiaASR: Error probando conexión local: {e}")
                 return False
@@ -171,7 +172,7 @@ class NvidiaASRBuilder:
         return NvidiaASR(server=server, mode="local")
 
     @staticmethod
-    def auto() -> NvidiaASR:
+    def auto() -> Optional["NvidiaASR"]:
         """
         Crear cliente automáticamente.
 
@@ -188,8 +189,8 @@ class NvidiaASRBuilder:
             if response.json().get("ready"):
                 logger.info("NvidiaASR: Usando modo local (detectado)")
                 return NvidiaASR(mode="local")
-        except:
-            pass
+        except Exception as exc:
+            logger.debug("NvidiaASR auto(): intento local no disponible: %s", exc)
 
         # Probar cloud
         if os.environ.get("NVIDIA_API_KEY"):

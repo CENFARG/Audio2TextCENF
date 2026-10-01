@@ -27,9 +27,9 @@ try:
         RateLimitError as _GroqRateLimitError,
     )
 except Exception:  # compat si groq no expone
-    _GroqAPIStatusError = Exception
-    _GroqTimeoutError = Exception
-    _GroqRateLimitError = Exception
+    _GroqAPIStatusError = Exception  # type: ignore[misc,assignment]
+    _GroqTimeoutError = Exception  # type: ignore[misc,assignment]
+    _GroqRateLimitError = Exception  # type: ignore[misc,assignment]
 from .utf8_validator import UTF8Validator
 from .custom_vocabulary import CustomVocabulary
 from .blocks import BlockManager, ProcessingStage
@@ -41,7 +41,9 @@ from .transcription_metadata import TranscriptionMetadata
 from .transcription_metadata_generator import TranscriptionMetadataGenerator
 
 MIN_AUDIO_DURATION = 0.5
-CHUNK_THRESHOLD_S = 28.0  # Audio >= 28s se troza para evitar pérdida en costuras de Groq
+CHUNK_THRESHOLD_S = (
+    28.0  # Audio >= 28s se troza para evitar pérdida en costuras de Groq
+)
 
 # ── Slice A Hardening constants ──────────────────────────────────────────
 GROQ_TIMEOUT_S = 30  # timeout por chunk (CAP TRANSITORIO A - reevaluar post B)
@@ -66,7 +68,9 @@ GROQ_PARALLEL_TIMEOUT_S = 30  # timeout por future
 # ── Slice C: streaming incremental ────────────────────────────────────
 # Durante grabación cada 25s snapshot + ThreadPoolExecutor 2 workers envía chunk a Groq,
 # guarda texto en streaming_ordered dict + .partial_stream.txt, log STREAM. Post-stop <6s.
-STREAM_INTERVAL_S = 25.0  # CAP TRANSITORIO A - reevaluar post B (match target 25s chunk)
+STREAM_INTERVAL_S = (
+    25.0  # CAP TRANSITORIO A - reevaluar post B (match target 25s chunk)
+)
 STREAM_WORKERS = 2  # pool separado para no competir con Slice B (3 workers post-stop)
 STREAM_PARTIAL_SUFFIX = ".partial_stream.txt"  # sufijo para archivo parcial streaming
 STREAM_TIMEOUT_S = 30  # timeout por chunk streaming
@@ -129,7 +133,9 @@ class Transcriber:
         self.freq = 16000
 
         # ── Slice C streaming incremental ─────────────────────────────────
-        self.streaming_executor = None  # ThreadPoolExecutor 2 workers separado de Slice B
+        self.streaming_executor = (
+            None  # ThreadPoolExecutor 2 workers separado de Slice B
+        )
         self.streaming_ordered = {}  # dict[int, str] ordenado por chunk index
         self.streaming_lock = threading.Lock()  # lock para ordered dict + pending
         self.streaming_pending = set()  # índices en vuelo
@@ -223,7 +229,9 @@ class Transcriber:
                 "include_entities": blocks_config.get("keyword_include_entities", True),
                 "use_vocabulary": blocks_config.get("keyword_use_vocabulary", True),
             }
-            self.block_manager.register_block(KeywordExtractorBlock(config=keyword_config))
+            self.block_manager.register_block(
+                KeywordExtractorBlock(config=keyword_config)
+            )
             self.logger.info(
                 f"KeywordExtractorBlock registrado (max_keywords={keyword_config['max_keywords']})"
             )
@@ -232,11 +240,15 @@ class Transcriber:
         # Updated to use the new method in config_manager
         api_key = self.config_manager.get_groq_api_key_from_env()
         if not api_key:
-            self.logger.warning("GROQ_API_KEY no configurada. El cliente Groq no se inicializará.")
+            self.logger.warning(
+                "GROQ_API_KEY no configurada. El cliente Groq no se inicializará."
+            )
             return None
         try:
             client = Groq(api_key=api_key, timeout=GROQ_TIMEOUT_S)
-            self.logger.info(f"Cliente Groq inicializado exitosamente (timeout={GROQ_TIMEOUT_S}s).")
+            self.logger.info(
+                f"Cliente Groq inicializado exitosamente (timeout={GROQ_TIMEOUT_S}s)."
+            )
             return client
         except Exception as e:
             self.update_status(
@@ -272,7 +284,12 @@ class Transcriber:
         msg = str(e).lower()
         if sc == 413 or "413" in msg or "too large" in msg or "payload" in msg:
             return "413"
-        if sc == 429 or isinstance(e, _GroqRateLimitError) or "429" in msg or "rate limit" in msg:
+        if (
+            sc == 429
+            or isinstance(e, _GroqRateLimitError)
+            or "429" in msg
+            or "rate limit" in msg
+        ):
             return "429"
         if isinstance(e, _GroqTimeoutError) or "timeout" in msg or "timed out" in msg:
             return "timeout"
@@ -285,7 +302,11 @@ class Transcriber:
     def _get_parallel_workers(self) -> int:
         """Retorna workers Groq clamp [2,4], default 3."""
         try:
-            w = int(self.config_manager.get("groq_parallel_workers", GROQ_PARALLEL_WORKERS_DEFAULT))
+            w = int(
+                self.config_manager.get(
+                    "groq_parallel_workers", GROQ_PARALLEL_WORKERS_DEFAULT
+                )
+            )
         except Exception:
             w = GROQ_PARALLEL_WORKERS_DEFAULT
         return max(GROQ_PARALLEL_WORKERS_MIN, min(GROQ_PARALLEL_WORKERS_MAX, w))
@@ -295,7 +316,9 @@ class Transcriber:
         nvidia_api_key = self.config_manager.get("nvidia_api_key") or os.environ.get(
             "NVIDIA_API_KEY"
         )
-        nvidia_mode = self.config_manager.get("nvidia_mode", "cloud")  # "cloud" o "local"
+        nvidia_mode = self.config_manager.get(
+            "nvidia_mode", "cloud"
+        )  # "cloud" o "local"
         nvidia_enabled = self.config_manager.get("nvidia_enabled", False)
 
         if not nvidia_enabled:
@@ -305,10 +328,14 @@ class Transcriber:
         try:
             client = NvidiaASR(api_key=nvidia_api_key, mode=nvidia_mode)
             if client.is_available():
-                self.logger.info(f"Cliente NVIDIA Riva ASR inicializado (modo: {nvidia_mode})")
+                self.logger.info(
+                    f"Cliente NVIDIA Riva ASR inicializado (modo: {nvidia_mode})"
+                )
                 return client
             else:
-                self.logger.warning("NVIDIA Riva ASR: nvidia-riva-client no está instalado")
+                self.logger.warning(
+                    "NVIDIA Riva ASR: nvidia-riva-client no está instalado"
+                )
                 return None
         except Exception as e:
             self.logger.warning(f"Error al inicializar NVIDIA Riva ASR: {e}")
@@ -325,7 +352,9 @@ class Transcriber:
         Returns:
             'nvidia' o 'groq', o None si no hay ninguno disponible.
         """
-        asr_provider = self.config_manager.get("asr_provider", "groq")  # "groq" o "nvidia"
+        asr_provider = self.config_manager.get(
+            "asr_provider", "groq"
+        )  # "groq" o "nvidia"
 
         if asr_provider == "nvidia":
             return "nvidia" if self.nvidia_client else None
@@ -357,7 +386,9 @@ class Transcriber:
             enabled: True para activar, False para desactivar
         """
         self.utf8_validation_enabled = enabled
-        self.logger.info(f"Validación UTF-8: {'activada' if enabled else 'desactivada'}")
+        self.logger.info(
+            f"Validación UTF-8: {'activada' if enabled else 'desactivada'}"
+        )
         return enabled
 
     def reload_blocks(self):
@@ -387,15 +418,15 @@ class Transcriber:
         Returns:
             Diccionario con estadísticas de cada bloque
         """
-        return self.block_manager.get_stats()
+        return dict(self.block_manager.get_stats())
 
     def enable_block(self, block_name: str) -> bool:
         """Activar un bloque específico."""
-        return self.block_manager.enable_block(block_name)
+        return bool(self.block_manager.enable_block(block_name))
 
     def disable_block(self, block_name: str) -> bool:
         """Desactivar un bloque específico."""
-        return self.block_manager.disable_block(block_name)
+        return bool(self.block_manager.disable_block(block_name))
 
     def validate_text(self, text: str) -> tuple:
         """
@@ -407,7 +438,7 @@ class Transcriber:
         Returns:
             Tuple con (es_válido, lista de problemas)
         """
-        return self.utf8_validator.validate_transcription(text)
+        return tuple(self.utf8_validator.validate_transcription(text))
 
     def hotkey_listener(self):
         self.logger.info(f"Escuchando hotkey: {self.hotkey}")
@@ -424,7 +455,9 @@ class Transcriber:
         try:
             # v0.15.8: no desenganchar durante grabación — evita race que duplica hotkey events
             if getattr(self, "is_recording", False):
-                self.logger.info("_hook_hotkey deferido: grabación en curso, no se hace unhook")
+                self.logger.info(
+                    "_hook_hotkey deferido: grabación en curso, no se hace unhook"
+                )
                 return
             keyboard.unhook_all()
 
@@ -434,16 +467,22 @@ class Transcriber:
                 # Nota: add_hotkey solo dispara en KEY_DOWN, ideal para modo toggle
                 # Para modo hold con modificadores, necesitamos un enfoque diferente
                 if self.record_mode == "toggle":
-                    keyboard.add_hotkey(self.hotkey, self._handle_toggle_hotkey, suppress=True)
+                    keyboard.add_hotkey(
+                        self.hotkey, self._handle_toggle_hotkey, suppress=True
+                    )
                     self.logger.info(f"Hotkey enganchado (toggle): {self.hotkey}")
                 else:
                     # Modo hold con modificadores: usar hook personalizado
                     keyboard.hook(self._handle_modifier_hotkey)
-                    self.logger.info(f"Hotkey enganchado (hold con modificadores): {self.hotkey}")
+                    self.logger.info(
+                        f"Hotkey enganchado (hold con modificadores): {self.hotkey}"
+                    )
             else:
                 # Hotkey simple sin modificadores: usar métodos antiguos
                 keyboard.on_press_key(self.hotkey, self.handle_key_event, suppress=True)
-                keyboard.on_release_key(self.hotkey, self.handle_key_event, suppress=True)
+                keyboard.on_release_key(
+                    self.hotkey, self.handle_key_event, suppress=True
+                )
                 self.logger.info(f"Hotkey enganchado: {self.hotkey}")
         except Exception as e:
             self.logger.error(f"Error enganchando hotkey: {e}")
@@ -587,7 +626,9 @@ class Transcriber:
             )
             # limpiar parcial previo si existe
             try:
-                if self.streaming_partial_path and os.path.exists(self.streaming_partial_path):
+                if self.streaming_partial_path and os.path.exists(
+                    self.streaming_partial_path
+                ):
                     os.unlink(self.streaming_partial_path)
             except Exception:
                 pass
@@ -611,7 +652,9 @@ class Transcriber:
         except Exception as _se:
             self.logger.warning(f"Slice C stream init error: {_se}")
         self.sound_manager.sound_start_recording()
-        self.update_status(self.localization_manager.get_string("status_recording"), "green")
+        self.update_status(
+            self.localization_manager.get_string("status_recording"), "green"
+        )
         self.logger.info("Grabación iniciada.")
 
         # Actualizar overlay (vía cola, nunca directo desde el thread)
@@ -619,10 +662,14 @@ class Transcriber:
 
         try:
             # Initialize SoundDevice Stream
-            self.input_stream = sd.InputStream(samplerate=self.freq, channels=1, dtype="float32")
+            self.input_stream = sd.InputStream(
+                samplerate=self.freq, channels=1, dtype="float32"
+            )
             self.input_stream.start()
 
-            self.recording_thread = threading.Thread(target=self._record_loop, daemon=True)
+            self.recording_thread = threading.Thread(
+                target=self._record_loop, daemon=True
+            )
             self.recording_thread.start()
         except Exception as e:
             self.update_status(
@@ -648,7 +695,9 @@ class Transcriber:
 
         if not hasattr(self, "timer_queue"):
             # CAP TRANSITORIO A - reevaluar post B: maxsize 64 para progress 48 chunks
-            self.timer_queue = queue.Queue(maxsize=64)  # cola acotada, put_nowait no bloquea
+            self.timer_queue = queue.Queue(
+                maxsize=64
+            )  # cola acotada, put_nowait no bloquea
 
         start_time = time.time()
         max_time = self.config_manager.get("max_recording_time", 300)
@@ -691,10 +740,14 @@ class Transcriber:
                         self.stop_recording()
                     except Exception as _stop_e:
                         try:
-                            self.tlogger.error(f"record_loop stop_recording error: {_stop_e}")
+                            self.tlogger.error(
+                                f"record_loop stop_recording error: {_stop_e}"
+                            )
                         except Exception:
                             pass
-                        self.logger.error(f"record_loop stop_recording error: {_stop_e}")
+                        self.logger.error(
+                            f"record_loop stop_recording error: {_stop_e}"
+                        )
                     break
                 if now - last_ui_push >= ui_interval:
                     last_ui_push = now
@@ -849,7 +902,9 @@ class Transcriber:
                 continue
             try:
                 # submit no bloquea grabación
-                executor.submit(self._stream_transcribe_task, idx, chunk, total, est_total)
+                executor.submit(
+                    self._stream_transcribe_task, idx, chunk, total, est_total
+                )
             except Exception as _se:
                 with self.streaming_lock:
                     self.streaming_pending.discard(idx)
@@ -872,7 +927,7 @@ class Transcriber:
             chunk_mb = 0
         try:
             self.tlogger.debug(
-                f"STREAM START chunk={idx+1}/{total_snapshot} worker={worker} dur={chunk_dur:.1f}s size={chunk_mb:.2f}MB est_total={est_total}"
+                f"STREAM START chunk={idx + 1}/{total_snapshot} worker={worker} dur={chunk_dur:.1f}s size={chunk_mb:.2f}MB est_total={est_total}"
             )
         except Exception:
             pass
@@ -885,7 +940,7 @@ class Transcriber:
             kind = self._classify_groq_error(e)
             try:
                 self.tlogger.warning(
-                    f"STREAM FAIL chunk={idx+1} err={kind} exc={e} worker={worker}"
+                    f"STREAM FAIL chunk={idx + 1} err={kind} exc={e} worker={worker}"
                 )
             except Exception:
                 pass
@@ -924,26 +979,30 @@ class Transcriber:
                                 # fallback directo
                                 try:
                                     with open(
-                                        self.streaming_partial_path, "w", encoding="utf-8"
+                                        self.streaming_partial_path,
+                                        "w",
+                                        encoding="utf-8",
                                     ) as f:
                                         f.write(ordered)
                                 except Exception:
                                     pass
                             try:
                                 self.tlogger.info(
-                                    f"STREAM CHECKPOINT chunk={idx+1} len={len(ordered)} path={self.streaming_partial_path} worker={worker} latency={latency:.3f}s"
+                                    f"STREAM CHECKPOINT chunk={idx + 1} len={len(ordered)} path={self.streaming_partial_path} worker={worker} latency={latency:.3f}s"
                                 )
                             except Exception:
                                 pass
                 except Exception as _ce:
                     try:
-                        self.tlogger.warning(f"STREAM checkpoint FAIL idx={idx} err={_ce}")
+                        self.tlogger.warning(
+                            f"STREAM checkpoint FAIL idx={idx} err={_ce}"
+                        )
                     except Exception:
                         pass
             else:
                 try:
                     self.tlogger.info(
-                        f"STREAM EMPTY chunk={idx+1} worker={worker} latency={latency:.3f}s"
+                        f"STREAM EMPTY chunk={idx + 1} worker={worker} latency={latency:.3f}s"
                     )
                 except Exception:
                     pass
@@ -956,7 +1015,7 @@ class Transcriber:
             pass
         try:
             self.tlogger.debug(
-                f"STREAM END chunk={idx+1} completed={completed}/{display_total} latency={latency:.3f}s worker={worker} text_len={len(text)}"
+                f"STREAM END chunk={idx + 1} completed={completed}/{display_total} latency={latency:.3f}s worker={worker} text_len={len(text)}"
             )
         except Exception:
             pass
@@ -1023,7 +1082,7 @@ class Transcriber:
                 worker = threading.current_thread().name
                 try:
                     self.tlogger.debug(
-                        f"STREAM MERGE TASK START chunk={idx0+1}/{total} worker={worker}"
+                        f"STREAM MERGE TASK START chunk={idx0 + 1}/{total} worker={worker}"
                     )
                 except Exception:
                     pass
@@ -1035,7 +1094,7 @@ class Transcriber:
                     kind = self._classify_groq_error(e)
                     try:
                         self.tlogger.warning(
-                            f"STREAM MERGE TASK FAIL chunk={idx0+1} err={kind} exc={e} worker={worker}"
+                            f"STREAM MERGE TASK FAIL chunk={idx0 + 1} err={kind} exc={e} worker={worker}"
                         )
                     except Exception:
                         pass
@@ -1043,14 +1102,13 @@ class Transcriber:
                 latency = max(0.01, time.perf_counter() - t0)
                 try:
                     self.tlogger.debug(
-                        f"STREAM MERGE TASK END chunk={idx0+1} latency={latency:.3f}s worker={worker} len={len(part)}"
+                        f"STREAM MERGE TASK END chunk={idx0 + 1} latency={latency:.3f}s worker={worker} len={len(part)}"
                     )
                 except Exception:
                     pass
                 return part
 
             # pool 2 workers separado — solo restantes
-            texts_map = {}
             with ThreadPoolExecutor(
                 max_workers=STREAM_WORKERS, thread_name_prefix="groq-stream-merge"
             ) as executor:
@@ -1061,7 +1119,9 @@ class Transcriber:
                         futures[fut] = idx0
                     except Exception as _se:
                         try:
-                            self.tlogger.warning(f"STREAM MERGE submit fail idx={idx0} err={_se}")
+                            self.tlogger.warning(
+                                f"STREAM MERGE submit fail idx={idx0} err={_se}"
+                            )
                         except Exception:
                             pass
                 for fut in concurrent.futures.as_completed(futures):
@@ -1070,7 +1130,7 @@ class Transcriber:
                         part = fut.result(timeout=STREAM_TIMEOUT_S)
                     except concurrent.futures.TimeoutError:
                         try:
-                            self.tlogger.error(f"STREAM MERGE timeout chunk={idx0+1}")
+                            self.tlogger.error(f"STREAM MERGE timeout chunk={idx0 + 1}")
                         except Exception:
                             pass
                         part = ""
@@ -1086,7 +1146,12 @@ class Transcriber:
                         elapsed = time.perf_counter() - start_wall
                         avg = (
                             elapsed
-                            / max(1, len([k for k in remaining if k <= idx0 or k in ordered]))
+                            / max(
+                                1,
+                                len(
+                                    [k for k in remaining if k <= idx0 or k in ordered]
+                                ),
+                            )
                             if elapsed
                             else 0
                         )
@@ -1141,7 +1206,9 @@ class Transcriber:
                     pass
                 try:
                     # también limpiar partial_stream si queda
-                    if streamed_partial_path and os.path.exists(str(streamed_partial_path)):
+                    if streamed_partial_path and os.path.exists(
+                        str(streamed_partial_path)
+                    ):
                         os.unlink(str(streamed_partial_path))
                 except Exception:
                     pass
@@ -1239,7 +1306,9 @@ class Transcriber:
                             pass
                         return False
             else:
-                self.logger.debug(f"timer_queue llena, evento no crítico descartado: {item[0]}")
+                self.logger.debug(
+                    f"timer_queue llena, evento no crítico descartado: {item[0]}"
+                )
                 try:
                     self.tlogger.debug(
                         f"queue_put DISCARD non-critical {item[0]} q={qd}/{q.maxsize}"
@@ -1258,7 +1327,9 @@ class Transcriber:
             )
         except Exception:
             pass
-        self._queue_put(("progress", int(current), int(total), float(eta_s)), critical=True)
+        self._queue_put(
+            ("progress", int(current), int(total), float(eta_s)), critical=True
+        )
 
     def _push_overlay_event(self, state, minutes=0, seconds=0):
         """FIX: canalizar actualizaciones de overlay por la cola (nunca bloquear).
@@ -1283,7 +1354,9 @@ class Transcriber:
         self.stop_event.set()
         self.is_recording = False
         self.sound_manager.sound_stop_recording()
-        self.update_status(self.localization_manager.get_string("status_processing"), "yellow")
+        self.update_status(
+            self.localization_manager.get_string("status_processing"), "yellow"
+        )
         self.logger.info("Grabación detenida. Iniciando procesamiento.")
 
         # Actualizar overlay (vía cola) — crítico, no descartar
@@ -1344,7 +1417,9 @@ class Transcriber:
             self.input_stream = None
 
         if not self.audio_data:
-            self.update_status(self.localization_manager.get_string("no_audio_captured"), "red")
+            self.update_status(
+                self.localization_manager.get_string("no_audio_captured"), "red"
+            )
             return
 
         # v0.15.8 single-owner: snapshot + recording_id ANTES de spawnear thread (sin tocar _record_loop)
@@ -1352,12 +1427,13 @@ class Transcriber:
         with self.audio_lock:
             audio_snapshot = list(self.audio_data)
         if not audio_snapshot:
-            self.update_status(self.localization_manager.get_string("no_audio_captured"), "red")
+            self.update_status(
+                self.localization_manager.get_string("no_audio_captured"), "red"
+            )
             return
         # ── Slice C streaming: detener new submits y esperar in-flight (no bloquea grabación, pero post-stop espera <2s) ──
         streamed_snapshot = None
         streamed_partial_path = None
-        streamed_pending = set()
         try:
             # detener trigger
             self._stream_next_trigger = float("inf")
@@ -1376,16 +1452,18 @@ class Transcriber:
                 self.streaming_executor = None
                 try:
                     self.tlogger.info(
-                        f"STREAM shutdown ok recording_id={recording_id} ordered={len(getattr(self,'streaming_ordered',{}))} pending={len(getattr(self,'streaming_pending',set()))}"
+                        f"STREAM shutdown ok recording_id={recording_id} ordered={len(getattr(self, 'streaming_ordered', {}))} pending={len(getattr(self, 'streaming_pending', set()))}"
                     )
                 except Exception:
                     pass
             # snapshot streaming_ordered bajo lock para post-stop
             with self.streaming_lock:
                 streamed_snapshot = (
-                    dict(self.streaming_ordered) if getattr(self, "streaming_ordered", None) else {}
+                    dict(self.streaming_ordered)
+                    if getattr(self, "streaming_ordered", None)
+                    else {}
                 )
-                streamed_pending = (
+                (
                     set(self.streaming_pending)
                     if getattr(self, "streaming_pending", None)
                     else set()
@@ -1401,7 +1479,12 @@ class Transcriber:
                 streamed_partial_path = getattr(self, "streaming_partial_path", None)
         threading.Thread(
             target=self.process_recording,
-            args=(recording_id, audio_snapshot, streamed_snapshot, streamed_partial_path),
+            args=(
+                recording_id,
+                audio_snapshot,
+                streamed_snapshot,
+                streamed_partial_path,
+            ),
             daemon=True,
         ).start()
 
@@ -1450,7 +1533,7 @@ class Transcriber:
                         and (_now - self.last_process_time) < 2.0
                     ):
                         self.logger.warning(
-                            f"process_recording descartado por hash duplicado { _audio_hash[:8]} <2s"
+                            f"process_recording descartado por hash duplicado {_audio_hash[:8]} <2s"
                         )
                         self.process_lock.release()
                         return
@@ -1468,7 +1551,9 @@ class Transcriber:
                 with self.audio_lock:
                     _snap = list(self.audio_data)
             if not _snap:
-                self.update_status(self.localization_manager.get_string("no_audio_captured"), "red")
+                self.update_status(
+                    self.localization_manager.get_string("no_audio_captured"), "red"
+                )
                 return
             # guarda hash/tiempo para dedup futuro (solo si no fue descartado)
             if _audio_hash is not None:
@@ -1480,7 +1565,10 @@ class Transcriber:
 
             if duration < MIN_AUDIO_DURATION:
                 self.update_status(
-                    self.localization_manager.get_string("audio_too_short", min_duration=1.5), "red"
+                    self.localization_manager.get_string(
+                        "audio_too_short", min_duration=1.5
+                    ),
+                    "red",
                 )
                 self.logger.warning("Audio demasiado corto (< 1.5s).")
                 self._push_overlay_event("ready")  # Ocultar overlay si es corto
@@ -1490,7 +1578,9 @@ class Transcriber:
                 self.logger.warning(
                     f"Duración {duration:.1f}s excede CAP TRANSITORIO A {TRANSIENT_CAP_S}s — se transcribe igual por chunks"
                 )
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_audio_file:
+            with tempfile.NamedTemporaryFile(
+                suffix=".wav", delete=False
+            ) as temp_audio_file:
                 temp_path = temp_audio_file.name
 
             # Write using soundfile
@@ -1501,8 +1591,12 @@ class Transcriber:
             if self.config_manager.get("save_audio"):
                 # Pass numpy array directly to file_manager (or just path since we saved it?)
                 # FileManager's save_audio_file takes audio_data now
-                audio_file_path = self.file_manager.save_audio_file(full_audio, self.freq)
-                self.logger.info(f"Audio guardado permanentemente en: {audio_file_path}")
+                audio_file_path = self.file_manager.save_audio_file(
+                    full_audio, self.freq
+                )
+                self.logger.info(
+                    f"Audio guardado permanentemente en: {audio_file_path}"
+                )
 
             service = self.get_transcription_service()
             service_names = {
@@ -1521,7 +1615,11 @@ class Transcriber:
             ):
                 try:
                     transcription = self._transcribe_with_streaming_merge(
-                        full_audio, self.freq, streamed_ordered, streamed_partial_path, temp_path
+                        full_audio,
+                        self.freq,
+                        streamed_ordered,
+                        streamed_partial_path,
+                        temp_path,
                     )
                     try:
                         self.tlogger.info(
@@ -1587,7 +1685,8 @@ class Transcriber:
                     )
                     self.sound_manager.sound_success()
                     self.update_status(
-                        self.localization_manager.get_string("transcription_completed"), "green"
+                        self.localization_manager.get_string("transcription_completed"),
+                        "green",
                     )
                     self._push_overlay_event("ready", 0, 0)
                     # Éxito completo — borrar temporales
@@ -1622,7 +1721,9 @@ class Transcriber:
                                     "duration": duration,
                                     "language": self.config_manager.get(
                                         "transcription_language",
-                                        self.config_manager.get("default_language", "es"),
+                                        self.config_manager.get(
+                                            "default_language", "es"
+                                        ),
                                     ),
                                     "audio_file": audio_file_path or "",
                                     "partial": True,
@@ -1631,13 +1732,17 @@ class Transcriber:
                         except Exception:
                             pass
                         self.update_status(
-                            "⚠️ Transcripción parcial guardada — WAV conservado", "orange"
+                            "⚠️ Transcripción parcial guardada — WAV conservado",
+                            "orange",
                         )
                         self._push_overlay_event("error", 0, 0)
                         # conservar WAV y parcial
                     else:
                         self.update_status(
-                            self.localization_manager.get_string("transcription_failed"), "red"
+                            self.localization_manager.get_string(
+                                "transcription_failed"
+                            ),
+                            "red",
                         )
                         self._push_overlay_event("error", 0, 0)
                         self.logger.warning(
@@ -1645,7 +1750,8 @@ class Transcriber:
                         )
                 else:
                     self.update_status(
-                        self.localization_manager.get_string("transcription_failed"), "red"
+                        self.localization_manager.get_string("transcription_failed"),
+                        "red",
                     )
                     self._push_overlay_event("error", 0, 0)
                     self.logger.warning(
@@ -1655,12 +1761,16 @@ class Transcriber:
 
         except Exception as e:
             self.update_status(
-                f'{self.localization_manager.get_string("processing_error")} {e}', "red"
+                f"{self.localization_manager.get_string('processing_error')} {e}", "red"
             )
-            self.logger.critical(f"Error crítico durante el procesamiento: {e}", exc_info=True)
+            self.logger.critical(
+                f"Error crítico durante el procesamiento: {e}", exc_info=True
+            )
             # conservar WAV en caso de excepción
             if temp_path and os.path.exists(temp_path):
-                self.logger.warning(f"WAV temporal conservado tras excepción: {temp_path}")
+                self.logger.warning(
+                    f"WAV temporal conservado tras excepción: {temp_path}"
+                )
         finally:
             # Slice C: limpiar streaming partial_stream en éxito completo
             try:
@@ -1690,7 +1800,9 @@ class Transcriber:
                     try:
                         if getattr(
                             self, "streaming_partial_path", None
-                        ) == streamed_partial_path and os.path.exists(str(streamed_partial_path)):
+                        ) == streamed_partial_path and os.path.exists(
+                            str(streamed_partial_path)
+                        ):
                             pass
                     except Exception:
                         pass
@@ -1698,8 +1810,12 @@ class Transcriber:
                 pass
             # Solo borrar si hubo éxito completo (transcription truthy y sin parcial pendiente)
             # Si temp_path aún existe, verificar si corresponde borrar + log determinístico
-            partial_path_final = (str(temp_path) + ".partial.txt") if temp_path else None
-            has_partial_final = bool(partial_path_final and os.path.exists(partial_path_final))
+            partial_path_final = (
+                (str(temp_path) + ".partial.txt") if temp_path else None
+            )
+            has_partial_final = bool(
+                partial_path_final and os.path.exists(partial_path_final)
+            )
             # también considerar streaming partial como parcial pendiente
             try:
                 has_stream_partial = bool(
@@ -1719,7 +1835,9 @@ class Transcriber:
                             pass
                     except Exception as _del_e:
                         try:
-                            self.tlogger.warning(f"temp DELETE fail {_del_e} path={temp_path}")
+                            self.tlogger.warning(
+                                f"temp DELETE fail {_del_e} path={temp_path}"
+                            )
                         except Exception:
                             pass
                 else:
@@ -1769,7 +1887,9 @@ class Transcriber:
                 )
             except Exception:
                 pass
-            raise RuntimeError(f"Groq circuit-breaker abierto, reintente en {remaining:.0f}s")
+            raise RuntimeError(
+                f"Groq circuit-breaker abierto, reintente en {remaining:.0f}s"
+            )
 
         # 413 pre-check por tamaño (evita subir 38MB y recibir 413)
         try:
@@ -1783,7 +1903,7 @@ class Transcriber:
                 pass
             if sz > GROQ_MAX_FILE_MB * 1024 * 1024:
                 self.logger.error(
-                    f"Groq 413 pre-check: {wav_path} {sz/(1024*1024):.1f}MB > {GROQ_MAX_FILE_MB}MB"
+                    f"Groq 413 pre-check: {wav_path} {sz / (1024 * 1024):.1f}MB > {GROQ_MAX_FILE_MB}MB"
                 )
                 try:
                     self.tlogger.error(
@@ -1792,10 +1912,12 @@ class Transcriber:
                 except Exception:
                     pass
                 self.update_status(
-                    f"❌ Audio {sz/(1024*1024):.1f}MB excede límite Groq {GROQ_MAX_FILE_MB}MB (413)",
+                    f"❌ Audio {sz / (1024 * 1024):.1f}MB excede límite Groq {GROQ_MAX_FILE_MB}MB (413)",
                     "red",
                 )
-                raise RuntimeError(f"413 Payload Too Large {sz} bytes > {GROQ_MAX_FILE_MB}MB")
+                raise RuntimeError(
+                    f"413 Payload Too Large {sz} bytes > {GROQ_MAX_FILE_MB}MB"
+                )
         except RuntimeError:
             raise
         except Exception:
@@ -1821,12 +1943,16 @@ class Transcriber:
                     if prompt:
                         kwargs["prompt"] = prompt
                     try:
-                        qd = self.timer_queue.qsize() if getattr(self, "timer_queue", None) else -1
+                        qd = (
+                            self.timer_queue.qsize()
+                            if getattr(self, "timer_queue", None)
+                            else -1
+                        )
                     except Exception:
                         qd = -1
                     try:
                         self.tlogger.debug(
-                            f"Groq call START wav={os.path.basename(wav_path)} size={file_mb:.2f}MB attempt={attempt+1}/{max_attempts} q={qd}"
+                            f"Groq call START wav={os.path.basename(wav_path)} size={file_mb:.2f}MB attempt={attempt + 1}/{max_attempts} q={qd}"
                         )
                     except Exception:
                         pass
@@ -1835,7 +1961,7 @@ class Transcriber:
                     self._record_groq_success()
                     try:
                         self.tlogger.info(
-                            f"Groq call OK wav={os.path.basename(wav_path)} latency={latency:.3f}s attempt={attempt+1} size={file_mb:.2f}MB"
+                            f"Groq call OK wav={os.path.basename(wav_path)} latency={latency:.3f}s attempt={attempt + 1} size={file_mb:.2f}MB"
                         )
                     except Exception:
                         pass
@@ -1845,12 +1971,16 @@ class Transcriber:
                 last_exc = e
                 kind = self._classify_groq_error(e)
                 try:
-                    qd = self.timer_queue.qsize() if getattr(self, "timer_queue", None) else -1
+                    qd = (
+                        self.timer_queue.qsize()
+                        if getattr(self, "timer_queue", None)
+                        else -1
+                    )
                 except Exception:
                     qd = -1
                 try:
                     self.tlogger.warning(
-                        f"Groq call FAIL wav={os.path.basename(wav_path)} err={kind} latency={latency:.3f}s attempt={attempt+1}/{max_attempts} q={qd} exc={e}"
+                        f"Groq call FAIL wav={os.path.basename(wav_path)} err={kind} latency={latency:.3f}s attempt={attempt + 1}/{max_attempts} q={qd} exc={e}"
                     )
                 except Exception:
                     pass
@@ -1869,9 +1999,9 @@ class Transcriber:
                         try:
                             resp = getattr(e, "response", None)
                             if resp is not None and hasattr(resp, "headers"):
-                                ra = resp.headers.get("retry-after") or resp.headers.get(
-                                    "Retry-After"
-                                )
+                                ra = resp.headers.get(
+                                    "retry-after"
+                                ) or resp.headers.get("Retry-After")
                                 if ra:
                                     retry_after = float(ra)
                         except Exception:
@@ -1879,16 +2009,18 @@ class Transcriber:
                         wait = retry_after if retry_after is not None else base + jitter
                         wait = min(wait, 8.0)  # cap 8s
                         self.logger.warning(
-                            f"Groq 429 intento {attempt+1}/{max_attempts} backoff {wait:.1f}s"
+                            f"Groq 429 intento {attempt + 1}/{max_attempts} backoff {wait:.1f}s"
                         )
                         try:
-                            self.tlogger.info(f"Groq 429 backoff {wait:.1f}s attempt={attempt+1}")
+                            self.tlogger.info(
+                                f"Groq 429 backoff {wait:.1f}s attempt={attempt + 1}"
+                            )
                         except Exception:
                             pass
                         # informar progreso si es chunk
                         try:
                             self.update_status(
-                                f"⏳ Groq 429, reintento {attempt+1}/{GROQ_MAX_RETRIES_429} en {wait:.1f}s...",
+                                f"⏳ Groq 429, reintento {attempt + 1}/{GROQ_MAX_RETRIES_429} en {wait:.1f}s...",
                                 "orange",
                             )
                         except Exception:
@@ -1903,21 +2035,25 @@ class Transcriber:
                 elif kind == "timeout":
                     # timeout: reintentar máximo 2 veces con backoff corto
                     if attempt < 2:
-                        wait = GROQ_BACKOFF_BASE_S * (attempt + 1) + random.uniform(0, 0.5)
+                        wait = GROQ_BACKOFF_BASE_S * (attempt + 1) + random.uniform(
+                            0, 0.5
+                        )
                         wait = min(wait, 4.0)
                         self.logger.warning(
-                            f"Groq timeout intento {attempt+1} backoff {wait:.1f}s — {e}"
+                            f"Groq timeout intento {attempt + 1} backoff {wait:.1f}s — {e}"
                         )
                         try:
                             self.tlogger.info(
-                                f"Groq timeout backoff {wait:.1f}s attempt={attempt+1}"
+                                f"Groq timeout backoff {wait:.1f}s attempt={attempt + 1}"
                             )
                         except Exception:
                             pass
                         time.sleep(wait)
                         continue
                     else:
-                        self.logger.error(f"Groq timeout definitivo tras {attempt+1} intentos: {e}")
+                        self.logger.error(
+                            f"Groq timeout definitivo tras {attempt + 1} intentos: {e}"
+                        )
                         raise
                 else:
                     # other errors: no retry
@@ -1950,7 +2086,8 @@ class Transcriber:
     def transcribe_with_groq(self, audio_path, progress_callback=None):
         if not self.cliente:
             self.update_status(
-                self.localization_manager.get_string("groq_client_not_initialized"), "red"
+                self.localization_manager.get_string("groq_client_not_initialized"),
+                "red",
             )
             return None
         try:
@@ -1998,7 +2135,7 @@ class Transcriber:
                     file_size_mb = len(data) * 2 / (1024 * 1024)  # estimado PCM16
                 try:
                     self.tlogger.info(
-                        f"transcribe START dur={duration:.1f}s file={file_size_mb:.2f}MB chunks={total} sr={sr} workers={workers} queue_depth={self.timer_queue.qsize() if getattr(self,'timer_queue',None) else -1}"
+                        f"transcribe START dur={duration:.1f}s file={file_size_mb:.2f}MB chunks={total} sr={sr} workers={workers} queue_depth={self.timer_queue.qsize() if getattr(self, 'timer_queue', None) else -1}"
                     )
                 except Exception:
                     pass
@@ -2035,7 +2172,7 @@ class Transcriber:
                         chunk_mb = 0
                     try:
                         self.tlogger.debug(
-                            f"Chunk START {idx0+1}/{total} worker={worker_id} dur={chunk_dur:.1f}s size={chunk_mb:.2f}MB q={q_depth}"
+                            f"Chunk START {idx0 + 1}/{total} worker={worker_id} dur={chunk_dur:.1f}s size={chunk_mb:.2f}MB q={q_depth}"
                         )
                     except Exception:
                         pass
@@ -2058,7 +2195,7 @@ class Transcriber:
                             except Exception:
                                 pass
                             self.tlogger.error(
-                                f"Chunk FAIL {idx0+1}/{total} worker={worker_id} err={kind} latency={latency_fail:.3f}s exc={ce} q={qd2}"
+                                f"Chunk FAIL {idx0 + 1}/{total} worker={worker_id} err={kind} latency={latency_fail:.3f}s exc={ce} q={qd2}"
                             )
                         except Exception:
                             pass
@@ -2078,7 +2215,7 @@ class Transcriber:
                             pass
                         kind2 = "ok" if part and part.strip() else "empty"
                         self.tlogger.debug(
-                            f"Chunk END {idx0+1}/{total} worker={worker_id} latency={latency:.3f}s result={kind2} len={len(part) if part else 0} q={qd_end}"
+                            f"Chunk END {idx0 + 1}/{total} worker={worker_id} latency={latency:.3f}s result={kind2} len={len(part) if part else 0} q={qd_end}"
                         )
                     except Exception:
                         pass
@@ -2108,7 +2245,7 @@ class Transcriber:
                         except concurrent.futures.TimeoutError:
                             try:
                                 self.tlogger.error(
-                                    f"Chunk TIMEOUT {idx0+1}/{total} worker=timeout latency={GROQ_PARALLEL_TIMEOUT_S}s q={executor._work_queue.qsize() if hasattr(executor,'_work_queue') else -1}"
+                                    f"Chunk TIMEOUT {idx0 + 1}/{total} worker=timeout latency={GROQ_PARALLEL_TIMEOUT_S}s q={executor._work_queue.qsize() if hasattr(executor, '_work_queue') else -1}"
                                 )
                             except Exception:
                                 pass
@@ -2130,20 +2267,22 @@ class Transcriber:
                             ordered_partial = " ".join([t for t in texts_ordered if t])
                             if ordered_partial:
                                 try:
-                                    with open(partial_path, "w", encoding="utf-8") as pf:
+                                    with open(
+                                        partial_path, "w", encoding="utf-8"
+                                    ) as pf:
                                         pf.write(ordered_partial)
                                         pf.flush()
                                         os.fsync(pf.fileno())
                                     try:
                                         self.tlogger.info(
-                                            f"checkpoint WRITE completed chunk {idx0+1}/{total} total_len={len(ordered_partial)} path={partial_path} q={executor._work_queue.qsize() if hasattr(executor,'_work_queue') else -1}"
+                                            f"checkpoint WRITE completed chunk {idx0 + 1}/{total} total_len={len(ordered_partial)} path={partial_path} q={executor._work_queue.qsize() if hasattr(executor, '_work_queue') else -1}"
                                         )
                                     except Exception:
                                         pass
                                 except Exception as ce:
                                     try:
                                         self.tlogger.warning(
-                                            f"checkpoint FAIL Chunk {idx0+1} err={ce}"
+                                            f"checkpoint FAIL Chunk {idx0 + 1} err={ce}"
                                         )
                                     except Exception:
                                         pass
@@ -2168,7 +2307,8 @@ class Transcriber:
                                     pass
                             try:
                                 self.update_status(
-                                    f"⏳ Chunk {completed}/{total} ETA {int(eta)}s...", "yellow"
+                                    f"⏳ Chunk {completed}/{total} ETA {int(eta)}s...",
+                                    "yellow",
                                 )
                             except Exception:
                                 pass
@@ -2183,10 +2323,12 @@ class Transcriber:
 
                 if _global_timed_out:
                     self.logger.error(
-                        f"transcribe GLOBAL TIMEOUT tras {time.time() - (_global_deadline-700):.0f}s — abort parcial"
+                        f"transcribe GLOBAL TIMEOUT tras {time.time() - (_global_deadline - 700):.0f}s — abort parcial"
                     )
                     try:
-                        self.tlogger.error(f"GLOBAL TIMEOUT aborted completed={completed}/{total}")
+                        self.tlogger.error(
+                            f"GLOBAL TIMEOUT aborted completed={completed}/{total}"
+                        )
                     except Exception:
                         pass
                     try:
@@ -2266,7 +2408,7 @@ class Transcriber:
             return response
         except Exception as e:
             self.update_status(
-                f'{self.localization_manager.get_string("groq_api_error")} {e}', "red"
+                f"{self.localization_manager.get_string('groq_api_error')} {e}", "red"
             )
             self.logger.error(f"Error de API Groq: {e}")
             return None
@@ -2279,7 +2421,8 @@ class Transcriber:
         try:
             self.logger.debug(f"Enviando audio {audio_path} a NVIDIA Riva ASR.")
             _tlang = self.config_manager.get(
-                "transcription_language", self.config_manager.get("default_language", "es")
+                "transcription_language",
+                self.config_manager.get("default_language", "es"),
             )
             # NVIDIA espera formato es-ES/en-US
             _nvidia_lang = "en-US" if _tlang.startswith("en") else "es-ES"
@@ -2356,7 +2499,9 @@ class Transcriber:
 
             # Si hay resultados de bloques, procesarlos
             if block_results:
-                self.logger.info(f"Procesando {len(block_results)} resultados de bloques")
+                self.logger.info(
+                    f"Procesando {len(block_results)} resultados de bloques"
+                )
 
                 # Buscar resumen si está disponible
                 for result in block_results:
@@ -2365,13 +2510,14 @@ class Transcriber:
 
                         # Si es un resumen, loguearlo
                         if "summary" in block_name.lower() and result.data:
-                            self.logger.debug(f"Resumen generado: {result.data[:100]}...")
+                            self.logger.debug(
+                                f"Resumen generado: {result.data[:100]}..."
+                            )
 
                         # Guardar resultados para UI
-                        if hasattr(self, "last_block_results"):
-                            self.last_block_results.append(result)
-                        else:
-                            self.last_block_results = [result]
+                        results_list: list = getattr(self, "last_block_results", [])
+                        results_list.append(result)
+                        self.last_block_results = results_list
 
             # Retornar texto original (los bloques generan metadatos adicionales)
             return text
@@ -2400,12 +2546,16 @@ class Transcriber:
             if not is_valid:
                 self.logger.warning(f"Problemas de encoding detectados: {problems}")
                 # Aplicar corrección
-                corrected = self.utf8_validator.normalize_transcription(text, normalize=True)
+                corrected = self.utf8_validator.normalize_transcription(
+                    text, normalize=True
+                )
 
                 # Verificar que la corrección mejoró el texto
                 if corrected != text:
-                    self.logger.info(f"Texto corregido: '{text[:50]}...' -> '{corrected[:50]}...'")
-                    return corrected
+                    self.logger.info(
+                        f"Texto corregido: '{text[:50]}...' -> '{corrected[:50]}...'"
+                    )
+                    return str(corrected)
                 else:
                     self.logger.debug("No se aplicaron correcciones de encoding")
                     return text

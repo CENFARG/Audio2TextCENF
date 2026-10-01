@@ -137,7 +137,7 @@ class EnhancedLoggingSystem:
                 return name
         return "INFO"
 
-    def export_logs_to_file(self, output_path: str = None) -> str:
+    def export_logs_to_file(self, output_path: str | None = None) -> str | None:
         """
         Exportar logs actuales a un archivo para soporte.
 
@@ -151,7 +151,7 @@ class EnhancedLoggingSystem:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_path = self.logs_dir / f"logs_export_{timestamp}.txt"
 
-        output_path = Path(output_path)
+        output_path = Path(output_path)  # type: ignore[assignment]
 
         try:
             with open(output_path, "w", encoding="utf-8") as f:
