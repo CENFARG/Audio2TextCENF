@@ -58,20 +58,25 @@ config/version_info.txt (+3 variantes), setup.py, config/version.json (manifest 
 
 - [x] F1-F2. F3 hotkey capture IMPLEMENTADA (d5c4311): decide_capture_action + HotkeyCaptureHandler, re-copia reemplaza última ordinal, hotkey configurable ctrl+alt+v, +16 tests
 
-## G — Consolidación (fecha dura: merge a main) — LISTA PARA GO DE GR
+## G — Consolidación — ✅ EJECUTADA (2026-09-25)
 
-- [ ] G1. Revisión PR #3 completa (scope: v0.15.1→0.16.0)
-- [ ] G2. Merge a main + tag v0.16.0 (SemVer: features nuevas = MINOR)
-- [ ] G3. Actualizar version.json en main (updater deja de decir 0.10.0)
-- [ ] G4. Comunicar a Pablo: mapa final de ramas + rama Tauri pausada (posterior)
-- [ ] G5. Decisión rama Tauri (retomar/archivar) — posterior, no bloquea
+- [x] G1. Push + CI del PR verde (Test 3.12 gating pass · lint/bandit/mypy pass)
+- [x] G2. PR #3 mergeada (a9e44d6) + bump 0.16.0 (482d10c) + tag v0.16.0 pusheado
+- [x] G3. version.json 0.16.0 en main (updater actualizado)
+- [x] G4. Aviso a Pablo: docs/AVISO_PABLO_CONSOLIDACION_v0.16.0.md (b4ea417, pusheado)
+- [ ] G5. Decisión rama Tauri (retomar/archivar) — pendiente decisión GR
+
+### Notas de G
+- fix/v0.15.1-ui-polish: commits consolidados en main; borrado remoto rechazado por hook (reintentar)
+- Backup línea local vieja (17 commits v0.14/v0.15 no contenidos en main): branch local backup/main-4a9fd43; push remoto rechazado por pre-receive hook — renombrar (archive/...) y reintentar
+- Venv repair: base python 3.12.10 desinstalado de la máquina; .venv repuntado a uv cpython-3.12.13
+- Late-binding fix: lambda de error de reproducción capturaba `e` post-except (NameError diferido)
 
 ## Estado
 
-- Suite: 421 passed / 0 failed / 0 errors, cov 64.66%
-- F1 ✅ (C5 live pendiente GR) · F2 Supervisor ✅ (live pendiente GR) · F3 hotkey ✅
-- Track A versionado ✅ · Deuda: D1-D4,D6-D8,D10,D11 ✅ | D5 ruff + D9 91 findings ⏳ (pre-release)
-- G: TODO LISTO — falta GO de GR (live tests + aprobación de merge, GIT-001/PROC-008)
+- **v0.16.0 LIBERADA EN MAIN** (tag v0.16.0 · 482d10c) — suite 421+ tests 0F/0E, cov ~64.7%, mypy backend 0 issues
+- Pendientes menores: live tests de GR (guía: docs/PRUEBAS_MANUALES_v0.16.md) · D5-residual (103 ruff) · D9-style · D11 hardening flakes · G5 Tauri · backup push remoto
+- Locales: backup/main-4a9fd43 (línea v0.14/v0.15 preservada) · Tauri pausada con 2 stashes
 
 ## G — Checklist de consolidación (requiere GO de GR)
 
