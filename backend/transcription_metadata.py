@@ -214,12 +214,8 @@ class TranscriptionMetadata:
                     if len(parts) >= 3:
                         date_part = parts[1]  # YYYYMMDD
                         time_part = parts[2]  # HHMMSS
-                        formatted_date = (
-                            f"{date_part[6:8]}/{date_part[4:6]}/{date_part[0:4]}"
-                        )
-                        formatted_time = (
-                            f"{time_part[0:2]}:{time_part[2:4]}:{time_part[4:6]}"
-                        )
+                        formatted_date = f"{date_part[6:8]}/{date_part[4:6]}/{date_part[0:4]}"
+                        formatted_time = f"{time_part[0:2]}:{time_part[2:4]}:{time_part[4:6]}"
                         return (
                             f"{emoji} {formatted_date} {formatted_time}"
                             if emoji

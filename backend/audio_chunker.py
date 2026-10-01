@@ -284,9 +284,7 @@ def transcribe_chunks_parallel(
 
     # submit all at once — pool limita concurrencia a max_workers (3*25MB safe)
     futures = {}
-    with ThreadPoolExecutor(
-        max_workers=max_workers, thread_name_prefix="groq-w"
-    ) as executor:
+    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="groq-w") as executor:
         for idx0, chunk in enumerate(chunks):
             fut = executor.submit(_call_one, idx0, chunk)
             futures[fut] = idx0

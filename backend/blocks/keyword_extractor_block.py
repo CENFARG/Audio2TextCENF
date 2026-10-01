@@ -142,9 +142,7 @@ class KeywordExtractorBlock(BaseBlock):
         # BUG-2 fix: aplicar min_length en TODAS las estrategias — punto único
         # de control sobre el dict combinado (frecuencia, entidades, vocabulario,
         # números). Antes solo _extract_entities respetaba self.min_length.
-        filtered = {
-            kw: score for kw, score in keywords.items() if len(kw) >= self.min_length
-        }
+        filtered = {kw: score for kw, score in keywords.items() if len(kw) >= self.min_length}
         return [
             {"keyword": kw, "score": score, "type": self._classify_keyword(kw)}
             for kw, score in filtered.items()

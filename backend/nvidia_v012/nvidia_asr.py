@@ -41,9 +41,7 @@ class NvidiaASR:
         if mode == "cloud":
             self.server = server or "grpc.nvcf.nvidia.com:443"
             self.use_ssl = True
-            self.function_id = (
-                "a9eeee8f-b509-4712-b19d-194361fa5f31"  # parakeet-ctc-0.6b-es
-            )
+            self.function_id = "a9eeee8f-b509-4712-b19d-194361fa5f31"  # parakeet-ctc-0.6b-es
         else:
             self.server = server or "localhost:50051"
             self.use_ssl = False
@@ -58,9 +56,7 @@ class NvidiaASR:
             import riva.client
 
             self.client = riva.client
-            logger.info(
-                f"NvidiaASR: Cliente inicializado (mode={self.mode}, server={self.server})"
-            )
+            logger.info(f"NvidiaASR: Cliente inicializado (mode={self.mode}, server={self.server})")
         except ImportError:
             logger.error("NvidiaASR: nvidia-riva-client no está instalado")
             logger.error("Instala con: pip install nvidia-riva-client")
@@ -73,9 +69,7 @@ class NvidiaASR:
         """Verificar si el cliente está disponible."""
         return self.client is not None
 
-    def transcribe(
-        self, audio_path: str, language_code: str = "es-US"
-    ) -> Optional[str]:
+    def transcribe(self, audio_path: str, language_code: str = "es-US") -> Optional[str]:
         """
         Transcribir archivo de audio.
 
@@ -125,9 +119,7 @@ class NvidiaASR:
             # que define los mensajes gRPC específicos
 
             # Por ahora, retornamos un placeholder
-            logger.warning(
-                "NvidiaASR: Implementación incompleta - requiere protoc compilado"
-            )
+            logger.warning("NvidiaASR: Implementación incompleta - requiere protoc compilado")
             return None
 
         except Exception as e:
@@ -152,9 +144,7 @@ class NvidiaASR:
                 return False
         else:
             # Para cloud, no hay endpoint de health check simple
-            logger.info(
-                "NvidiaASR: Modo cloud - no se puede probar conexión sin transcribir"
-            )
+            logger.info("NvidiaASR: Modo cloud - no se puede probar conexión sin transcribir")
             return True
 
 

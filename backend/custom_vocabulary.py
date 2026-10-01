@@ -148,9 +148,7 @@ class CustomVocabulary:
             try:
                 data = _json.loads(content)
                 if not isinstance(data, dict):
-                    logger.error(
-                        "Import: el JSON debe ser un objeto {incorrecta: correcta}"
-                    )
+                    logger.error("Import: el JSON debe ser un objeto {incorrecta: correcta}")
                     return 0
                 for k, v in data.items():
                     k = str(k).strip()
@@ -291,9 +289,7 @@ class CustomVocabulary:
                     # FIX: reemplazo SIEMPRE con el caso definido por el usuario.
                     # Sin derivaciones por el caso del texto transcrito.
                     replacement = correct
-                    corrected_text = (
-                        corrected_text[:start] + replacement + corrected_text[end:]
-                    )
+                    corrected_text = corrected_text[:start] + replacement + corrected_text[end:]
                     corrections_applied.append(f"{matched_text} → {replacement}")
 
         if corrections_applied:

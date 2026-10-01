@@ -21,17 +21,13 @@ class FileManager:
             # Fallback a cwd si executable no existe (tests con mock)
             try:
                 exe = getattr(sys, "executable", None)
-                if exe and os.path.exists(
-                    os.path.dirname(exe) if os.path.dirname(exe) else exe
-                ):
+                if exe and os.path.exists(os.path.dirname(exe) if os.path.dirname(exe) else exe):
                     # os.path.dirname('') -> '' para exe sin dir, fallback a cwd
                     exe_dir = os.path.dirname(exe)
                     self.base_dir = exe_dir if exe_dir else os.getcwd()
                 else:
                     # sys.frozen mock sin executable real (tests) -> cwd
-                    self.base_dir = (
-                        os.path.dirname(sys.executable) if exe else os.getcwd()
-                    )
+                    self.base_dir = os.path.dirname(sys.executable) if exe else os.getcwd()
                     if not self.base_dir:
                         self.base_dir = os.getcwd()
             except Exception:
@@ -50,9 +46,7 @@ class FileManager:
             self.audio_path = audio_path_rel
         else:
             # Unir y normalizar para eliminar ./ o ../
-            self.audio_path = os.path.normpath(
-                os.path.join(self.base_dir, audio_path_rel)
-            )
+            self.audio_path = os.path.normpath(os.path.join(self.base_dir, audio_path_rel))
 
         if os.path.isabs(transcriptions_path_rel):
             self.transcriptions_path = transcriptions_path_rel
@@ -77,9 +71,7 @@ class FileManager:
 
         # Límites de archivos
         self.max_audio_files = self.config.get("max_audio_files", 100)
-        self.max_transcription_age_days = self.config.get(
-            "max_transcription_age_days", 30
-        )
+        self.max_transcription_age_days = self.config.get("max_transcription_age_days", 30)
 
         # Perf: cache duración {filepath: (mtime, duration)} — lazy invalidado por mtime
         self._duration_cache: dict = {}
@@ -133,9 +125,7 @@ class FileManager:
         if not self.config.get("save_logs", True):
             return
         try:
-            log_file = os.path.join(
-                self.transcriptions_path, "transcriptions_log.jsonl"
-            )
+            log_file = os.path.join(self.transcriptions_path, "transcriptions_log.jsonl")
             log_entry = {
                 "timestamp": datetime.now().isoformat(),
                 "duration": transcription_data.get("duration", 0),
@@ -178,9 +168,7 @@ class FileManager:
 
     def get_transcriptions_size(self):
         try:
-            log_file = os.path.join(
-                self.transcriptions_path, "transcriptions_log.jsonl"
-            )
+            log_file = os.path.join(self.transcriptions_path, "transcriptions_log.jsonl")
             return os.path.getsize(log_file) if os.path.exists(log_file) else 0
         except Exception as e:
             print(f"Error al obtener tamaño de transcripciones: {e}")
@@ -200,9 +188,7 @@ class FileManager:
 
     def clear_transcriptions(self):
         try:
-            log_file = os.path.join(
-                self.transcriptions_path, "transcriptions_log.jsonl"
-            )
+            log_file = os.path.join(self.transcriptions_path, "transcriptions_log.jsonl")
             if os.path.exists(log_file):
                 os.remove(log_file)
             return True
@@ -263,12 +249,9 @@ class FileManager:
 
             # Ordenar por fecha de modificación (más antiguos primero)
             audio_files_with_mtime = [
-                (f, os.path.getmtime(os.path.join(self.audio_path, f)))
-                for f in audio_files
+                (f, os.path.getmtime(os.path.join(self.audio_path, f))) for f in audio_files
             ]
-            audio_files_with_mtime.sort(
-                key=lambda x: x[1]
-            )  # Ascendente (antiguos primero)
+            audio_files_with_mtime.sort(key=lambda x: x[1])  # Ascendente (antiguos primero)
 
             # Eliminar archivos excedentes (empezando por los más antiguos)
             files_to_delete = len(audio_files) - self.max_audio_files
@@ -354,9 +337,7 @@ class FileManager:
                 else:
                     duration = self._get_wav_duration(filepath)
                     if len(self._duration_cache) >= self._duration_cache_max:
-                        for k in list(self._duration_cache.keys())[
-                            : self._duration_cache_max // 5
-                        ]:
+                        for k in list(self._duration_cache.keys())[: self._duration_cache_max // 5]:
                             self._duration_cache.pop(k, None)
                     self._duration_cache[filepath] = (mtime, duration)
                 files_with_metadata.append(

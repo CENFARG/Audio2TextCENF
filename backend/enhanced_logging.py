@@ -220,9 +220,7 @@ class EnhancedLoggingSystem:
             lines = lines[-last_n_lines:] if len(lines) > last_n_lines else lines
 
             # Filtrar por nivel
-            filtered = [
-                line.strip() for line in lines if f"- {level.upper()} -" in line
-            ]
+            filtered = [line.strip() for line in lines if f"- {level.upper()} -" in line]
 
             return filtered
 

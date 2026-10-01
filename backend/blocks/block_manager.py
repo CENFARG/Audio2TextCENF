@@ -110,9 +110,7 @@ class BlockManager:
         results: list = []
 
         # Filtrar bloques que deben procesar en esta etapa
-        blocks_to_process = [
-            block for block in self.enabled_blocks if block.should_process(stage)
-        ]
+        blocks_to_process = [block for block in self.enabled_blocks if block.should_process(stage)]
 
         if not blocks_to_process:
             logger.debug(f"BlockManager: No hay bloques para etapa {stage.value}")
@@ -134,9 +132,7 @@ class BlockManager:
 
                 # Si el bloque falló, loguear pero continuar con siguiente
                 if not result.success:
-                    logger.warning(
-                        f"BlockManager: Bloque '{block.name}' falló: {result.error}"
-                    )
+                    logger.warning(f"BlockManager: Bloque '{block.name}' falló: {result.error}")
 
                 # Encadenar SOLO para bloques PRE-transcripción
                 # Los bloques POST-transcripción siempre procesan el input original

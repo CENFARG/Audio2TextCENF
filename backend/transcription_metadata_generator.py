@@ -173,18 +173,12 @@ Responde SOLO con el JSON, nada más."""
         for cat_name, keywords in self.categories.items():
             if any(keyword in transcription.lower() for keyword in keywords):
                 category = cat_name
-                detected_tags = [kw for kw in keywords if kw in transcription.lower()][
-                    :3
-                ]
+                detected_tags = [kw for kw in keywords if kw in transcription.lower()][:3]
                 break
 
         # Generar título desde primeras palabras
         first_words = " ".join(words[:5])
-        title = (
-            f"{first_words.capitalize()}..."
-            if word_count > 5
-            else first_words.capitalize()
-        )
+        title = f"{first_words.capitalize()}..." if word_count > 5 else first_words.capitalize()
 
         # Seleccionar emoji
         emojis = self.emoji_map.get(category, ["📝"])

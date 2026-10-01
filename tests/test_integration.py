@@ -143,9 +143,7 @@ class TestTranscriberWorkflow:
             assert transcriber.is_recording is True
 
             # Add some audio data
-            transcriber.audio_data = [
-                np.random.randint(-32768, 32767, size=16000, dtype=np.int16)
-            ]
+            transcriber.audio_data = [np.random.randint(-32768, 32767, size=16000, dtype=np.int16)]
 
             # Stop recording
             with patch("backend.transcriber.sf.write"):
@@ -165,9 +163,7 @@ class TestTranscriberWorkflow:
             wav.writeframes(b"\x00\x00" * 16000)
 
         # Mock Groq response (current contract: the API call returns the text)
-        transcriber.cliente.audio.transcriptions.create = Mock(
-            return_value="Texto de prueba"
-        )
+        transcriber.cliente.audio.transcriptions.create = Mock(return_value="Texto de prueba")
 
         # Transcribe
         result = transcriber.transcribe_with_groq(str(audio_file))
@@ -220,9 +216,7 @@ class TestFileManagerIntegration:
 
         file_manager.save_transcription_entry(transcription_data)
 
-        log_file = os.path.join(
-            file_manager.transcriptions_path, "transcriptions_log.jsonl"
-        )
+        log_file = os.path.join(file_manager.transcriptions_path, "transcriptions_log.jsonl")
         assert os.path.exists(log_file)
 
         # Verify content

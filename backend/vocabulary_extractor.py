@@ -47,9 +47,7 @@ class VocabularyExtractor:
             try:
                 with open(self.custom_vocab_path, "r", encoding="utf-8") as f:
                     self.custom_vocab = json.load(f)
-                logger.info(
-                    f"Vocabulario personalizado cargado: {len(self.custom_vocab)} términos"
-                )
+                logger.info(f"Vocabulario personalizado cargado: {len(self.custom_vocab)} términos")
             except Exception as e:
                 logger.error(f"Error cargando vocabulario personalizado: {e}")
                 self.custom_vocab = {}
@@ -64,9 +62,7 @@ class VocabularyExtractor:
             self.custom_vocab_path.parent.mkdir(parents=True, exist_ok=True)
             with open(self.custom_vocab_path, "w", encoding="utf-8") as f:
                 json.dump(self.custom_vocab, f, indent=4, ensure_ascii=False)
-            logger.info(
-                f"Vocabulario personalizado guardado: {len(self.custom_vocab)} términos"
-            )
+            logger.info(f"Vocabulario personalizado guardado: {len(self.custom_vocab)} términos")
         except Exception as e:
             logger.error(f"Error guardando vocabulario personalizado: {e}")
 
