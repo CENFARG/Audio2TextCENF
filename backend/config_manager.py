@@ -61,7 +61,7 @@ class ConfigManager:
                 "Instalá con: pip install keyring"
             )
         self.default_config = {
-            "app_version": "0.15.12",
+            "app_version": "0.16.0",
             "audio_path": "./audio",
             "transcriptions_path": "./transcriptions",
             "save_audio": True,

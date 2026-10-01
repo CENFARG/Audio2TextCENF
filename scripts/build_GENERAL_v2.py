@@ -6,7 +6,7 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-APP_VERSION = "0.15.12"
+APP_VERSION = "0.16.0"
 VARIANT = ""
 APP_NAME = f"Audio2Text_CENF_v.{APP_VERSION}"
 
