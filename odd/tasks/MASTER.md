@@ -36,7 +36,10 @@ config/version_info.txt (+3 variantes), setup.py, config/version.json (manifest 
 
 ## D — Deuda técnica (restante)
 
-- [x] D6. mypy python_version 3.12 — mypy 1.20.0 corre (80e144a); hallazgos reportados para D9
+- [x] D5. ruff mechanical 179→103 findings (E712 25→0) + subset seguro de D9 en ui/app.py (bare excepts→except Exception, _safe_int para int() sin guard, late-binding `e` en lambdas de reproducción) (7e3bef4, 7cdae57). Restantes reportados: F541×44/F401×24/F841×16/E701×6 y F821 update_tab.py:198 — deuda menor
+- [x] CI/CD: ci.yml py3.12 + pytest GATING con -m "not order_dependent"; build.yml windows-latest + build_GENERAL_v2.py, trigger solo workflow_dispatch (fin de los mails de failures por tags) (e4d2870)
+- [x] Settings: campo context_blocks_dir con browse + i18n (7e3bef4)
+- [x] Guía de pruebas manuales: docs/PRUEBAS_MANUALES_v0.16.md
 - [x] D7. Strays raíz eliminados con justificación (test_fixes.py QA obsoleto 0.14.0; backend/test_utf8_validator.py demo sin asserts — cobertura real en tests/test_utf8_fixes.py) (2469655)
 - [x] D10. scripts/ limpio: logs 0.10.0, _raw_*.json, _chunked/_original eliminados (2469655)
 - [x] D11. Marker order_dependent registrado + aplicado a los 2 flakes conocidos (80e144a)
