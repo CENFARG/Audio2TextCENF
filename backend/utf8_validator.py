@@ -1,4 +1,4 @@
-# -*- coding: latin-1 -*-
+# -*- coding: utf-8 -*-
 """
 Módulo de Validación y Corrección de Encoding UTF-8.
 
@@ -6,21 +6,17 @@ Este módulo se encarga de validar y corregir problemas de encoding
 que causan bloqueos o caracteres incorrectos en transcripciones de audio.
 
 Author: Audio2Text Team
-Version: 0.10.0
+Version: 0.15.0
 """
 
 import logging
 import re
 from typing import Optional, Tuple, List
 
-# Caracteres problemáticos comunes
-MALFORMED_CHARS = {
-    "´": "á",
-    "`": "é",
-    "ã": "ã",
-    "õ": "õ",
-    "ñ": "ñ",
-}
+# FIX v0.15.0: MALFORMED_CHARS ELIMINADO.
+# El mapa original ("´": "á", "`": "é") era DESTRUCTIVO: reemplazaba acentos
+# sueltos y podía corromper texto correcto. La normalización correcta es
+# Unicode NFC/NFD (combinar o separar acentos), no reemplazos arbitrarios.
 
 # Caracteres españoles correctos (mapa para corrección)
 SPANISH_CHARS = {
@@ -42,6 +38,18 @@ SPANISH_CHARS = {
     "»": "»",
 }
 
+# FIX Bug B: patrones reales de mojibake (doble-encoding UTF-8 → latin-1)
+# Texto con acentos leído como latin-1 produce estos pares de caracteres.
+MOJIBAKE_MAP = {
+    "Ã¡": "á", "Ã©": "é", "Ã­": "í", "Ã³": "ó", "Ãº": "ú",
+    "Ã": "Á", "Ã‰": "É", "Ã": "Í", "Ã“": "Ó", "Ãš": "Ú",
+    "Ã±": "ñ", "Ã‘": "Ñ",
+    "Â¿": "¿", "Â¡": "¡",
+    "Ã¼": "ü", "Ã¶": "ö", "Ã¤": "ä", "Ã«": "ë", "Ã¯": "ï", "Ã¶": "ö",
+    "Â«": "«", "Â»": "»", "â€": "€", "â€œ": "“", "â€�": "”", "â€˜": "‘", "â€™": "’",
+    "â€“": "–", "â€”": "—", "â€¦": "…",
+}
+
 
 class UTF8Validator:
     """
@@ -61,6 +69,11 @@ class UTF8Validator:
         """
         Validar encoding de un texto.
 
+        FIX Bug B: la versión anterior era una TAUTOLOGÍA — codificar y
+        decodificar en UTF-8 siempre devuelve el mismo string (round-trip
+        sin pérdida), por lo que NUNCA detectaba mojibake y el texto
+        quedaba corrupto. Ahora se detectan patrones reales de doble-encoding.
+
         Args:
             text: Texto a validar
 
@@ -69,30 +82,18 @@ class UTF8Validator:
         """
         problems = []
 
-        try:
-            # Intentar codificar/decodificar como UTF-8
-            encoded = text.encode('utf-8')
-            decoded = encoded.decode('utf-8')
+        # FIX: detección real de mojibake (patrones de doble-encoding)
+        for bad in MOJIBAKE_MAP:
+            if bad in text:
+                problems.append(f"mojibake: {bad} -> {MOJIBAKE_MAP[bad]}")
 
-            # Verificar que la decodificación es correcta
-            if decoded == text:
-                # No hay problemas de encoding
-                pass
-            else:
-                # Hay problema de encoding
-                problems.append(f"encoding_mismatch: {text[:50]} != {decoded[:50]}")
+        # BOM al inicio
+        if text.startswith('\ufeff'):
+            problems.append("bom_present")
 
-        except UnicodeEncodeError as e:
-            problems.append(f"unicode_encode_error: {e}")
-            self.logger.error(f"Error de encoding: {e}")
-
-        except UnicodeDecodeError as e:
-            problems.append(f"unicode_decode_error: {e}")
-            self.logger.error(f"Error de decodificacion: {e}")
-
-        except Exception as e:
-            problems.append(f"validation_error: {e}")
-            self.logger.error(f"Error de validacion: {e}")
+        # Caracteres de control problemáticos
+        if '\x00' in text:
+            problems.append("null_bytes")
 
         return (len(problems) == 0, problems)
 
@@ -100,27 +101,33 @@ class UTF8Validator:
         """
         Normalizar caracteres españoles (tildes, ñ, signos).
 
+        FIX v0.15.0: usa Unicode NFC (normalize) — combina acentos sueltos
+        (ej: 'e' + U+0301) en caracteres precompuestos ('é'). NO usa
+        reemplazos destructivos como el mapa original.
+
         Args:
             text: Texto a normalizar
 
         Returns:
             Texto con caracteres normalizados
         """
+        import unicodedata
+
         result = text
 
-        # Corregir combinaciones incorrectas
-        for malformed, correct in MALFORMED_CHARS.items():
-            result = result.replace(malformed, correct)
+        # FIX Bug B: corregir mojibake REAL (doble-encoding UTF-8 → latin-1)
+        # Debe ir ANTES de la normalización Unicode
+        for bad, correct in MOJIBAKE_MAP.items():
+            result = result.replace(bad, correct)
 
-        # Corregir signos interrogación/exclamación
+        # FIX v0.15.0: normalizar Unicode a NFC — los acentos combinados
+        # (e + U+0301) se convierten en su carácter precompuesto (é).
+        # NFC es idempotente y NO corrompe texto ya correcto.
+        result = unicodedata.normalize('NFC', result)
+
+        # Corregir signos interrogación/exclamación duplicados
         result = result.replace("¿¿", "¿")
-        # Corregir signos exclamación
         result = result.replace("¡¡", "¡")
-
-        # Corregir comillas simples por dobles o curvas
-        result = result.replace("simple", "simple")
-        # Corregir "curly" por "curly"
-        result = result.replace("angled", "angled")
 
         self.logger.debug(f"Caracteres normalizados: {text[:50]}")
 
@@ -170,9 +177,10 @@ class UTF8Validator:
         """
         result = text
 
-        # Remover BOM (Byte Order Mark) al inicio
+        # FIX Bug C: el BOM es UN carácter (\ufeff = U+FEFF), no 3.
+        # La versión anterior hacía result[3:] que se comía 3 caracteres REALES del texto.
         if result.startswith('\ufeff'):
-            result = result[3:]
+            result = result[1:]
             self.logger.debug("BOM removido del inicio")
 
         # Remover caracteres nulos y otros caracteres de control
@@ -263,12 +271,9 @@ class UTF8Validator:
         is_valid, problems = self.validate_encoding(text)
 
         if is_valid:
-            # Validar caracteres problemáticos adicionales
-            for malformed in MALFORMED_CHARS.keys():
-                if malformed in text:
-                    problems.append(f"caracter_malformado: {malformed}")
-
-            if is_valid and len(problems) == 0:
+            # FIX v0.15.0: ya no se chequean MALFORMED_CHARS (mapa destructivo eliminado).
+            # La validación de mojibake real ya quedó cubierta en validate_encoding.
+            if len(problems) == 0:
                 self.logger.debug("Transcripción válida")
             else:
                 self.logger.warning(f"Problemas de validación: {problems}")

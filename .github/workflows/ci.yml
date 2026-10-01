@@ -2,9 +2,9 @@ name: CI - Lint, Test & Coverage
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
   workflow_dispatch:
 
 jobs:
@@ -14,33 +14,36 @@ jobs:
     continue-on-error: true
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.8'
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 black
-        pip install -r requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black
+          pip install -r requirements.txt
 
-    - name: Run flake8
-      run: |
-        # Stop the build if there are Python syntax errors or undefined names
-        flake8 backend/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Exit-zero treats all errors as warnings
-        flake8 backend/ tests/ --count --exit-zero --max-complexity=20 --statistics
-      continue-on-error: false
+      - name: Run flake8
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 backend/ tests/ --count --select=E9,F63,F7,F82 \
+            --show-source --statistics
+          # Exit-zero treats all errors as warnings
+          flake8 backend/ tests/ --count --exit-zero \
+            --max-complexity=20 --statistics
+        continue-on-error: false
 
-    - name: Run black --check (non-blocking for now)
-      run: |
-        black --check backend/ tests/ || echo "Black formatting issues found (will fix in next commit)"
-      continue-on-error: true
+      - name: Run black --check (non-blocking for now)
+        run: |
+          black --check backend/ tests/ \
+            || echo "Black formatting issues found (will fix in next commit)"
+        continue-on-error: true
 
   type-check:
     name: Type Check (mypy) - Non-blocking
@@ -48,25 +51,27 @@ jobs:
     continue-on-error: true
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.8'
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install mypy types-requests
-        pip install -r requirements.txt || echo "Some dependencies failed (expected on non-Windows platforms)"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mypy types-requests
+          pip install -r requirements.txt \
+            || echo "Some dependencies failed (expected on non-Windows)"
 
-    - name: Run mypy (non-blocking)
-      run: |
-        echo "Running mypy type check (informational only, will not block CI)"
-        mypy backend/ --ignore-missing-imports --no-error-summary || echo "mypy found type issues (non-blocking)"
+      - name: Run mypy (non-blocking)
+        run: |
+          echo "Running mypy type check (informational only, will not block CI)"
+          mypy backend/ --ignore-missing-imports --no-error-summary \
+            || echo "mypy found type issues (non-blocking)"
 
   test:
     name: Test (pytest)
@@ -74,52 +79,61 @@ jobs:
     needs: lint
 
     strategy:
+      # Single supported version: the codebase now targets 3.12
+      # (PEP 604 typing in tests breaks interpreters < 3.10).
       matrix:
-        python-version: ['3.8', '3.9', '3.10', '3.11']
+        python-version: ['3.12']
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pytest pytest-cov pytest-mock pytest-asyncio
-        pip install -r requirements.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-cov pytest-mock pytest-asyncio
+          pip install -r requirements.txt
 
-    - name: Create test directories
-      shell: bash
-      run: |
-        mkdir -p audio transcriptions tests\data || true
-      continue-on-error: true
+      - name: Create test directories
+        shell: bash
+        run: |
+          mkdir -p audio transcriptions tests/data || true
+        continue-on-error: true
 
-    - name: Run pytest with coverage
-      run: |
-        pytest --cov=backend --cov=tests --cov-report=xml --cov-report=term-missing --cov-report=html --verbose || echo "Some tests failed (will fix iteratively)"
-      continue-on-error: true
+      # Suite is green — pytest now GATES the pipeline (no continue-on-error,
+      # no || fallback). Failures must fail CI.
+      - name: Run pytest with coverage
+        shell: bash
+        run: |
+          # order_dependent: flakes de orden/carga documentados (aislado OK);
+          # excluidos del gate hasta su hardening (deuda D11).
+          pytest -m "not order_dependent" \
+            --cov=backend --cov=tests \
+            --cov-report=xml --cov-report=term-missing \
+            --cov-report=html --verbose
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      with:
-        file: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-    - name: Archive coverage reports
-      uses: actions/upload-artifact@v4
-      with:
-        name: coverage-report-py${{ matrix.python-version }}
-        path: htmlcov/
-        retention-days: 7
+      - name: Archive coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-py${{ matrix.python-version }}
+          path: htmlcov/
+          retention-days: 7
 
   coverage-summary:
     name: Coverage Summary
@@ -127,15 +141,15 @@ jobs:
     needs: test
 
     steps:
-    - name: Download all coverage reports
-      uses: actions/download-artifact@v4
-      with:
-        path: coverage-reports
+      - name: Download all coverage reports
+        uses: actions/download-artifact@v4
+        with:
+          path: coverage-reports
 
-    - name: Generate coverage summary
-      run: |
-        echo "Coverage reports downloaded from all Python versions"
-        ls -R coverage-reports
+      - name: Generate coverage summary
+        run: |
+          echo "Coverage reports downloaded from all Python versions"
+          ls -R coverage-reports
 
   security-scan:
     name: Security Scan (Bandit)
@@ -143,27 +157,27 @@ jobs:
     continue-on-error: true
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.8'
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
 
-    - name: Install Bandit
-      run: |
-        pip install bandit[toml]
+      - name: Install Bandit
+        run: |
+          pip install bandit[toml]
 
-    - name: Run Bandit
-      run: |
-        bandit -r backend/ -f json -o bandit-report.json || true
-      continue-on-error: true
+      - name: Run Bandit
+        run: |
+          bandit -r backend/ -f json -o bandit-report.json || true
+        continue-on-error: true
 
-    - name: Upload Bandit report
-      uses: actions/upload-artifact@v4
-      with:
-        name: bandit-security-report
-        path: bandit-report.json
-        retention-days: 7
+      - name: Upload Bandit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-security-report
+          path: bandit-report.json
+          retention-days: 7

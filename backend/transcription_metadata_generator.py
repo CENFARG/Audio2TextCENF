@@ -11,7 +11,7 @@ Analiza la transcripción y extrae:
 
 import json
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, Optional, Any
 from datetime import datetime
 
 
@@ -47,10 +47,7 @@ class TranscriptionMetadataGenerator:
         }
 
     def generate_metadata(
-        self,
-        transcription: str,
-        filename: str,
-        use_llm: Optional[bool] = None
+        self, transcription: str, filename: str, use_llm: Optional[bool] = None
     ) -> Dict[str, Any]:
         """
         Generar metadatos completos para una transcripción.
@@ -81,7 +78,9 @@ class TranscriptionMetadataGenerator:
             rule_metadata = self._generate_with_rules(transcription, filename)
             metadata.update(rule_metadata)
 
-        self.logger.info(f"Metadatos generados para {filename}: {metadata.get('category', 'desconocido')}")
+        self.logger.info(
+            f"Metadatos generados para {filename}: {metadata.get('category', 'desconocido')}"
+        )
         return metadata
 
     def _generate_with_llm(self, transcription: str, filename: str) -> Dict[str, Any]:
@@ -135,7 +134,7 @@ Responde SOLO con el JSON, nada más."""
                 max_tokens=500,
             )
 
-            result_text = response.choices[0].message.content.strip()
+            result_text = (response.choices[0].message.content or "").strip()
 
             # Limpiar respuesta (quitar markdown ```json si existe)
             if result_text.startswith("```"):
@@ -144,7 +143,7 @@ Responde SOLO con el JSON, nada más."""
                     result_text = result_text[4:]
                 result_text = result_text.strip()
 
-            metadata = json.loads(result_text)
+            metadata: dict = json.loads(result_text)
             metadata["method"] = "llm"
 
             return metadata
@@ -174,12 +173,18 @@ Responde SOLO con el JSON, nada más."""
         for cat_name, keywords in self.categories.items():
             if any(keyword in transcription.lower() for keyword in keywords):
                 category = cat_name
-                detected_tags = [kw for kw in keywords if kw in transcription.lower()][:3]
+                detected_tags = [kw for kw in keywords if kw in transcription.lower()][
+                    :3
+                ]
                 break
 
         # Generar título desde primeras palabras
         first_words = " ".join(words[:5])
-        title = f"{first_words.capitalize()}..." if word_count > 5 else first_words.capitalize()
+        title = (
+            f"{first_words.capitalize()}..."
+            if word_count > 5
+            else first_words.capitalize()
+        )
 
         # Seleccionar emoji
         emojis = self.emoji_map.get(category, ["📝"])
@@ -212,7 +217,7 @@ Responde SOLO con el JSON, nada más."""
             "sentiment": sentiment,
             "action_items": [],
             "mentions": [],
-            "method": "rules"
+            "method": "rules",
         }
 
         return metadata
@@ -244,11 +249,9 @@ Responde SOLO con el JSON, nada más."""
             lines.append(f"🏷️ {tags_str}")
 
         if "sentiment" in metadata:
-            sentiment_emoji = {
-                "positivo": "😊",
-                "neutral": "😐",
-                "negativo": "😟"
-            }.get(metadata["sentiment"], "😐")
+            sentiment_emoji = {"positivo": "😊", "neutral": "😐", "negativo": "😟"}.get(
+                metadata["sentiment"], "😐"
+            )
             lines.append(f"😊 {metadata['sentiment'].capitalize()} {sentiment_emoji}")
 
         if "action_items" in metadata and metadata["action_items"]:
@@ -269,8 +272,7 @@ if __name__ == "__main__":
     """
 
     metadata = generator.generate_metadata(
-        transcription=test_transcription,
-        filename="audio_20260325_143022.wav"
+        transcription=test_transcription, filename="audio_20260325_143022.wav"
     )
 
     print("Metadatos generados:")

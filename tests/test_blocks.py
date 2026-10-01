@@ -28,20 +28,20 @@ class TestTaskExtractorBlock:
         """Test de inicialización del bloque."""
         block = TaskExtractorBlock()
         assert block.name == "task_extractor"
-        assert block.enabled == True
+        assert block.enabled
         assert block.block_type.value == "post"
 
     def test_validate_input_valid(self):
         """Test de validación de input válido."""
         block = TaskExtractorBlock()
         text = "Tengo que hacer el reporte mañana por la mañana."
-        assert block.validate_input(text, ProcessingStage.TRANSCRIBED_TEXT) == True
+        assert block.validate_input(text, ProcessingStage.TRANSCRIBED_TEXT)
 
     def test_validate_input_invalid(self):
         """Test de validación de input inválido."""
         block = TaskExtractorBlock()
-        assert block.validate_input("", ProcessingStage.TRANSCRIBED_TEXT) == False
-        assert block.validate_input(123, ProcessingStage.TRANSCRIBED_TEXT) == False
+        assert not block.validate_input("", ProcessingStage.TRANSCRIBED_TEXT)
+        assert not block.validate_input(123, ProcessingStage.TRANSCRIBED_TEXT)
 
     def test_extract_tasks_simple(self):
         """Test de extracción de tareas simples."""
@@ -49,7 +49,7 @@ class TestTaskExtractorBlock:
         text = "Tengo que hacer el reporte. Necesito revisar el código."
         result = block.process(text, ProcessingStage.TRANSCRIBED_TEXT)
 
-        assert result.success == True
+        assert result.success
         assert len(result.data) > 0
         assert any("reporte" in task["text"].lower() for task in result.data)
 
@@ -59,7 +59,7 @@ class TestTaskExtractorBlock:
         text = "Tengo que hacer el reporte. Recordar llamar a Juan."
         result = block.process(text, ProcessingStage.TRANSCRIBED_TEXT)
 
-        assert result.success == True
+        assert result.success
         # Todas las tareas deberían tener prioridad >= 4
         for task in result.data:
             assert task["priority"] >= 4
@@ -70,7 +70,7 @@ class TestTaskExtractorBlock:
         text = "Tengo que hacer A. Necesito hacer B. Hay que hacer C. Recordar D."
         result = block.process(text, ProcessingStage.TRANSCRIBED_TEXT)
 
-        assert result.success == True
+        assert result.success
         assert len(result.data) <= 2
 
 
@@ -81,20 +81,20 @@ class TestSummaryBlock:
         """Test de inicialización del bloque."""
         block = SummaryBlock()
         assert block.name == "summary"
-        assert block.enabled == True
+        assert block.enabled
         assert block.block_type.value == "post"
 
     def test_validate_input_valid(self):
         """Test de validación de input válido."""
         block = SummaryBlock()
         text = "Este es un texto suficientemente largo para ser resumido. " * 10
-        assert block.validate_input(text, ProcessingStage.TRANSCRIBED_TEXT) == True
+        assert block.validate_input(text, ProcessingStage.TRANSCRIBED_TEXT)
 
     def test_validate_input_invalid(self):
         """Test de validación de input inválido."""
         block = SummaryBlock()
-        assert block.validate_input("Corto", ProcessingStage.TRANSCRIBED_TEXT) == False
-        assert block.validate_input(123, ProcessingStage.TRANSCRIBED_TEXT) == False
+        assert not block.validate_input("Corto", ProcessingStage.TRANSCRIBED_TEXT)
+        assert not block.validate_input(123, ProcessingStage.TRANSCRIBED_TEXT)
 
     def test_generate_summary(self):
         """Test de generación de resumen."""
@@ -108,7 +108,7 @@ class TestSummaryBlock:
         """
         result = block.process(text, ProcessingStage.TRANSCRIBED_TEXT)
 
-        assert result.success == True
+        assert result.success
         assert len(result.data) > 0
         assert len(result.data) <= 200  # Respeta max_length
 
@@ -118,7 +118,7 @@ class TestSummaryBlock:
         long_text = "Esta es una oración de prueba. " * 50
         result = block.process(long_text, ProcessingStage.TRANSCRIBED_TEXT)
 
-        assert result.success == True
+        assert result.success
         assert result.metadata["compression_ratio"] < 1.0
         assert len(result.data) < len(long_text)
 
@@ -130,7 +130,7 @@ class TestKeywordExtractorBlock:
         """Test de inicialización del bloque."""
         block = KeywordExtractorBlock()
         assert block.name == "keyword_extractor"
-        assert block.enabled == True
+        assert block.enabled
         assert block.block_type.value == "post"
 
     def test_extract_keywords(self):
@@ -139,7 +139,7 @@ class TestKeywordExtractorBlock:
         text = "La inteligencia artificial y el machine learning están transformando la tecnología. Python es importante para data science."
         result = block.process(text, ProcessingStage.TRANSCRIBED_TEXT)
 
-        assert result.success == True
+        assert result.success
         assert len(result.data) > 0
         assert len(result.data) <= 5
 
@@ -149,18 +149,27 @@ class TestKeywordExtractorBlock:
         text = "El proyecto tiene un presupuesto de 5000 dólares y debe completarse el 15 de diciembre de 2024."
         result = block.process(text, ProcessingStage.TRANSCRIBED_TEXT)
 
-        assert result.success == True
+        assert result.success
         # Debería haber clasificado algunas keywords
         types = [kw["type"] for kw in result.data]
         assert len(types) > 0
 
     def test_min_length_filter(self):
-        """Test de filtro de longitud mínima."""
+        """Test de filtro de longitud mínima.
+
+        LEFT FAILING ON PURPOSE — real backend bug report (tech-debt batch 1b):
+        the documented ``min_length`` config is only honored in
+        ``_extract_entities`` (proper nouns). ``_extract_by_frequency``
+        hardcodes a ``{4,}`` regex floor and ignores ``self.min_length``, so
+        with min_length=5 the 4-char word "útil" is still returned as a
+        keyword. Backend must apply ``min_length`` in every extraction
+        strategy; do NOT adjust this expectation.
+        """
         block = KeywordExtractorBlock(config={"min_length": 5})
         text = "AI y ML son importantes. Python es útil."
         result = block.process(text, ProcessingStage.TRANSCRIBED_TEXT)
 
-        assert result.success == True
+        assert result.success
         # Todas las keywords deberían tener >= 5 caracteres
         for kw in result.data:
             assert len(kw["keyword"]) >= 5
@@ -194,11 +203,11 @@ class TestBlockManager:
         manager.register_block(block)
 
         # Desactivar
-        assert manager.disable_block("task_extractor") == True
+        assert manager.disable_block("task_extractor")
         assert "task_extractor" not in manager.list_blocks(enabled_only=True)
 
         # Activar
-        assert manager.enable_block("task_extractor") == True
+        assert manager.enable_block("task_extractor")
         assert "task_extractor" in manager.list_blocks(enabled_only=True)
 
     def test_process_pipeline(self):
@@ -224,7 +233,7 @@ class TestBlockManager:
 
         stats = manager.get_stats()
         assert "task_extractor" in stats
-        assert stats["task_extractor"]["enabled"] == True
+        assert stats["task_extractor"]["enabled"]
 
 
 class TestIntegration:
@@ -255,18 +264,18 @@ class TestIntegration:
 
         # TaskExtractor
         task_result = results[0]
-        assert task_result.success == True
+        assert task_result.success
         assert len(task_result.data) > 0
 
         # Summary
         summary_result = results[1]
-        assert summary_result.success == True
+        assert summary_result.success
         assert len(summary_result.data) > 0
         assert len(summary_result.data) < len(transcription)
 
         # Keywords
         keyword_result = results[2]
-        assert keyword_result.success == True
+        assert keyword_result.success
         assert len(keyword_result.data) > 0
 
     def test_error_handling(self):

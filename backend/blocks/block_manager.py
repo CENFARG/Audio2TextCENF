@@ -49,7 +49,9 @@ class BlockManager:
         self.blocks.append(block)
         self._update_enabled_blocks()
 
-        logger.info(f"BlockManager: Registrado bloque '{block.name}' (type={block.block_type.value})")
+        logger.info(
+            f"BlockManager: Registrado bloque '{block.name}' (type={block.block_type.value})"
+        )
 
     def unregister_block(self, block_name: str) -> bool:
         """
@@ -94,11 +96,7 @@ class BlockManager:
         """Actualizar lista de bloques activos."""
         self.enabled_blocks = [b for b in self.blocks if b.enabled]
 
-    def process(
-        self,
-        data: Any,
-        stage: ProcessingStage
-    ) -> List[BlockResult]:
+    def process(self, data: Any, stage: ProcessingStage) -> List[BlockResult]:
         """
         Ejecutar todos los bloques activos para la etapa dada.
 
@@ -109,19 +107,20 @@ class BlockManager:
         Returns:
             Lista de resultados de cada bloque ejecutado
         """
-        results = []
+        results: list = []
 
         # Filtrar bloques que deben procesar en esta etapa
         blocks_to_process = [
-            block for block in self.enabled_blocks
-            if block.should_process(stage)
+            block for block in self.enabled_blocks if block.should_process(stage)
         ]
 
         if not blocks_to_process:
             logger.debug(f"BlockManager: No hay bloques para etapa {stage.value}")
             return results
 
-        logger.info(f"BlockManager: Procesando {len(blocks_to_process)} bloques en etapa {stage.value}")
+        logger.info(
+            f"BlockManager: Procesando {len(blocks_to_process)} bloques en etapa {stage.value}"
+        )
 
         # Ejecutar bloques
         # Para POST-transcripción: cada bloque procesa el input original independientemente
@@ -135,7 +134,9 @@ class BlockManager:
 
                 # Si el bloque falló, loguear pero continuar con siguiente
                 if not result.success:
-                    logger.warning(f"BlockManager: Bloque '{block.name}' falló: {result.error}")
+                    logger.warning(
+                        f"BlockManager: Bloque '{block.name}' falló: {result.error}"
+                    )
 
                 # Encadenar SOLO para bloques PRE-transcripción
                 # Los bloques POST-transcripción siempre procesan el input original
@@ -148,11 +149,7 @@ class BlockManager:
 
             except Exception as e:
                 logger.error(f"BlockManager: Excepción en bloque '{block.name}': {e}")
-                results.append(BlockResult(
-                    success=False,
-                    data=None,
-                    error=str(e)
-                ))
+                results.append(BlockResult(success=False, data=None, error=str(e)))
 
         return results
 
@@ -166,9 +163,9 @@ class BlockManager:
         stats = {}
         for block in self.blocks:
             stats[block.name] = {
-                'enabled': block.enabled,
-                'block_type': block.block_type.value,
-                'stats': block.get_stats()
+                "enabled": block.enabled,
+                "block_type": block.block_type.value,
+                "stats": block.get_stats(),
             }
         return stats
 

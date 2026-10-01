@@ -1,4 +1,4 @@
-# Build script para Audio2Text v0.10.0 - (Unificado)
+# Build script para Audio2Text v.0.15.12 - (Unificado) | HC-05: pyproject.toml es fuente canónica
 import subprocess
 import sys
 import os
@@ -6,9 +6,33 @@ import shutil
 from pathlib import Path
 from datetime import datetime
 
-APP_VERSION = "0.13.0"
+APP_VERSION = "0.15.12"
 VARIANT = ""
-APP_NAME = f"Audio2Text_CENF_v{APP_VERSION}"
+APP_NAME = f"Audio2Text_CENF_v.{APP_VERSION}"
+
+# ── HC-05 version single-source check (fail fast if sources diverge) ──
+try:
+    import importlib.util as _ilu
+    _check_path = Path(__file__).parent / "check_version.py"
+    if _check_path.exists():
+        _spec = _ilu.spec_from_file_location("check_version", _check_path)
+        _mod = _ilu.module_from_spec(_spec)
+        _spec.loader.exec_module(_mod)  # type: ignore
+        if hasattr(_mod, "check_all"):
+            _ok = _mod.check_all(verbose=True)
+            if not _ok:
+                print("[!] Version check FAILED — aborting build. Ejecuta: python scripts/check_version.py")
+                sys.exit(1)
+            else:
+                print(f"[✓] Version check PASS — canonical pyproject.toml = {APP_VERSION}")
+        else:
+            print("[!] check_version.py missing check_all — skipping version gate")
+    else:
+        print(f"[!] check_version.py not found at {_check_path} — skipping version gate")
+except SystemExit:
+    raise
+except Exception as _e:
+    print(f"[!] Version check error (continuing with warning): {_e}")
 
 # Rutas - estamos en scripts/, el proyecto está un nivel arriba
 current_dir = Path(__file__).parent.parent
@@ -40,7 +64,7 @@ print(f"[*] Organizando artefactos en:")
 print(f"   Logs:  {logs_dir}")
 print(f"   Specs: {specs_dir}\n")
 
-# Comando PyInstaller
+# Comando PyInstaller — base sin datas (se agregan condicionalmente abajo)
 command = [
     sys.executable, "-m", "PyInstaller",
     "--onefile",
@@ -54,11 +78,41 @@ command = [
     f"--distpath={dist_dir}",
     f"--workpath={build_dir}",
     f"--specpath={specs_dir}",  # Guardar spec en carpeta organizada
-    "--add-data", f"{current_dir / 'lang'};lang",
-    "--add-data", f"{current_dir / 'config' / 'config.json'};.",
-    "--add-data", f"{ICON_PATH};.",
-    "--add-data", f"{LOGO_PATH};.",
-    "--add-data", f"{current_dir / 'templates' / 'info_template.html'};.",
+]
+
+# ── Fix v0.15.7: datas solo si el archivo existe (config/config.json está gitignored) ──
+def _add_data(src: Path, dst: str):
+    if src.exists():
+        command.extend(["--add-data", f"{src};{dst}"])
+        print(f"[+] datas: {src.relative_to(current_dir)} -> {dst}")
+    else:
+        print(f"[!] datas skip (no existe): {src} -> {dst}")
+
+# lang es directorio — requerido
+_add_data(current_dir / "lang", "lang")
+# config: preferir config/config.json si existe, sino fallback a config.json en root, sino omitir
+_config_src = current_dir / "config" / "config.json"
+if not _config_src.exists():
+    _fallback = current_dir / "config.json"
+    if _fallback.exists():
+        print(f"[!] config/config.json no existe — usando fallback { _fallback.relative_to(current_dir) }")
+        _config_src = _fallback
+    else:
+        _example = current_dir / "config.json.example"
+        if _example.exists():
+            print(f"[!] config/config.json y config.json no existen — usando {_example.relative_to(current_dir)}")
+            _config_src = _example
+        else:
+            _config_src = None  # type: ignore
+            print("[!] Ningún config.json encontrado — omitiendo datas de config")
+if _config_src is not None:
+    _add_data(_config_src, ".")
+_add_data(ICON_PATH, ".")
+_add_data(LOGO_PATH, ".")
+_add_data(current_dir / "templates" / "info_template.html", ".")
+
+# hidden-imports / excludes siguen a continuación — se agregan al command existente
+command.extend([
     "--hidden-import", "tkinter",
     "--hidden-import", "customtkinter",
     "--hidden-import", "sounddevice",
@@ -73,41 +127,20 @@ command = [
     "--hidden-import", "backend.transcription_metadata_generator",
     "--hidden-import", "backend.hotkey_manager",
     "--hidden-import", "backend.emoji_picker",
-    "--hidden-import", "ui_flet.components.design_system",
-    "--hidden-import", "ui_flet.components.history_tab",
-    "--hidden-import", "flet",
-    "--hidden-import", "flet.core",
-    "--hidden-import", "flet.core.page",
-    "--hidden-import", "flet.core.controls",
-    "--hidden-import", "flet.URIDataReaderAtOrigin",
-    "--hidden-import", "flet.pubsub",
-    "--hidden-import", "flet.runtime",
-    "--hidden-import", "flet.runtime.app",
-    "--hidden-import", "flet.runtime.pubsub",
-    "--hidden-import", "flet.runtime.web",
-    "--hidden-import", "flet_view",
-    "--hidden-import", "flet_view.adwaita",
-    "--hidden-import", "flet_view.platform",
-    "--hidden-import", "flet_view.platform.android",
-    "--hidden-import", "flet_view.platform.ios",
-    "--hidden-import", "flet_view.platform.linux",
-    "--hidden-import", "flet_view.platform.mac",
-    "--hidden-import", "flet_view.platform.windows",
-    "--hidden-import", "flet_view.theme",
-    "--hidden-import", "flet_view.utils",
-    "--hidden-import", "flet_view.utils.logging",
-    "--hidden-import", "flet_view.utils.tasks",
-    "--hidden-import", "flet_view.utils.transform",
-    "--hidden-import", "flet_view.utils.version",
-    "--hidden-import", "faster_whisper",
-    "--hidden-import", "ctranslate2",
-    "--hidden-import", "transformers",
-    "--hidden-import", "tokenizers",
-    "--hidden-import", "huggingface_hub",
+    # FIX v0.15.0: ERRADICADO faster-whisper + modelo local (ctranslate2/transformers/
+    # tokenizers/huggingface_hub) — la app usa SOLO API cloud Groq.
+    # FIX v0.15.0: ERRADICADO stack flet/ui_flet/flet_view (código muerto, no se importa)
     "--exclude-module", "pandas",
     "--exclude-module", "yt_dlp",
+    "--exclude-module", "faster_whisper",
+    "--exclude-module", "ctranslate2",
+    "--exclude-module", "transformers",
+    "--exclude-module", "tokenizers",
+    "--exclude-module", "huggingface_hub",
+    "--exclude-module", "flet",
+    "--exclude-module", "flet_view",
     str(main_script_path)
-]
+])
 
 # Ejecutar directamente
 result = subprocess.run(

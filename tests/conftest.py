@@ -10,11 +10,9 @@ Version: 0.13.0
 
 import pytest
 import sys
-import os
 import json
-import tempfile
 from pathlib import Path
-from unittest.mock import Mock, MagicMock, patch
+from unittest.mock import Mock
 import numpy as np
 
 # Add project root to path
@@ -72,7 +70,7 @@ def mock_config():
         dict: Mock configuration
     """
     return {
-        "version": "0.13.0",
+        "version": "0.15.0",
         "api_key": "test_api_key_123",
         "api_key_obfuscated": " obscured_key",
         "language": "es",
@@ -83,7 +81,6 @@ def mock_config():
         "auto_cleanup_days": 30,
         "theme": "dark",
         "service": "groq",
-        "faster_whisper": {"model_size": "base", "device": "cpu", "compute_type": "int8"},
         "blocks": {
             "task_extractor": {"enabled": True, "stage": "post"},
             "summary": {"enabled": True, "stage": "post"},
@@ -127,7 +124,11 @@ def mock_transcriber():
 
     # Mock methods
     transcriber.transcribe = Mock(
-        return_value={"text": "Este es un texto de prueba.", "language": "es", "duration": 1.5}
+        return_value={
+            "text": "Este es un texto de prueba.",
+            "language": "es",
+            "duration": 1.5,
+        }
     )
 
     transcriber.start_recording = Mock()
@@ -263,6 +264,7 @@ def pytest_collection_modifyitems(config, items):
         # Mark all tests in test_*.py files as unit tests by default
         if "test_" in item.fspath.basename:
             if not any(
-                mark.name in ["unit", "integration", "slow", "api"] for mark in item.iter_markers()
+                mark.name in ["unit", "integration", "slow", "api"]
+                for mark in item.iter_markers()
             ):
                 item.add_marker(pytest.mark.unit)

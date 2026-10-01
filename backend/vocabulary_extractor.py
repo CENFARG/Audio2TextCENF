@@ -10,7 +10,7 @@ Version: 0.11.0 (development)
 
 import json
 import re
-from typing import Dict, Any, List, Optional, Set
+from typing import Dict, Any, List, Set
 from pathlib import Path
 import logging
 
@@ -45,9 +45,11 @@ class VocabularyExtractor:
         """Cargar vocabulario personalizado existente."""
         if self.custom_vocab_path.exists():
             try:
-                with open(self.custom_vocab_path, 'r', encoding='utf-8') as f:
+                with open(self.custom_vocab_path, "r", encoding="utf-8") as f:
                     self.custom_vocab = json.load(f)
-                logger.info(f"Vocabulario personalizado cargado: {len(self.custom_vocab)} términos")
+                logger.info(
+                    f"Vocabulario personalizado cargado: {len(self.custom_vocab)} términos"
+                )
             except Exception as e:
                 logger.error(f"Error cargando vocabulario personalizado: {e}")
                 self.custom_vocab = {}
@@ -60,9 +62,11 @@ class VocabularyExtractor:
         """Guardar vocabulario personalizado."""
         try:
             self.custom_vocab_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.custom_vocab_path, 'w', encoding='utf-8') as f:
+            with open(self.custom_vocab_path, "w", encoding="utf-8") as f:
                 json.dump(self.custom_vocab, f, indent=4, ensure_ascii=False)
-            logger.info(f"Vocabulario personalizado guardado: {len(self.custom_vocab)} términos")
+            logger.info(
+                f"Vocabulario personalizado guardado: {len(self.custom_vocab)} términos"
+            )
         except Exception as e:
             logger.error(f"Error guardando vocabulario personalizado: {e}")
 
@@ -84,13 +88,13 @@ class VocabularyExtractor:
         # 2. Detectar patrones técnicos
         technical_patterns = [
             # Acrónimos en mayúsculas (2+ letras)
-            r'\b[A-Z]{2,}\b',
+            r"\b[A-Z]{2,}\b",
             # Palabras con CamelCase
-            r'\b[a-z]+[A-Z][a-z]+\b',
+            r"\b[a-z]+[A-Z][a-z]+\b",
             # Términos con guiones
-            r'\b[a-z]+-[a-z]+\b',
+            r"\b[a-z]+-[a-z]+\b",
             # Palabras seguidas de números
-            r'\b[a-z]+\d+\b',
+            r"\b[a-z]+\d+\b",
         ]
 
         for pattern in technical_patterns:
@@ -111,13 +115,15 @@ class VocabularyExtractor:
                 if term_lower not in self.detected_terms:
                     self.detected_terms.add(term_lower)
 
-                    detected.append({
-                        'term': term,
-                        'context': self._get_context(text, match.start()),
-                        'frequency': text.lower().count(term_lower),
-                        'type': self._classify_term(term),
-                        'suggested': True
-                    })
+                    detected.append(
+                        {
+                            "term": term,
+                            "context": self._get_context(text, match.start()),
+                            "frequency": text.lower().count(term_lower),
+                            "type": self._classify_term(term),
+                            "suggested": True,
+                        }
+                    )
 
         logger.info(f"Detectados {len(detected)} términos técnicos")
         return detected
@@ -128,15 +134,15 @@ class VocabularyExtractor:
 
         # Cargar vocabularios de referencia
         vocab_paths = [
-            'backend/vocabulary/ia_tech.json',
-            'backend/vocabulary/general.json',
-            str(self.custom_vocab_path)
+            "backend/vocabulary/ia_tech.json",
+            "backend/vocabulary/general.json",
+            str(self.custom_vocab_path),
         ]
 
         for vocab_path in vocab_paths:
             if Path(vocab_path).exists():
                 try:
-                    with open(vocab_path, 'r', encoding='utf-8') as f:
+                    with open(vocab_path, "r", encoding="utf-8") as f:
                         vocab = json.load(f)
                         existing.update(vocab.keys())
                 except Exception as e:
@@ -147,11 +153,44 @@ class VocabularyExtractor:
     def _is_common_term(self, term: str) -> bool:
         """Verificar si es un término común (no técnico)."""
         common_terms = {
-            'el', 'la', 'de', 'en', 'que', 'y', 'a', 'los', 'se',
-            'del', 'las', 'un', 'por', 'con', 'una', 'su', 'para',
-            'es', 'al', 'lo', 'como', 'más', 'pero', 'sus', 'le',
-            'ya', 'o', 'fue', 'este', 'esta', 'esto', 'estos',
-            'esta', 'ese', 'esa', 'eso', 'esos', 'esas'
+            "el",
+            "la",
+            "de",
+            "en",
+            "que",
+            "y",
+            "a",
+            "los",
+            "se",
+            "del",
+            "las",
+            "un",
+            "por",
+            "con",
+            "una",
+            "su",
+            "para",
+            "es",
+            "al",
+            "lo",
+            "como",
+            "más",
+            "pero",
+            "sus",
+            "le",
+            "ya",
+            "o",
+            "fue",
+            "este",
+            "esta",
+            "esto",
+            "estos",
+            "esta",
+            "ese",
+            "esa",
+            "eso",
+            "esos",
+            "esas",
         }
 
         return term.lower() in common_terms
@@ -176,28 +215,25 @@ class VocabularyExtractor:
         """Clasificar término por tipo."""
         # Acrónimo (todo mayúsculas)
         if term.isupper() and len(term) >= 2:
-            return 'acronym'
+            return "acronym"
 
         # CamelCase
         if any(c.isupper() for c in term[1:-1]):
-            return 'camel_case'
+            return "camel_case"
 
         # Con guiones
-        if '-' in term:
-            return 'hyphenated'
+        if "-" in term:
+            return "hyphenated"
 
         # Con números
         if any(c.isdigit() for c in term):
-            return 'with_number'
+            return "with_number"
 
         # Palabra técnica (default)
-        return 'technical'
+        return "technical"
 
     def add_to_custom_vocab(
-        self,
-        term: str,
-        definition: str = "",
-        category: str = "general"
+        self, term: str, definition: str = "", category: str = "general"
     ) -> bool:
         """
         Agregar término al vocabulario personalizado.
@@ -214,10 +250,10 @@ class VocabularyExtractor:
             term_lower = term.lower()
 
             self.custom_vocab[term_lower] = {
-                'term': term,
-                'definition': definition,
-                'category': category,
-                'added_at': None  # TODO: Agregar timestamp
+                "term": term,
+                "definition": definition,
+                "category": category,
+                "added_at": None,  # TODO: Agregar timestamp
             }
 
             self._save_custom_vocab()
@@ -269,7 +305,7 @@ class VocabularyExtractor:
             True si se exportó exitosamente
         """
         try:
-            with open(export_path, 'w', encoding='utf-8') as f:
+            with open(export_path, "w", encoding="utf-8") as f:
                 json.dump(self.custom_vocab, f, indent=4, ensure_ascii=False)
             logger.info(f"Vocabulario exportado a {export_path}")
             return True
@@ -289,7 +325,7 @@ class VocabularyExtractor:
             True si se importó exitosamente
         """
         try:
-            with open(import_path, 'r', encoding='utf-8') as f:
+            with open(import_path, "r", encoding="utf-8") as f:
                 imported_vocab = json.load(f)
 
             if merge:
@@ -312,13 +348,13 @@ class VocabularyExtractor:
         Returns:
             Diccionario con estadísticas
         """
-        categories = {}
+        categories: dict = {}
         for term_data in self.custom_vocab.values():
-            cat = term_data.get('category', 'general')
+            cat = term_data.get("category", "general")
             categories[cat] = categories.get(cat, 0) + 1
 
         return {
-            'total_terms': len(self.custom_vocab),
-            'categories': categories,
-            'detected_in_session': len(self.detected_terms)
+            "total_terms": len(self.custom_vocab),
+            "categories": categories,
+            "detected_in_session": len(self.detected_terms),
         }

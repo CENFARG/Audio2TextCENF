@@ -41,8 +41,14 @@ class TestConfigManagerInitialization:
             assert manager.config_file == config_file
             assert manager.config is not None
             assert "app_version" in manager.config
-            assert manager.config["app_version"] == "0.13.0"
-            assert manager.config["hotkey"] == "f12"
+            # Contract: app_version is always pinned to the shipped default
+            # (load_config overrides it with default_config), never a stale value.
+            assert (
+                manager.config["app_version"] == manager.default_config["app_version"]
+            )
+            assert (
+                manager.config["hotkey"] == "f9"
+            )  # FIX: default F9 (pedido del usuario)
             assert manager.config["default_language"] == "es"
         finally:
             if os.path.exists(config_file):
@@ -52,16 +58,26 @@ class TestConfigManagerInitialization:
         """Test initialization loads existing configuration file."""
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             config_file = f.name
-            test_config = {"app_version": "0.12.0", "hotkey": "F10", "default_language": "en"}
+            test_config = {
+                "app_version": "0.12.0",
+                "hotkey": "F10",
+                "default_language": "en",
+            }
             json.dump(test_config, f)
 
         try:
             manager = ConfigManager(config_file=config_file)
 
-            # Should override with default version but keep other settings
-            assert manager.config["app_version"] == "0.13.0"
+            # Version is always overridden with the shipped default, but the
+            # other file settings are kept.
+            assert (
+                manager.config["app_version"] == manager.default_config["app_version"]
+            )
             assert manager.config["hotkey"] == "F10"
-            assert manager.config["default_language"] == "en"
+            # Since v0.15.1 the UI language is forced to Spanish regardless of file
+            assert manager.config["default_language"] == "es"
+            # transcription_language migrates from the file's default_language
+            assert manager.config["transcription_language"] == "en"
         finally:
             if os.path.exists(config_file):
                 os.unlink(config_file)
@@ -246,13 +262,13 @@ class TestLocalization:
 
     def test_get_localized_string(self, manager):
         """Test getting localized strings."""
-        # Mock the localization manager
-        manager.localization_manager.get = Mock(return_value="Translated text")
+        # Mock the localization manager (current API: get_string)
+        manager.localization_manager.get_string = Mock(return_value="Translated text")
 
         result = manager.get_localized_string("test_key")
 
         assert result == "Translated text"
-        manager.localization_manager.get.assert_called_once()
+        manager.localization_manager.get_string.assert_called_once_with("test_key")
 
     def test_set_language(self, manager):
         """Test setting the language."""
@@ -271,7 +287,9 @@ class TestEnvironmentVariables:
     def test_get_groq_api_key_from_env(self):
         """Test getting Groq API key from environment variable."""
         with patch.dict(os.environ, {"GROQ_API_KEY": "gsk_env_key_123"}):
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as f:
                 config_file = f.name
 
             try:
@@ -286,7 +304,9 @@ class TestEnvironmentVariables:
     def test_get_groq_api_key_from_env_not_set(self):
         """Test getting Groq API key when environment variable is not set."""
         with patch.dict(os.environ, {}, clear=True):
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as f:
                 config_file = f.name
 
             try:
@@ -321,9 +341,9 @@ class TestConfigValidation:
         manager.config["app_version"] = "0.12.0"
         manager.save_config()
 
-        # Reload and verify it's back to default
+        # Reload and verify it's back to the shipped default
         manager2 = ConfigManager(config_file=manager.config_file)
-        assert manager2.config["app_version"] == "0.13.0"
+        assert manager2.config["app_version"] == manager2.default_config["app_version"]
 
     def test_audio_priority_apps_default(self, manager):
         """Test that audio_priority_apps has default values."""
@@ -363,7 +383,7 @@ class TestConfigIntegrity:
 
         assert manager2.get("hotkey") == "F8"
         assert manager2.get("max_audio_files") == 75
-        assert manager2.get("auto_cleanup_enabled") == False
+        assert not manager2.get("auto_cleanup_enabled")
 
     def test_multiple_save_load_cycles(self, manager):
         """Test that multiple save/load cycles maintain integrity."""
