@@ -94,6 +94,7 @@
   "settings_title_files": "Gestión de Archivos",
   "audio_path_label": "Ruta de audios:",
   "transcriptions_path_label": "Ruta de transcripciones:",
+  "settings_context_blocks_dir": "Carpeta de bloques de contexto",
   "browse_button": "Explorar",
   "save_audio_switch": "Guardar audios",
   "save_logs_switch": "Guardar transcripciones",

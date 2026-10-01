@@ -152,6 +152,14 @@ def create_tooltip(widget, text):
     widget.bind("<Leave>", leave)
 
 
+def _safe_int(value, default):
+    """Convertir a int con fallback (config corrupto/ausente no debe tumbar save_config)."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 class DesignSystem:
     COLORS = {
         "primary": "#2563EB",
@@ -926,8 +934,29 @@ class App(
             command=lambda: self._browse_path(self.transcriptions_path_var),
         ).grid(row=2, column=2, padx=(0, 10))
 
+        # v0.15.12: carpeta de bloques de contexto (F1) — misma mecánica de
+        # clave plana via config_manager que las rutas de audio/transcripciones.
+        ctk.CTkLabel(
+            files_frame,
+            text=self.localization_manager.get_string("settings_context_blocks_dir"),
+        ).grid(row=3, column=0, padx=10, sticky="w")
+        from backend.context_blocks import DEFAULT_CONTEXT_BLOCKS_DIR
+
+        self.context_blocks_dir_var = tk.StringVar(
+            value=self.config_manager.get("context_blocks_dir", default=DEFAULT_CONTEXT_BLOCKS_DIR)
+        )
+        context_blocks_entry = ctk.CTkEntry(files_frame, textvariable=self.context_blocks_dir_var)
+        context_blocks_entry.grid(row=3, column=1, padx=5, pady=5, sticky="ew")
+        context_blocks_entry.bind("<FocusOut>", lambda e: self.save_config())
+        ctk.CTkButton(
+            files_frame,
+            text=self.localization_manager.get_string("browse_button"),
+            width=70,
+            command=lambda: self._browse_path(self.context_blocks_dir_var),
+        ).grid(row=3, column=2, padx=(0, 10))
+
         switch_frame = ctk.CTkFrame(files_frame, fg_color="transparent")
-        switch_frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=10, pady=5)
+        switch_frame.grid(row=4, column=0, columnspan=3, sticky="ew", padx=10, pady=5)
         switch_frame.grid_columnconfigure((0, 1), weight=1)
         self.save_audio_var = tk.BooleanVar(value=self.config_manager.get("save_audio"))
         ctk.CTkSwitch(
@@ -1152,8 +1181,8 @@ class App(
             try:
                 keyboard.remove_hotkey(old_hotkey)
                 self.logger.debug(f"Hotkey removido: {old_hotkey}")
-            except:
-                pass  # No existía o ya fue removido
+            except Exception:
+                self.logger.debug(f"Hotkey previo no existía o ya fue removido: {old_hotkey}")
 
             # Remover todos los hooks anteriores
             keyboard.unhook_all()
@@ -1255,10 +1284,11 @@ class App(
                 self.after(0, lambda: self._reset_play_button(file_path))
 
             except Exception as e:
-                self.after(
-                    100, lambda: self.update_status(f"❌ Error reproduciendo audio: {e}", "red")
-                )
-                self.logger.error(f"Error reproduciendo audio: {e}")
+                # Capturar el mensaje ANTES de programar lambdas: la variable `e` se
+                # elimina al salir del except y la lambda diferida lanzaría NameError.
+                err = f"❌ Error reproduciendo audio: {e}"
+                self.logger.error(err)
+                self.after(100, lambda: self.update_status(err, "red"))
                 self.after(0, lambda: self._reset_play_button(file_path))
 
         # Ejecutar en thread separado
@@ -1277,17 +1307,17 @@ class App(
                 import winsound
 
                 winsound.PlaySound(None, winsound.SND_PURGE)
-            except:
-                pass
+            except Exception:
+                self.logger.debug("No había sonido activo para purgar (winsound).")
 
             # Resetear botón SOLO si todavía existe (protección contra widgets destruidos)
             try:
                 # Verificar que el widget todavía existe
                 if button.winfo_exists():
                     button.configure(text="▶️", fg_color="#10B981", hover_color="#059669")
-            except:
+            except Exception:
                 # Widget fue destruido, ignorar
-                pass
+                self.logger.debug("Botón de play destruido; reset omitido (stop).")
 
             self.currently_playing = None
             self.update_status("⏹️ Reproducción detenida", "white")
@@ -1301,9 +1331,9 @@ class App(
             try:
                 if button.winfo_exists():
                     button.configure(text="▶️", fg_color="#10B981", hover_color="#059669")
-            except:
+            except Exception:
                 # Widget fue destruido, ignorar
-                pass
+                self.logger.debug("Botón de play destruido; reset omitido (auto-reset).")
 
             self.currently_playing = None
             self.update_status("✔️ Reproducción terminada", "white")
@@ -1612,8 +1642,8 @@ class App(
         if self.hotkey_recording_window:
             try:
                 self.hotkey_recording_window.destroy()
-            except:
-                pass
+            except Exception:
+                self.logger.debug("Ventana de grabación de hotkey ya destruida.")
 
         self.hotkey_recording_window = ctk.CTkToplevel(self)
         self.hotkey_recording_window.title(
@@ -1715,10 +1745,11 @@ class App(
             "show_transcription_panel": self.show_panel_var.get(),
             "audio_path": self.audio_path_var.get(),
             "transcriptions_path": self.transcriptions_path_var.get(),
+            "context_blocks_dir": self.context_blocks_dir_var.get(),
             "save_audio": self.save_audio_var.get(),
             "save_logs": self.save_logs_var.get(),
-            "max_audio_files": int(self.config_manager.get("max_audio_files")),
-            "max_log_entries": int(self.config_manager.get("max_log_entries")),
+            "max_audio_files": _safe_int(self.config_manager.get("max_audio_files", 100), 100),
+            "max_log_entries": _safe_int(self.config_manager.get("max_log_entries", 1000), 1000),
             "audio_priority_apps": self.config_manager.get("audio_priority_apps"),
             "default_language": "es",  # Interfaz siempre español
             "transcription_language": self.language_var.get(),
@@ -2086,8 +2117,8 @@ class App(
             geometry = self.geometry()
             self.config_manager.config["window_geometry"] = geometry
             # No guardar config aquí para no saturar disco, se guarda en on_closing
-        except:
-            pass
+        except Exception:
+            self.logger.debug("No se pudo leer geometry actual; se conserva la previa.")
 
     def show_system_tray(self):
         self.logger.debug("Mostrando icono en la bandeja del sistema.")

@@ -72,6 +72,7 @@
   "settings_title_files": "File Management",
   "audio_path_label": "Audio path:",
   "transcriptions_path_label": "Transcriptions path:",
+  "settings_context_blocks_dir": "Context blocks folder",
   "browse_button": "Browse",
   "save_audio_switch": "Save audio files",
   "save_logs_switch": "Save transcriptions",
