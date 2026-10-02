@@ -104,13 +104,26 @@ try:
         return scaled
 
     _ctk_scaling.CTkScalingBaseClass._apply_argument_scaling = _apply_argument_scaling_int
+
+    # Capa 2: _apply_widget_scaling es la FUENTE de los floats (CTkLabel._create_grid y
+    # otros internos de CTk la llaman directo y pasan floats a grid/pack clásicos).
+    # Redondear a int: diferencia visual ≤1px, tolerado por cualquier Tcl.
+    _orig_apply_widget_scaling = _ctk_scaling.CTkScalingBaseClass._apply_widget_scaling
+
+    def _apply_widget_scaling_int(self, value):
+        scaled = _orig_apply_widget_scaling(self, value)
+        if isinstance(scaled, float):
+            return int(round(scaled))
+        return scaled
+
+    _ctk_scaling.CTkScalingBaseClass._apply_widget_scaling = _apply_widget_scaling_int
     patch_pad_methods_applied = True
 except Exception as e:
     print(f"Warning: Could not apply CTk pad scaling monkeypatch: {e}")
 # --- END MONKEY PATCH ---
 
-from ui.app import App
 from backend.config_manager import ConfigManager
+from ui.app import App
 
 # --- FIX: single-instance — evitar dos instancias montadas con el mismo hotkey ---
 def ensure_single_instance():
@@ -133,7 +146,11 @@ def ensure_single_instance():
                 name = (proc.info.get('name') or '').lower()
                 if 'audio2text' in name and name != my_name:
                     return False
-            except Exception:
+            except Exception as exc:
+                logging.getLogger(__name__).debug(
+                    "single-instance: proceso %s inspeccionable: %s",
+                    proc.info.get('pid'), exc,
+                )
                 continue
         return True
     except Exception:
@@ -142,7 +159,8 @@ def ensure_single_instance():
 if not ensure_single_instance():
     import tkinter as tk
     from tkinter import messagebox
-    _root = tk.Tk(); _root.withdraw()
+    _root = tk.Tk()
+    _root.withdraw()
     messagebox.showwarning(
         "Audio2Text CENF",
         "Ya hay otra instancia de Audio2Text en ejecución.\n"
@@ -180,14 +198,14 @@ stream_handler = logging.StreamHandler(sys.stdout)
 if hasattr(stream_handler.stream, "buffer"):
     try:
         stream_handler.stream = io.TextIOWrapper(stream_handler.stream.buffer, encoding='utf-8', errors='replace')
-    except:
-        pass
+    except Exception as exc:
+        print(f"[main] consola sin wrapper UTF-8: {exc}")
 
 file_handler.setLevel(logging.DEBUG)
 stream_handler.setLevel(logging.INFO)
 
 # Siempre incluir ambos en desarrollo, permitir stream_handler en producción si se desea
-handlers = [file_handler, stream_handler]
+handlers: list[logging.Handler] = [file_handler, stream_handler]
 
 logging.basicConfig(
     level=logging.DEBUG, # Nivel base baixo para permitir que os handlers filtren
