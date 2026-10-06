@@ -19,7 +19,6 @@ El agente revisa la carpeta completa y produce el backlog estético.
 from __future__ import annotations
 
 import sys
-from datetime import datetime
 from pathlib import Path
 
 from PIL import ImageGrab
@@ -58,7 +57,11 @@ def main() -> None:
 
     index = 1
     while True:
-        raw = input(f"[{index}] Enter=capturar · e=etiquetada · q=salir > ").strip().lower()
+        raw = (
+            input(f"[{index}] Enter=capturar · e=etiquetada · q=salir > ")
+            .strip()
+            .lower()
+        )
         if raw == "q":
             break
         label = ""

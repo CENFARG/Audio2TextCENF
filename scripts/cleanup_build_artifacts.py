@@ -3,15 +3,14 @@
 
 import shutil
 from pathlib import Path
-from datetime import datetime
 
 current_dir = Path(__file__).parent
 artifacts_dir = current_dir / "_build_artifacts"
 legacy_dir = artifacts_dir / "legacy"
 
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("Organizador de Artefactos de Build")
-print("="*60 + "\n")
+print("=" * 60 + "\n")
 
 # Crear estructura
 legacy_dir.mkdir(parents=True, exist_ok=True)
@@ -22,7 +21,7 @@ old_specs = list(current_dir.glob("*.spec"))
 
 if old_logs or old_specs:
     print(f"📦 Encontrados {len(old_logs)} logs y {len(old_specs)} specs antiguos\n")
-    
+
     # Mover logs
     if old_logs:
         logs_legacy_dir = legacy_dir / "logs"
@@ -32,7 +31,7 @@ if old_logs or old_specs:
             dest = logs_legacy_dir / log_file.name
             shutil.move(str(log_file), str(dest))
             print(f"   ✅ {log_file.name}")
-    
+
     # Mover specs
     if old_specs:
         specs_legacy_dir = legacy_dir / "specs"
@@ -42,8 +41,8 @@ if old_logs or old_specs:
             dest = specs_legacy_dir / spec_file.name
             shutil.move(str(spec_file), str(dest))
             print(f"   ✅ {spec_file.name}")
-    
-    print(f"\n✅ Archivos organizados en: _build_artifacts/legacy/")
+
+    print("\n✅ Archivos organizados en: _build_artifacts/legacy/")
 else:
     print("✅ No hay archivos antiguos para organizar\n")
 
@@ -61,6 +60,6 @@ print("   └── legacy/")
 print("       ├── logs/  (archivos antiguos)")
 print("       └── specs/ (archivos antiguos)")
 
-print("\n" + "="*60)
+print("\n" + "=" * 60)
 print("✅ Organización completada")
-print("="*60 + "\n")
+print("=" * 60 + "\n")

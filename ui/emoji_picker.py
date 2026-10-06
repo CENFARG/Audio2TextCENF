@@ -15,35 +15,107 @@ class EmojiPicker(ctk.CTkToplevel):
     # Emojis organizados por categoría (los más útiles para transcripciones)
     EMOJIS = {
         "Trabajo": [
-            "📞", "💼", "📧", "📅", "📝",
-            "✅", "🎯", "📊", "📈", "💡",
-            "🗂️", "📁", "🏷️", "📋", "✏️"
+            "📞",
+            "💼",
+            "📧",
+            "📅",
+            "📝",
+            "✅",
+            "🎯",
+            "📊",
+            "📈",
+            "💡",
+            "🗂️",
+            "📁",
+            "🏷️",
+            "📋",
+            "✏️",
         ],
         "Ideas": [
-            "💭", "🧠", "💡", "✨", "🌟",
-            "🚀", "💫", "⚡", "🔥", "💎",
-            "🎨", "🎬", "🎵", "📚", "🔬"
+            "💭",
+            "🧠",
+            "💡",
+            "✨",
+            "🌟",
+            "🚀",
+            "💫",
+            "⚡",
+            "🔥",
+            "💎",
+            "🎨",
+            "🎬",
+            "🎵",
+            "📚",
+            "🔬",
         ],
         "Tareas": [
-            "⏰", "📌", "📍", "🔔", "⏳",
-            "🔧", "🛠️", "⚙️", "🔨", "🧩",
-            "📦", "📮", "✉️", "📨", "📩"
+            "⏰",
+            "📌",
+            "📍",
+            "🔔",
+            "⏳",
+            "🔧",
+            "🛠️",
+            "⚙️",
+            "🔨",
+            "🧩",
+            "📦",
+            "📮",
+            "✉️",
+            "📨",
+            "📩",
         ],
         "Personas": [
-            "👤", "👥", "🧑‍💻", "👨‍💼", "👩‍💼",
-            "👨‍🏫", "👩‍🏫", "🧑‍🎓", "👨‍🎓", "👩‍🎓",
-            "👔", "👩‍⚕️", "🧑‍⚕️", "👨‍⚕️", "👩‍🔬"
+            "👤",
+            "👥",
+            "🧑‍💻",
+            "👨‍💼",
+            "👩‍💼",
+            "👨‍🏫",
+            "👩‍🏫",
+            "🧑‍🎓",
+            "👨‍🎓",
+            "👩‍🎓",
+            "👔",
+            "👩‍⚕️",
+            "🧑‍⚕️",
+            "👨‍⚕️",
+            "👩‍🔬",
         ],
         "Favoritos": [
-            "❤️", "⭐", "🌟", "💛", "💚",
-            "💙", "💜", "🖤", "🤍", "🤎",
-            "🧡", "💝", "💖", "💗", "💓"
+            "❤️",
+            "⭐",
+            "🌟",
+            "💛",
+            "💚",
+            "💙",
+            "💜",
+            "🖤",
+            "🤍",
+            "🤎",
+            "🧡",
+            "💝",
+            "💖",
+            "💗",
+            "💓",
         ],
         "Otros": [
-            "🎤", "🎧", "📹", "🎥", "🎞️",
-            "💻", "🖥️", "⌨️", "🖱️", "💾",
-            "☁️", "🔒", "🔓", "🔑", "📎"
-        ]
+            "🎤",
+            "🎧",
+            "📹",
+            "🎥",
+            "🎞️",
+            "💻",
+            "🖥️",
+            "⌨️",
+            "🖱️",
+            "💾",
+            "☁️",
+            "🔒",
+            "🔓",
+            "🔑",
+            "📎",
+        ],
     }
 
     def __init__(
@@ -51,7 +123,7 @@ class EmojiPicker(ctk.CTkToplevel):
         parent,
         on_emoji_selected: Callable[[str], None],
         current_emoji: str = "🎤",
-        title: str = "Seleccionar Emoji"
+        title: str = "Seleccionar Emoji",
     ):
         """
         Inicializar selector de emojis.
@@ -95,16 +167,12 @@ class EmojiPicker(ctk.CTkToplevel):
         header_frame.pack(fill="x", padx=10, pady=10)
         header_frame.pack_propagate(False)
 
-        ctk.CTkLabel(
-            header_frame,
-            text="🔍",
-            font=ctk.CTkFont(size=16)
-        ).pack(side="left", padx=(10, 5))
+        ctk.CTkLabel(header_frame, text="🔍", font=ctk.CTkFont(size=16)).pack(
+            side="left", padx=(10, 5)
+        )
 
         self.search_entry = ctk.CTkEntry(
-            header_frame,
-            placeholder_text="Buscar emojis...",
-            height=35
+            header_frame, placeholder_text="Buscar emojis...", height=35
         )
         self.search_entry.pack(side="left", fill="x", expand=True, padx=5)
         self.search_entry.bind("<KeyRelease>", self._on_search)
@@ -117,7 +185,7 @@ class EmojiPicker(ctk.CTkToplevel):
             height=35,
             font=ctk.CTkFont(size=14),
             command=self.destroy,
-            fg_color="gray"
+            fg_color="gray",
         ).pack(side="right", padx=5)
 
         # Scrollable frame para categorías
@@ -137,15 +205,12 @@ class EmojiPicker(ctk.CTkToplevel):
         self.selected_label = ctk.CTkLabel(
             footer_frame,
             text=f"Seleccionado: {self.current_emoji}",
-            font=ctk.CTkFont(size=14)
+            font=ctk.CTkFont(size=14),
         )
         self.selected_label.pack(side="left", padx=10)
 
         ctk.CTkButton(
-            footer_frame,
-            text="Confirmar",
-            width=100,
-            command=self._confirm_selection
+            footer_frame, text="Confirmar", width=100, command=self._confirm_selection
         ).pack(side="right", padx=10)
 
     def _create_category(self, parent, category: str, emojis: list):
@@ -156,9 +221,7 @@ class EmojiPicker(ctk.CTkToplevel):
 
         # Título de categoría
         cat_label = ctk.CTkLabel(
-            cat_frame,
-            text=category,
-            font=ctk.CTkFont(size=12, weight="bold")
+            cat_frame, text=category, font=ctk.CTkFont(size=12, weight="bold")
         )
         cat_label.pack(anchor="w", padx=10, pady=(10, 5))
 
@@ -177,7 +240,7 @@ class EmojiPicker(ctk.CTkToplevel):
                 width=45,
                 height=45,
                 font=ctk.CTkFont(size=20),
-                command=lambda e=emoji: self._on_emoji_click(e)
+                command=lambda e=emoji: self._on_emoji_click(e),
             )
             btn.grid(row=row, column=col, padx=3, pady=3)
 
@@ -213,7 +276,9 @@ class EmojiPicker(ctk.CTkToplevel):
             # Buscar por categoría o emoji
             matches = False
             for category, emojis in self.EMOJIS.items():
-                if emoji in emojis and (search_text in category.lower() or search_text in emoji):
+                if emoji in emojis and (
+                    search_text in category.lower() or search_text in emoji
+                ):
                     matches = True
                     break
 
@@ -224,9 +289,7 @@ class EmojiPicker(ctk.CTkToplevel):
 
 
 def show_emoji_picker(
-    parent,
-    on_emoji_selected: Callable[[str], None],
-    current_emoji: str = "🎤"
+    parent, on_emoji_selected: Callable[[str], None], current_emoji: str = "🎤"
 ) -> Optional[str]:
     """
     Mostrar selector de emojis y devolver emoji seleccionado.
@@ -246,7 +309,6 @@ def show_emoji_picker(
 
 if __name__ == "__main__":
     # Test del picker
-    import tkinter as tk
 
     root = ctk.CTk()
     root.geometry("300x200")
@@ -257,7 +319,7 @@ if __name__ == "__main__":
     ctk.CTkButton(
         root,
         text="Seleccionar Emoji",
-        command=lambda: show_emoji_picker(root, on_select)
+        command=lambda: show_emoji_picker(root, on_select),
     ).pack(expand=True)
 
     root.mainloop()

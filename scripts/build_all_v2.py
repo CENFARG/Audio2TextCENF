@@ -10,9 +10,9 @@ from datetime import datetime
 current_dir = Path(__file__).parent.parent  # Estamos en scripts/, subir a raíz
 scripts_dir = Path(__file__).parent  # Carpeta scripts/
 
-print("\n" + "="*70)
-print(f"Audio2Text v0.10.0 - Master Build (Organizado)")
-print(f"="*70 + "\n")
+print("\n" + "=" * 70)
+print("Audio2Text v0.10.0 - Master Build (Organizado)")
+print("=" * 70 + "\n")
 
 print("📁 Nueva estructura de carpetas:")
 print("   _build_artifacts/")
@@ -30,10 +30,10 @@ results = {}
 start_time = datetime.now()
 
 for variant in variants:
-    print(f"\n{'─'*70}")
+    print(f"\n{'─' * 70}")
     print(f"Compilando variante: {variant}")
-    print(f"{'─'*70}")
-    
+    print(f"{'─' * 70}")
+
     # Ejecutar desde scripts/
     build_script = scripts_dir / f"build_{variant}_v2.py"
     result = subprocess.run([sys.executable, str(build_script)], cwd=current_dir)
@@ -42,34 +42,34 @@ for variant in variants:
 end_time = datetime.now()
 duration = (end_time - start_time).total_seconds()
 
-print(f"\n{'='*70}")
+print(f"\n{'=' * 70}")
 print("RESUMEN DE COMPILACIONES")
-print(f"{'='*70}\n")
+print(f"{'=' * 70}\n")
 
 for variant, success in results.items():
     status = "✅ EXITOSO" if success else "❌ FALLIDO"
     print(f"  {variant:15} : {status}")
 
-print(f"\n{'─'*70}")
-print(f"⏱️  Tiempo total: {duration:.1f} segundos ({duration/60:.1f} minutos)")
-print(f"{'─'*70}\n")
+print(f"\n{'─' * 70}")
+print(f"⏱️  Tiempo total: {duration:.1f} segundos ({duration / 60:.1f} minutos)")
+print(f"{'─' * 70}\n")
 
 all_success = all(results.values())
 
 if all_success:
     print("🎉 ¡Todas las variantes compiladas exitosamente!")
-    print(f"\n📦 Ejecutables en: dist/")
-    print(f"  - Audio2Text_CENF_0.10.0_GENERAL.exe")
-    print(f"  - Audio2Text_CENF_0.10.0_CONTRERAS.exe")
-    print(f"  - Audio2Text_CENF_0.10.0_CUTIGNOLA.exe")
-    print(f"\n📄 Logs organizados en: _build_artifacts/logs/[VARIANTE]/")
-    print(f"📄 Specs organizados en: _build_artifacts/specs/[VARIANTE]/")
+    print("\n📦 Ejecutables en: dist/")
+    print("  - Audio2Text_CENF_0.10.0_GENERAL.exe")
+    print("  - Audio2Text_CENF_0.10.0_CONTRERAS.exe")
+    print("  - Audio2Text_CENF_0.10.0_CUTIGNOLA.exe")
+    print("\n📄 Logs organizados en: _build_artifacts/logs/[VARIANTE]/")
+    print("📄 Specs organizados en: _build_artifacts/specs/[VARIANTE]/")
 else:
     print("⚠️  Algunas compilaciones fallaron. Revisa los logs:")
     for variant, success in results.items():
         if not success:
             print(f"  - _build_artifacts/logs/{variant}/")
 
-print(f"{'─'*70}\n")
+print(f"{'─' * 70}\n")
 
 sys.exit(0 if all_success else 1)

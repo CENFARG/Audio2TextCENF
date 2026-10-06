@@ -1,8 +1,6 @@
 # Build script para Audio2Text v.0.15.12 - (Unificado) | HC-05: pyproject.toml es fuente canónica
 import subprocess
 import sys
-import os
-import shutil
 from pathlib import Path
 from datetime import datetime
 
@@ -13,6 +11,7 @@ APP_NAME = f"Audio2Text_CENF_v.{APP_VERSION}"
 # ── HC-05 version single-source check (fail fast if sources diverge) ──
 try:
     import importlib.util as _ilu
+
     _check_path = Path(__file__).parent / "check_version.py"
     if _check_path.exists():
         _spec = _ilu.spec_from_file_location("check_version", _check_path)
@@ -21,14 +20,20 @@ try:
         if hasattr(_mod, "check_all"):
             _ok = _mod.check_all(verbose=True)
             if not _ok:
-                print("[!] Version check FAILED — aborting build. Ejecuta: python scripts/check_version.py")
+                print(
+                    "[!] Version check FAILED — aborting build. Ejecuta: python scripts/check_version.py"
+                )
                 sys.exit(1)
             else:
-                print(f"[✓] Version check PASS — canonical pyproject.toml = {APP_VERSION}")
+                print(
+                    f"[✓] Version check PASS — canonical pyproject.toml = {APP_VERSION}"
+                )
         else:
             print("[!] check_version.py missing check_all — skipping version gate")
     else:
-        print(f"[!] check_version.py not found at {_check_path} — skipping version gate")
+        print(
+            f"[!] check_version.py not found at {_check_path} — skipping version gate"
+        )
 except SystemExit:
     raise
 except Exception as _e:
@@ -57,16 +62,18 @@ specs_dir.mkdir(parents=True, exist_ok=True)
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 log_file = logs_dir / f"build_{timestamp}.log"
 
-print(f"\n{'='*60}")
+print(f"\n{'=' * 60}")
 print(f"Building {APP_NAME}")
-print(f"{'='*60}\n")
-print(f"[*] Organizando artefactos en:")
+print(f"{'=' * 60}\n")
+print("[*] Organizando artefactos en:")
 print(f"   Logs:  {logs_dir}")
 print(f"   Specs: {specs_dir}\n")
 
 # Comando PyInstaller — base sin datas (se agregan condicionalmente abajo)
 command = [
-    sys.executable, "-m", "PyInstaller",
+    sys.executable,
+    "-m",
+    "PyInstaller",
     "--onefile",
     "--windowed",
     "--clean",
@@ -80,6 +87,7 @@ command = [
     f"--specpath={specs_dir}",  # Guardar spec en carpeta organizada
 ]
 
+
 # ── Fix v0.15.7: datas solo si el archivo existe (config/config.json está gitignored) ──
 def _add_data(src: Path, dst: str):
     if src.exists():
@@ -88,6 +96,7 @@ def _add_data(src: Path, dst: str):
     else:
         print(f"[!] datas skip (no existe): {src} -> {dst}")
 
+
 # lang es directorio — requerido
 _add_data(current_dir / "lang", "lang")
 # config: preferir config/config.json si existe, sino fallback a config.json en root, sino omitir
@@ -95,12 +104,16 @@ _config_src = current_dir / "config" / "config.json"
 if not _config_src.exists():
     _fallback = current_dir / "config.json"
     if _fallback.exists():
-        print(f"[!] config/config.json no existe — usando fallback { _fallback.relative_to(current_dir) }")
+        print(
+            f"[!] config/config.json no existe — usando fallback {_fallback.relative_to(current_dir)}"
+        )
         _config_src = _fallback
     else:
         _example = current_dir / "config.json.example"
         if _example.exists():
-            print(f"[!] config/config.json y config.json no existen — usando {_example.relative_to(current_dir)}")
+            print(
+                f"[!] config/config.json y config.json no existen — usando {_example.relative_to(current_dir)}"
+            )
             _config_src = _example
         else:
             _config_src = None  # type: ignore
@@ -112,51 +125,72 @@ _add_data(LOGO_PATH, ".")
 _add_data(current_dir / "templates" / "info_template.html", ".")
 
 # hidden-imports / excludes siguen a continuación — se agregan al command existente
-command.extend([
-    "--hidden-import", "tkinter",
-    "--hidden-import", "customtkinter",
-    "--hidden-import", "sounddevice",
-    "--hidden-import", "soundfile",
-    "--hidden-import", "mouse",
-    "--hidden-import", "keyboard",
-    "--hidden-import", "pyautogui",
-    "--hidden-import", "pyperclip",
-    "--hidden-import", "psutil",
-    "--hidden-import", "groq",
-    "--hidden-import", "backend.transcription_metadata",
-    "--hidden-import", "backend.transcription_metadata_generator",
-    "--hidden-import", "backend.hotkey_manager",
-    "--hidden-import", "backend.emoji_picker",
-    # FIX v0.15.0: ERRADICADO faster-whisper + modelo local (ctranslate2/transformers/
-    # tokenizers/huggingface_hub) — la app usa SOLO API cloud Groq.
-    # FIX v0.15.0: ERRADICADO stack flet/ui_flet/flet_view (código muerto, no se importa)
-    "--exclude-module", "pandas",
-    "--exclude-module", "yt_dlp",
-    "--exclude-module", "faster_whisper",
-    "--exclude-module", "ctranslate2",
-    "--exclude-module", "transformers",
-    "--exclude-module", "tokenizers",
-    "--exclude-module", "huggingface_hub",
-    "--exclude-module", "flet",
-    "--exclude-module", "flet_view",
-    str(main_script_path)
-])
+command.extend(
+    [
+        "--hidden-import",
+        "tkinter",
+        "--hidden-import",
+        "customtkinter",
+        "--hidden-import",
+        "sounddevice",
+        "--hidden-import",
+        "soundfile",
+        "--hidden-import",
+        "mouse",
+        "--hidden-import",
+        "keyboard",
+        "--hidden-import",
+        "pyautogui",
+        "--hidden-import",
+        "pyperclip",
+        "--hidden-import",
+        "psutil",
+        "--hidden-import",
+        "groq",
+        "--hidden-import",
+        "backend.transcription_metadata",
+        "--hidden-import",
+        "backend.transcription_metadata_generator",
+        "--hidden-import",
+        "backend.hotkey_manager",
+        "--hidden-import",
+        "backend.emoji_picker",
+        # FIX v0.15.0: ERRADICADO faster-whisper + modelo local (ctranslate2/transformers/
+        # tokenizers/huggingface_hub) — la app usa SOLO API cloud Groq.
+        # FIX v0.15.0: ERRADICADO stack flet/ui_flet/flet_view (código muerto, no se importa)
+        "--exclude-module",
+        "pandas",
+        "--exclude-module",
+        "yt_dlp",
+        "--exclude-module",
+        "faster_whisper",
+        "--exclude-module",
+        "ctranslate2",
+        "--exclude-module",
+        "transformers",
+        "--exclude-module",
+        "tokenizers",
+        "--exclude-module",
+        "huggingface_hub",
+        "--exclude-module",
+        "flet",
+        "--exclude-module",
+        "flet_view",
+        str(main_script_path),
+    ]
+)
 
 # Ejecutar directamente
-result = subprocess.run(
-    command, 
-    cwd=current_dir,
-    text=True
-)
+result = subprocess.run(command, cwd=current_dir, text=True)
 
 # Guardar resultado
 success = result.returncode == 0
 
 # Crear archivo de resumen
 summary_file = logs_dir / f"summary_{timestamp}.txt"
-with open(summary_file, 'w', encoding='utf-8') as f:
+with open(summary_file, "w", encoding="utf-8") as f:
     f.write(f"Build Summary - {APP_NAME}\n")
-    f.write(f"{'='*60}\n")
+    f.write(f"{'=' * 60}\n")
     f.write(f"Timestamp: {timestamp}\n")
     f.write(f"Status: {'✅ SUCCESS' if success else '❌ FAILED'}\n")
     f.write(f"Return Code: {result.returncode}\n")
@@ -165,18 +199,20 @@ with open(summary_file, 'w', encoding='utf-8') as f:
     if success:
         exe_path = dist_dir / f"{APP_NAME}.exe"
         if exe_path.exists():
-            size_mb = exe_path.stat().st_size / (1024*1024)
+            size_mb = exe_path.stat().st_size / (1024 * 1024)
             f.write(f"Executable: {exe_path}\n")
             f.write(f"Size: {size_mb:.2f} MB\n")
 
-print(f"\n{'='*60}")
+print(f"\n{'=' * 60}")
 if success:
     print(f"[+] Build exitoso: dist/{APP_NAME}.exe")
     print(f"[*] Log guardado: {log_file.relative_to(current_dir)}")
-    print(f"[*] Spec guardado: {(specs_dir / f'{APP_NAME}.spec').relative_to(current_dir)}")
+    print(
+        f"[*] Spec guardado: {(specs_dir / f'{APP_NAME}.spec').relative_to(current_dir)}"
+    )
 else:
     print(f"[-] Build fallo con codigo: {result.returncode}")
     print(f"[*] Ver detalles en: {log_file.relative_to(current_dir)}")
-print(f"{'='*60}\n")
-    
+print(f"{'=' * 60}\n")
+
 sys.exit(result.returncode)
