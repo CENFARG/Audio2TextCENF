@@ -20,11 +20,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pytest
 
-from backend.context_blocks import DEFAULT_CONTEXT_BLOCKS_DIR
-from backend.context_blocks import ContextBlock
-from backend.context_blocks import assemble_all
-from backend.context_blocks import assemble_entry
-from backend.context_blocks import load_context_blocks
+from backend.context_blocks import (
+    DEFAULT_CONTEXT_BLOCKS_DIR,
+    ContextBlock,
+    assemble_all,
+    assemble_entry,
+    load_context_blocks,
+)
 
 
 def _write_block(directory: Path, name: str, content: str) -> Path:
@@ -143,29 +145,41 @@ class TestDirectoryDegradation:
 
 @pytest.mark.unit
 class TestMalformedFiles:
-    """Malformed block files are skipped with a warning, never fatal."""
+    """Malformed frontmatter degrades to filename-derived blocks (C-7)."""
 
-    def test_file_without_frontmatter_is_skipped(self, tmp_path, caplog):
-        # Arrange
-        _write_block(tmp_path, "bad.md", "just text, no frontmatter\n")
+    def test_file_without_frontmatter_loads_with_derived_id(self, tmp_path, caplog):
+        # Arrange: iterativo-acumulativo-like file with no frontmatter at all
+        _write_block(tmp_path, "iterativo-acumulativo.md", "Paso 1.\nPaso 2.\n")
 
         # Act
-        with caplog.at_level(logging.WARNING, logger="backend.context_blocks"):
+        with caplog.at_level(logging.DEBUG, logger="backend.context_blocks"):
             blocks = load_context_blocks(tmp_path)
 
-        # Assert
-        assert blocks == []
-        assert any(r.levelno == logging.WARNING for r in caplog.records)
+        # Assert: loaded with derived id/name and full text as body, DEBUG log
+        assert len(blocks) == 1
+        block = blocks[0]
+        assert block.id == "iterativo-acumulativo"
+        assert block.name == "iterativo acumulativo"
+        assert block.description == ""
+        assert block.body == "Paso 1.\nPaso 2."
+        assert any(r.levelno == logging.DEBUG for r in caplog.records)
 
-    def test_unterminated_frontmatter_is_skipped(self, tmp_path):
+    def test_unterminated_frontmatter_loads_with_derived_id(self, tmp_path):
         # Arrange: opening --- but no closing ---
-        _write_block(tmp_path, "bad.md", "---\nid: x\nname: X\nbody without closing")
+        raw = "---\nid: x\nname: X\nbody without closing"
+        _write_block(tmp_path, "roto.md", raw)
 
-        # Act / Assert
-        assert load_context_blocks(tmp_path) == []
+        # Act
+        blocks = load_context_blocks(tmp_path)
+
+        # Assert: C-7 — usable instead of silently skipped
+        assert len(blocks) == 1
+        assert blocks[0].id == "roto"
+        assert blocks[0].name == "roto"
+        assert blocks[0].body == raw
 
     def test_block_without_id_and_name_is_skipped(self, tmp_path):
-        # Arrange
+        # Arrange: frontmatter VALID but no identity fields — still skipped
         _write_block(tmp_path, "bad.md", "---\ndescription: no identity\n---\nBody")
 
         # Act / Assert
@@ -179,8 +193,8 @@ class TestMalformedFiles:
         # Act
         blocks = load_context_blocks(tmp_path)
 
-        # Assert
-        assert [b.id for b in blocks] == ["ok"]
+        # Assert: malformed sibling degrades to a derived block, good one intact
+        assert [b.id for b in blocks] == ["bad", "ok"]
 
 
 @pytest.mark.unit
@@ -217,6 +231,37 @@ class TestAssembleEntry:
     def test_assemble_all_empty(self):
         # Act / Assert
         assert assemble_all([]) == ""
+
+    def test_assemble_entry_empty_quote_and_response_returns_empty_string(self):
+        # Arrange: C-3 — nothing to copy at all
+        entry = SimpleNamespace(number=1, quote="", response="")
+
+        # Act / Assert: "" so the UI can block the copy with a clear message
+        assert assemble_entry(entry) == ""
+
+    def test_assemble_entry_whitespace_response_only_is_empty(self):
+        # Arrange: whitespace-only content counts as empty (C-3)
+        entry = SimpleNamespace(number=2, quote="", response="   ")
+
+        # Act / Assert
+        assert assemble_entry(entry) == ""
+
+    def test_assemble_entry_escapes_double_quotes_in_quote(self):
+        # Arrange: C-5 — nested quotes made the copy ambiguous
+        entry = SimpleNamespace(number=4, quote='dijo "hola"', response="ok")
+
+        # Act / Assert: quotes inside the quoted segment are escaped
+        assert assemble_entry(entry) == '4. "dijo \\"hola\\""\n: ok'
+
+    def test_assemble_all_skips_empty_entries(self):
+        # Arrange: C-3 — empty entries contribute nothing, no stray separators
+        entries = [
+            SimpleNamespace(number=1, quote="", response=""),
+            SimpleNamespace(number=2, quote="q", response="r"),
+        ]
+
+        # Act / Assert
+        assert assemble_all(entries) == '2. "q"\n: r'
 
 
 @pytest.mark.unit

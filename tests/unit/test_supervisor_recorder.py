@@ -22,8 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import pytest
 
 from backend import supervisor_recorder
-from backend.supervisor_recorder import SAMPLE_RATE
-from backend.supervisor_recorder import SupervisorRecorder
+from backend.supervisor_recorder import SAMPLE_RATE, SupervisorRecorder
 
 
 class _FakeStream:
@@ -195,7 +194,9 @@ class TestRefusals:
         assert blocked.refusal_reason == "main_recording"
 
         # Act: main recorder goes idle, retry
-        blocked._main_transcriber.is_recording = False
+        main = blocked._main_transcriber
+        if main is not None:
+            main.is_recording = False
         started = blocked.start()
 
         # Assert
@@ -214,6 +215,47 @@ class TestRefusals:
         # Assert
         assert started is False
         assert recorder.refusal_reason == "unavailable"
+
+
+@pytest.mark.unit
+class TestCaptureFailureDelivery:
+    """C-1: ANY capture failure must deliver on_text(None), never hang the UI."""
+
+    def test_inputstream_open_failure_delivers_none(self, fake_audio):
+        # Arrange: opening the device raises (mic busy/disconnected)
+        fake_sd, _ = fake_audio
+
+        class _BrokenOpenStream(_FakeStream):
+            def start(self) -> None:
+                raise OSError("device unavailable")
+
+        fake_sd.InputStream = lambda **kwargs: _BrokenOpenStream(**kwargs)
+        recorder, delivered = _make_recorder()
+
+        # Act
+        recorder.toggle()
+        _stop_and_join(recorder)
+
+        # Assert: the UI is notified with None so it can clear "Transcribiendo..."
+        assert delivered == [None]
+
+    def test_read_failure_delivers_none(self, fake_audio):
+        # Arrange: reading frames raises mid-capture (device error)
+        fake_sd, _ = fake_audio
+
+        class _BrokenReadStream(_FakeStream):
+            def read(self, frames: int):
+                raise OSError("stream read failed")
+
+        fake_sd.InputStream = lambda **kwargs: _BrokenReadStream(**kwargs)
+        recorder, delivered = _make_recorder()
+
+        # Act
+        recorder.toggle()
+        _stop_and_join(recorder)
+
+        # Assert
+        assert delivered == [None]
 
 
 @pytest.mark.unit

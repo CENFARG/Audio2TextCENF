@@ -10,8 +10,10 @@ change. A corrupt file never crashes the app: it is backed up as
 ``<name>.corrupt-<timestamp>``, an error is logged and the store starts empty.
 
 Entry lifecycle (ARCH-009 state machine): ``draft -> sent -> draft`` (reopen).
-Numbers are assigned ``max(existing)+1`` and are NEVER reassigned on delete —
-they are historical. Illegal status transitions are no-ops with a warning.
+Numbers come from a persisted ``next_number`` counter that is saved with every
+write and initialized to ``max(existing)+1`` when absent (C-2 migration) — so
+numbers are NEVER reused, not even after deleting the highest entry. Illegal
+status transitions are no-ops with a warning.
 """
 
 from __future__ import annotations
@@ -134,6 +136,7 @@ class SupervisorStore:
         self._path = Path(path)
         self._now = now_fn or _utc_now_iso
         self._entries: dict[int, SupervisorEntry] = {}
+        self._next = 1
         self._load()
 
     # ── Queries ──────────────────────────────────────────────────────
@@ -157,12 +160,13 @@ class SupervisorStore:
         return self._entries.get(int(number))
 
     def _next_number(self) -> int:
-        """Compute the next sequential number.
+        """Return the next sequential number.
 
         Returns:
-            ``max(existing) + 1`` — deleted gaps are never reused.
+            The persisted ``next_number`` counter (C-2): deleted entries —
+            including the highest one — never free their number for reuse.
         """
-        return max(self._entries, default=0) + 1
+        return self._next
 
     # ── Mutations (each persists immediately) ────────────────────────
     def create_entry(self, quote: str = "", response: str = "") -> SupervisorEntry:
@@ -176,8 +180,9 @@ class SupervisorStore:
             The freshly created entry.
         """
         now = self._now()
+        number = self._next_number()
         entry = SupervisorEntry(
-            number=self._next_number(),
+            number=number,
             quote=str(quote),
             response=str(response),
             blocks=[],
@@ -185,6 +190,7 @@ class SupervisorStore:
             created_at=now,
             updated_at=now,
         )
+        self._next = max(self._next, number + 1)
         self._entries[entry.number] = entry
         self._save()
         return entry
@@ -277,6 +283,9 @@ class SupervisorStore:
         A missing file means an empty workbench. A corrupt file is backed up
         as ``<name>.corrupt-<timestamp>``, an error is logged and the store
         starts empty. Individually malformed entries are skipped, not fatal.
+        A legacy file without ``next_number`` migrates its counter to
+        ``max(existing)+1`` (C-2); a stored counter lower than that is
+        clamped up so a number can never be handed out twice.
         """
         if not self._path.exists():
             return
@@ -298,6 +307,10 @@ class SupervisorStore:
                 logger.warning("Supervisor: skipping malformed entry: %s", exc)
                 continue
             self._entries[entry.number] = entry
+        counter = payload.get("next_number")
+        if not isinstance(counter, int) or isinstance(counter, bool) or counter < 1:
+            counter = max(self._entries, default=0) + 1
+        self._next = max(counter, max(self._entries, default=0) + 1)
 
     def _recover_corrupt_file(self, exc: Exception) -> None:
         """Back up a corrupt store file and start empty.
@@ -322,11 +335,13 @@ class SupervisorStore:
                 copy_exc,
             )
         self._entries = {}
+        self._next = 1
 
     def _save(self) -> None:
         """Persist all entries atomically (temp file + ``os.replace``)."""
         payload = {
             "version": _SCHEMA_VERSION,
+            "next_number": self._next,
             "entries": [_entry_to_dict(e) for e in self.all()],
         }
         tmp_path = self._path.with_name(self._path.name + ".tmp")

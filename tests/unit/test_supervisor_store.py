@@ -23,7 +23,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import pytest
 
 from backend import supervisor_store
-from backend.supervisor_store import STATUS_DRAFT, STATUS_SENT, SupervisorEntry, SupervisorStore
+from backend.supervisor_store import (
+    STATUS_DRAFT,
+    STATUS_SENT,
+    SupervisorEntry,
+    SupervisorStore,
+)
 
 
 class _FakeClock:
@@ -352,6 +357,64 @@ class TestNumberStability:
         assert e4.number == 4
         assert [e.number for e in store.all()] == [1, 3, 4]
 
+    def test_deleted_max_number_is_never_reused(self, tmp_path):
+        # Arrange: C-2 — deleting the highest entry must not free its number
+        store = SupervisorStore(tmp_path / "entries.json", now_fn=_FakeClock())
+        store.create_entry()
+        last = store.create_entry()
+        store.delete_entry(last.number)
+
+        # Act
+        entry = store.create_entry()
+
+        # Assert: the counter never walks back, even past the deleted max
+        assert entry.number == 3
+        assert [e.number for e in store.all()] == [1, 3]
+
+    def test_persisted_counter_survives_reload_after_deleting_max(self, tmp_path):
+        # Arrange: C-2 — the counter persists, so a reload cannot reuse #2
+        path = tmp_path / "entries.json"
+        store = SupervisorStore(path, now_fn=_FakeClock())
+        store.create_entry()
+        last = store.create_entry()
+        store.delete_entry(last.number)
+
+        # Act
+        reloaded = SupervisorStore(path, now_fn=_FakeClock())
+        entry = reloaded.create_entry()
+
+        # Assert
+        assert entry.number == 3
+
+    def test_saved_payload_carries_next_number(self, tmp_path):
+        # Arrange
+        path = tmp_path / "entries.json"
+        store = SupervisorStore(path, now_fn=_FakeClock())
+
+        # Act
+        store.create_entry()
+
+        # Assert
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload["next_number"] == 2
+
+    def test_migration_absent_counter_initializes_max_plus_one(self, tmp_path):
+        # Arrange: legacy JSON without ``next_number`` (pre C-2 schema)
+        path = tmp_path / "entries.json"
+        path.write_text(
+            json.dumps({"version": 1, "entries": [{"number": 1}, {"number": 5}]}),
+            encoding="utf-8",
+        )
+
+        # Act
+        store = SupervisorStore(path, now_fn=_FakeClock())
+        entry = store.create_entry()
+
+        # Assert: migrated to max(existing)+1 = 6, then persisted as 7
+        assert entry.number == 6
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload["next_number"] == 7
+
     def test_number_sequence_survives_reload(self, tmp_path):
         # Arrange
         path = tmp_path / "entries.json"
@@ -361,11 +424,11 @@ class TestNumberStability:
         store.delete_entry(2)
         reloaded = SupervisorStore(path, now_fn=_FakeClock())
 
-        # Act: next number continues from max(existing)+1 across reloads
+        # Act: C-2 — the persisted counter keeps the deleted number consumed
         entry = reloaded.create_entry()
 
-        # Assert: sequence does NOT reset to 1 after reload
-        assert entry.number == 2
+        # Assert: sequence does NOT reset to 1 and does NOT reuse deleted #2
+        assert entry.number == 3
 
 
 @pytest.mark.unit

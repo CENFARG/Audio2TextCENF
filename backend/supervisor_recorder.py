@@ -146,13 +146,17 @@ class SupervisorRecorder:
         Runs entirely on the worker thread: reads the InputStream in bounded
         polls, finalizes the stream, writes a temp WAV, calls the injected
         ``transcribe_fn`` and forwards the result to ``on_text``. The temp
-        WAV is removed afterwards; failures are logged, never raised.
+        WAV is removed afterwards. EVERY failure path (backend missing,
+        stream raise, zero frames, transcription error) delivers
+        ``on_text(None)`` so the UI can never stay stuck on
+        "Transcribiendo..." (C-1); failures are logged, never raised.
         """
         stream = None
         wav_path: str | None = None
         frames: list = []
         if sd is None or sf is None:
             logger.error("Supervisor capture failed: audio backend missing")
+            self._on_text(None)
             return
         try:
             stream = sd.InputStream(samplerate=SAMPLE_RATE, channels=1, dtype="float32")
@@ -174,7 +178,10 @@ class SupervisorRecorder:
                 logger.warning("Supervisor stream cleanup failed: %s", exc)
 
         if not frames:
+            # C-1: notify the UI even when nothing was captured, so it clears
+            # the "Transcribiendo..." state and shows a localized error.
             logger.warning("Supervisor recording produced no audio; nothing to transcribe")
+            self._on_text(None)
             return
         try:
             wav_path = self._write_wav(frames)

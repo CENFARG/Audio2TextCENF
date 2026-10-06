@@ -163,29 +163,31 @@ class SupervisorViewMixin:
         ).grid(row=0, column=0, padx=10, pady=(5, 0), sticky="ew")
         bar = ctk.CTkFrame(tab, fg_color="transparent")
         bar.grid(row=0, column=0, padx=10, pady=(36, 5), sticky="ew")
+        # UX-3: window is 590px wide — compact widths + small padx keep
+        # "Copiar todo" fully visible instead of clipped at the right edge.
         ctk.CTkButton(
             bar,
             text=loc.get_string("supervisor_new_entry"),
-            width=130,
+            width=118,
             command=self._supervisor_new_entry,
-        ).pack(side="left", padx=(0, 5))
+        ).pack(side="left", padx=(0, 3))
         names = [b.name for b in self.context_blocks] or [loc.get_string("supervisor_no_blocks")]
-        self._supervisor_block_menu = ctk.CTkOptionMenu(bar, values=names, width=170)
-        self._supervisor_block_menu.pack(side="left", padx=5)
+        self._supervisor_block_menu = ctk.CTkOptionMenu(bar, values=names, width=148)
+        self._supervisor_block_menu.pack(side="left", padx=3)
         ctk.CTkButton(
             bar,
             text=loc.get_string("supervisor_insert_block"),
-            width=120,
+            width=106,
             state="normal" if self.context_blocks else "disabled",
             command=self._supervisor_insert_block,
-        ).pack(side="left", padx=5)
+        ).pack(side="left", padx=3)
         ctk.CTkButton(
             bar,
             text=loc.get_string("supervisor_copy_all"),
-            width=110,
+            width=98,
             fg_color=DesignSystem.COLORS["primary"],
             command=self._supervisor_copy_all,
-        ).pack(side="right")
+        ).pack(side="right", padx=(3, 0))
         self.supervisor_scroll = ctk.CTkScrollableFrame(tab, fg_color="transparent")
         self.supervisor_scroll.grid(row=1, column=0, padx=6, pady=5, sticky="nsew")
         self.supervisor_status_label = ctk.CTkLabel(
@@ -212,7 +214,13 @@ class SupervisorViewMixin:
         )
 
     def _supervisor_build_row(self, entry) -> None:
-        """Build one entry row: header + quote + response textboxes."""
+        """Build one entry row: header (label + actions) + full-width textboxes.
+
+        UX-2b: the quote/response textareas live in their own grid rows and
+        expand to the row width (``sticky="ew"`` + weighted column 0); the
+        buttons stay visible in the top header line instead of squeezing
+        the textboxes into ~30px slivers on the 590px window.
+        """
         import customtkinter as ctk
 
         loc = self.localization_manager
@@ -220,48 +228,53 @@ class SupervisorViewMixin:
         is_sent = entry.status == "sent"
         row = ctk.CTkFrame(self.supervisor_scroll, fg_color="transparent")
         row.pack(fill="x", pady=(8, 2), padx=4)
+        row.grid_columnconfigure(0, weight=1)
+
+        # Header line: entry label left, all actions right.
+        header = ctk.CTkFrame(row, fg_color="transparent")
+        header.grid(row=0, column=0, sticky="ew")
         status_key = "supervisor_status_sent" if is_sent else "supervisor_status_draft"
         ctk.CTkLabel(
-            row, text=format_entry_label(number, loc.get_string(status_key)), anchor="w"
+            header, text=format_entry_label(number, loc.get_string(status_key)), anchor="w"
         ).pack(side="left")
         record_btn = ctk.CTkButton(
-            row,
+            header,
             text=loc.get_string("supervisor_record"),
-            width=90,
+            width=88,
             command=lambda n=number: self._supervisor_toggle_record(n),
         )
         record_btn.pack(side="right", padx=(4, 0))
         for kwargs in (
             {
                 "text": loc.get_string("supervisor_copy_entry", number=number),
-                "width": 110,
+                "width": 106,
                 "command": lambda n=number: self._supervisor_copy_entry(n),
             },
             {
                 "text": loc.get_string("supervisor_reopen" if is_sent else "supervisor_mark_sent"),
-                "width": 90,
+                "width": 88,
                 "fg_color": "transparent",
                 "border_width": 1,
                 "command": lambda n=number: self._supervisor_toggle_status(n),
             },
             {
                 "text": "🗑",
-                "width": 36,
+                "width": 34,
                 "fg_color": "transparent",
                 "border_width": 1,
                 "command": lambda n=number: self._supervisor_delete_entry(n),
             },
         ):
-            ctk.CTkButton(row, **kwargs).pack(side="right", padx=4)
+            ctk.CTkButton(header, **kwargs).pack(side="right", padx=3)
 
         # CTkTextbox no soporta placeholder_text (crashea en Tcl/Tk estricto):
         # el campo arranca vacío y el contenido real se inserta abajo.
         quote = ctk.CTkTextbox(row, height=50)
-        quote.pack(fill="x", pady=(2, 0))
+        quote.grid(row=1, column=0, sticky="ew", pady=(2, 0))
         if entry.quote:
             quote.insert("1.0", entry.quote)
         response = ctk.CTkTextbox(row, height=110)
-        response.pack(fill="x", pady=(2, 4))
+        response.grid(row=2, column=0, sticky="ew", pady=(2, 4))
         if entry.response:
             response.insert("1.0", entry.response)
         for textbox in (quote, response):
@@ -327,11 +340,26 @@ class SupervisorViewMixin:
         entry = self.supervisor_store.get(number)
         if entry is None:
             return
-        self._supervisor_copy_to_clipboard(build_copy_payload([entry]))
+        payload = build_copy_payload([entry])
+        if not payload.strip():
+            # C-3: an entry with no quote AND no response copies nothing —
+            # tell the user instead of putting a bare number on the clipboard.
+            self._supervisor_set_status(
+                self.localization_manager.get_string("supervisor_copy_empty", number=number)
+            )
+            return
+        self._supervisor_copy_to_clipboard(payload)
 
     def _supervisor_copy_all(self) -> None:
-        """Copy every entry assembled in numeric order to the clipboard."""
-        self._supervisor_copy_to_clipboard(build_copy_payload(self.supervisor_store.all()))
+        """Copy every non-empty entry assembled in numeric order to the clipboard."""
+        payload = build_copy_payload(self.supervisor_store.all())
+        if not payload.strip():
+            # C-3: nothing to copy anywhere — same localized feedback.
+            self._supervisor_set_status(
+                self.localization_manager.get_string("supervisor_copy_empty", number="").rstrip()
+            )
+            return
+        self._supervisor_copy_to_clipboard(payload)
 
     def _supervisor_copy_to_clipboard(self, text: str) -> None:
         """Best-effort clipboard write with a localized confirmation."""
@@ -350,7 +378,8 @@ class SupervisorViewMixin:
         loc = self.localization_manager
         number = self._supervisor_selected
         if number is None:
-            self._supervisor_set_status(loc.get_string("supervisor_no_blocks"))
+            # C-6: the real problem is the missing entry, not the blocks.
+            self._supervisor_set_status(loc.get_string("supervisor_select_entry_first"))
             return
         row = self._supervisor_rows.get(number)
         name = self._supervisor_block_menu.get()
@@ -408,6 +437,11 @@ class SupervisorViewMixin:
         number = self._supervisor_recording_number
         self._supervisor_reset_record_button()
         if number is None:
+            return
+        if text is None:
+            # C-1: capture failed upstream — clear "Transcribiendo..." with a
+            # specific localized error instead of the generic failed message.
+            self._supervisor_set_status(loc.get_string("supervisor_recording_error"))
             return
         if not text:
             self._supervisor_set_status(loc.get_string("supervisor_transcription_failed"))

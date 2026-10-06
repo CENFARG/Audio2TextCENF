@@ -22,15 +22,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pytest
 
-from ui.views.supervisor_view import AUTOSAVE_DEBOUNCE_MS
-from ui.views.supervisor_view import DebounceTimer
-from ui.views.supervisor_view import append_block_id
-from ui.views.supervisor_view import build_copy_payload
-from ui.views.supervisor_view import compute_inserted_text
-from ui.views.supervisor_view import format_entry_label
-from ui.views.supervisor_view import parse_tk_index
-from ui.views.supervisor_view import resolve_selection
-from ui.views.supervisor_view import tk_index_to_char_index
+from ui.views.supervisor_view import (
+    AUTOSAVE_DEBOUNCE_MS,
+    DebounceTimer,
+    append_block_id,
+    build_copy_payload,
+    compute_inserted_text,
+    format_entry_label,
+    parse_tk_index,
+    resolve_selection,
+    tk_index_to_char_index,
+)
 
 LANG_DIR = Path(__file__).resolve().parents[2] / "lang"
 
@@ -52,6 +54,9 @@ SUPERVISOR_LANG_KEYS = [
     "supervisor_copied",
     "supervisor_deleted",
     "supervisor_no_blocks",
+    "supervisor_select_entry_first",
+    "supervisor_copy_empty",
+    "supervisor_recording_error",
     "supervisor_busy",
     "supervisor_transcribing",
     "supervisor_transcribed",

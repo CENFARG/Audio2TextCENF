@@ -5,11 +5,15 @@ Loads ``*.md`` template files from a configurable directory (config key
 ``context_blocks_dir``), parsing a MINIMAL flat YAML frontmatter (``id``,
 ``name``, ``description`` as ``key: value`` lines — no PyYAML dependency)
 plus the markdown body. A missing or unreadable directory degrades to an
-empty list with one logged warning; malformed files are skipped, never fatal.
+empty list with one logged warning. A file WITHOUT valid frontmatter is
+never silently dropped (C-7): it loads with ``id`` = filename stem, a
+humanized name (dashes → spaces) and the full text as body, with a DEBUG log.
 
 Also provides the assembled-copy format used by the workbench copy buttons:
-``N. "quote"`` newline ``: response`` (quote omitted when empty), with all
-entries joined by a blank line in numeric order.
+``N. "quote"`` newline ``: response`` (quote omitted when empty; inner double
+quotes escaped, C-5). An entry with no quote AND no response assembles to
+``""`` (C-3) so the UI can block the copy with a clear message. All entries
+are joined by a blank line in numeric order, empty ones skipped.
 """
 
 from __future__ import annotations
@@ -122,9 +126,17 @@ def load_context_blocks(directory: str | Path) -> list[ContextBlock]:
             continue
         parsed = _parse_frontmatter(text)
         if parsed is None:
-            logger.warning(
-                "Context block malformed (no/unterminated frontmatter), skipping: %s",
+            # C-7: a file without valid frontmatter is still usable — derive
+            # its identity from the filename instead of silently dropping it.
+            stem = path.stem
+            logger.debug(
+                "Context block without valid frontmatter, deriving id from filename: %s",
                 path.name,
+            )
+            blocks.append(
+                ContextBlock(
+                    id=stem, name=stem.replace("-", " "), description="", body=text.strip()
+                )
             )
             continue
         fields, body = parsed
@@ -153,13 +165,18 @@ def assemble_entry(entry) -> str:
 
     Returns:
         ``N. "quote"`` newline ``: response``; when the quote is empty the
-        result is just ``N. response``.
+        result is just ``N. response``. Inner double quotes of the quote are
+        escaped (C-5). When BOTH quote and response are empty/whitespace-only
+        the result is ``""`` (C-3) so callers can block empty copies.
     """
     number = int(entry.number)
     quote = str(entry.quote or "").strip()
     response = str(entry.response or "")
+    if not quote and not response.strip():
+        return ""
     if quote:
-        return f'{number}. "{quote}"\n: {response}'
+        escaped = quote.replace('"', '\\"')
+        return f'{number}. "{escaped}"\n: {response}'
     return f"{number}. {response}"
 
 
@@ -170,6 +187,8 @@ def assemble_all(entries) -> str:
         entries: Iterable of entries ordered for copying (numeric order).
 
     Returns:
-        All assembled entries joined by a blank line; ``""`` when empty.
+        All non-empty assembled entries joined by a blank line (empty ones
+        are skipped, C-3); ``""`` when nothing has content.
     """
-    return "\n\n".join(assemble_entry(entry) for entry in entries)
+    parts = [assembled for assembled in (assemble_entry(entry) for entry in entries) if assembled]
+    return "\n\n".join(parts)
