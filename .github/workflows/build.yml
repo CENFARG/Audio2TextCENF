@@ -9,6 +9,11 @@ name: Build Release
 on:
   workflow_dispatch:
 
+# El default GITHUB_TOKEN es read-only: sin esto, el job de release
+# falla con 403 "Resource not accessible by integration".
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Executable (GENERAL)
