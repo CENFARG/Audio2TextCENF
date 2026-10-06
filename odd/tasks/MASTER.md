@@ -64,7 +64,7 @@ config/version_info.txt (+3 variantes), setup.py, config/version.json (manifest 
 - [x] G2. PR #3 mergeada (a9e44d6) + bump 0.16.0 (482d10c) + tag v0.16.0 pusheado
 - [x] G3. version.json 0.16.0 en main (updater actualizado)
 - [x] G4. Aviso a Pablo: docs/AVISO_PABLO_CONSOLIDACION_v0.16.0.md (b4ea417, pusheado)
-- [ ] G5. Decisión rama Tauri (retomar/archivar) — pendiente decisión GR
+- [x] G5. Tauri ARCHIVADA (decisión por evaluación team-strategic: 3ª línea insostenible; absorbir diseño, no código). Revisitar solo si falla el spike RN. Detalle: docs/DECISION_RN_MULTIPLATAFORMA.md
 
 ### Notas de G
 - fix/v0.15.1-ui-polish: commits consolidados en main; borrado remoto rechazado por hook (reintentar)
@@ -89,3 +89,12 @@ config/version_info.txt (+3 variantes), setup.py, config/version.json (manifest 
 - [ ] G3. version.json en main con --release (updater deja de decir 0.10.0)
 - [ ] G4. Aviso a Pablo: mapa final de ramas
 - [ ] G5. Decisión rama Tauri (retomar/archivar) — post-merge
+
+
+## H — RN multiplataforma (GO-CONDICIONAL — docs/DECISION_RN_MULTIPLATAFORMA.md)
+
+- [ ] H0. Fase 0 estabilización: 103 ruff residuales + spec del protocolo de streaming en docs/ + decisión BYOK firmada (3-6 semanas)
+- [ ] H1. Fase 1 spike RN kill-or-commit: Expo mínimo Android → Groq BYOK → transcript + prueba RN Web (2-3 semanas)
+- [ ] H2. Fase 2 MVP móvil: historial + archivos + streaming TS + BYOK + EAS (6-10 semanas)
+- [ ] H3. Fase 3: RN Web + Cafecito pasiva (4-6 semanas)
+- [ ] H4. Fase 4: iOS + monetización (solo con ≥100 MAU)
