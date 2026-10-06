@@ -112,6 +112,15 @@ class Transcriber:
         )
 
         self.is_recording = False
+        # REQ-1 pause/resume state machine (ARCH-009):
+        # recording -> paused -> recording -> stopped.
+        # While paused: stream closed, audio_data KEPT, timer/streaming frozen.
+        self.is_paused = False
+        self._pause_started = None  # wall time when the current pause began
+        self._pause_total = 0.0  # seconds accumulated across completed pauses
+        # REQ-1: serializes pause/resume transitions (device open/close is
+        # done OUTSIDE recording_lock; this keeps them ordered).
+        self._pause_lock = threading.Lock()
         self.recording_lock = threading.Lock()
         # FIX Bug F: lock dedicado para audio_data (compartido entre _record_loop y process_recording)
         self.audio_lock = threading.Lock()
@@ -560,6 +569,10 @@ class Transcriber:
         # v0.15.8 single-owner: asignar recording_id al inicio (owner)
         self.current_recording_id = str(uuid.uuid4())
         self.is_recording = True
+        # REQ-1: fresh session starts unpaused with a clean timer offset.
+        self.is_paused = False
+        self._pause_started = None
+        self._pause_total = 0.0
         # FIX Bug F: reset de audio_data bajo lock (evita correr contra process_recording)
         with self.audio_lock:
             self.audio_data = []
@@ -657,17 +670,32 @@ class Transcriber:
 
         while not self.stop_event.is_set():
             try:
-                # 1) ÚNICA prioridad: leer audio, inmediato y sin bloqueos
-                if self.input_stream.active:
-                    data, overflowed = self.input_stream.read(1024)
-                    if overflowed:
-                        self.logger.warning("Audio buffer overflow")
+                # REQ-1: paused state — suspend capture, timer ticks and
+                # streaming snapshots. The loop stays alive awaiting resume.
+                # getattr guard: bare test instances may skip __init__.
+                if getattr(self, "is_paused", False):
+                    time.sleep(0.05)
+                    continue
+                # 1) ÚNICA prioridad: leer audio, inmediato y sin bloqueos.
+                # REQ-1: local ref + None guard — pause swaps input_stream to
+                # None atomically; a stale reference here must not crash.
+                stream = self.input_stream
+                if stream is not None and stream.active:
+                    # REQ-1: the read+append runs under audio_lock so a
+                    # concurrent pause can only close the stream AFTER the
+                    # in-flight read finished (PortAudio close-during-read
+                    # corrupts the native heap otherwise).
                     with self.audio_lock:
+                        data, overflowed = stream.read(1024)
+                        if overflowed:
+                            self.logger.warning("Audio buffer overflow")
                         self.audio_data.append(data)
 
                 # 2) Push de timer a la cola (no bloquea: put_nowait + cola acotada)
                 now = time.time()
-                elapsed_time = now - start_time
+                # REQ-1: paused spans do NOT count toward the timer or the
+                # max_recording_time budget — subtract them from wall time.
+                elapsed_time = now - start_time - self._pause_elapsed_seconds(now)
                 if elapsed_time > max_time:
                     # FIX: drenar el buffer antes de cortar (última lectura parcial)
                     self._drain_remaining_audio()
@@ -730,6 +758,12 @@ class Transcriber:
                     )
                 except Exception:
                     pass
+                # REQ-1: durante la transición pausa/reanudación el stream se
+                # cierra/reabre legítimamente — un error transitorio ahí NO
+                # debe cortar la sesión. El bucle sobrevive para el resume.
+                if getattr(self, "is_paused", False) or self.input_stream is None:
+                    time.sleep(0.05)
+                    continue
                 # Evitar doble stop si ya se detuvo (el fix de join ya evitó RuntimeError, pero este except era el que causaba second call con is_recording False → no process)
                 # Solo intentar stop si aún está grabando
                 if getattr(self, "is_recording", False):
@@ -1280,12 +1314,133 @@ class Transcriber:
                 except Exception:
                     pass
 
+    # ── REQ-1: pause/resume (state machine ARCH-009) ────────────────────
+    def _pause_elapsed_seconds(self, now=None):
+        """Wall-clock seconds consumed by pauses (timer freeze offset).
+
+        Includes the in-flight pause when currently paused, so a timer tick
+        computed mid-pause would still be frozen. Returns 0.0 when never
+        paused.
+        """
+        if now is None:
+            now = time.time()
+        # getattr guards: bare instances (tests) may skip __init__.
+        total = getattr(self, "_pause_total", 0.0)
+        if getattr(self, "is_paused", False):
+            started = getattr(self, "_pause_started", None)
+            if started is not None:
+                total += max(0.0, now - started)
+        return total
+
+    def pause_recording(self):
+        """Pause the current recording (recording -> paused).
+
+        Closes the InputStream WITHOUT flushing or processing: the captured
+        ``audio_data`` buffer is kept, the record loop suspends capture and
+        timer ticks, and ``resume_recording`` appends onto the same session.
+        Guard: only legal while recording and not already paused; any other
+        state logs and returns ``False`` (idempotent, never raises).
+
+        Returns:
+            ``True`` when the state transition happened, ``False`` otherwise.
+        """
+        with self._pause_lock:
+            with self.recording_lock:
+                if not self.is_recording or self.is_paused:
+                    self.logger.debug(
+                        "pause_recording ignorado: is_recording=%s is_paused=%s",
+                        self.is_recording,
+                        self.is_paused,
+                    )
+                    return False
+                self.is_paused = True
+                self._pause_started = time.time()
+                # Capture the stream atomically with the flip: no other
+                # transition may close or replace THIS object anymore.
+                stream_to_close = self.input_stream
+                self.input_stream = None
+            # Wait out any in-flight loop read on stream_to_close, then close
+            # WITHOUT flushing/processing — the audio buffer stays intact.
+            with self.audio_lock:
+                pass
+            if stream_to_close:
+                try:
+                    stream_to_close.stop()
+                    stream_to_close.close()
+                except Exception as e:
+                    self.logger.warning(f"Error cerrando stream en pausa: {e}")
+        self.update_status(self.localization_manager.get_string("recording_paused"), "orange")
+        self._push_overlay_event("paused", 0, 0)
+        self.logger.info("Grabación pausada (stream cerrado, buffer conservado).")
+        return True
+
+    def resume_recording(self):
+        """Resume a paused recording (paused -> recording).
+
+        Reopens the InputStream and the record loop keeps appending onto the
+        kept buffer — one continuous session, one combined WAV on stop. The
+        paused span is folded into ``_pause_total`` so the timer continues
+        from where it froze and the max-time budget is not consumed.
+        Guard: only legal while paused; otherwise logs and returns ``False``.
+
+        Returns:
+            ``True`` when the stream was reopened, ``False`` otherwise. On a
+            reopen failure the machine stays paused so the user can retry.
+        """
+        with self._pause_lock:
+            with self.recording_lock:
+                if not self.is_recording or not self.is_paused:
+                    self.logger.debug(
+                        "resume_recording ignorado: is_recording=%s is_paused=%s",
+                        self.is_recording,
+                        self.is_paused,
+                    )
+                    return False
+            # Reopen OUTSIDE recording_lock (device open may take a while),
+            # but BEFORE flipping is_paused: the record loop reads
+            # input_stream as soon as it sees is_paused False — flipping
+            # first would race it into a None-stream AttributeError.
+            try:
+                new_stream = sd.InputStream(samplerate=self.freq, channels=1, dtype="float32")
+                new_stream.start()
+            except Exception as e:
+                # Stay paused (freeze timer again) so the user can retry.
+                self.logger.error(f"Error reabriendo stream en reanudación: {e}")
+                self.update_status(
+                    self.localization_manager.get_string("audio_error_mic_in_use"), "red"
+                )
+                return False
+            with self.recording_lock:
+                # Re-check: a stop may have ended the session while opening.
+                if not self.is_recording:
+                    try:
+                        new_stream.stop()
+                        new_stream.close()
+                    except Exception:
+                        pass
+                    return False
+                # Fold the finished pause into the accumulated offset, then
+                # commit stream + state atomically.
+                if self._pause_started is not None:
+                    self._pause_total += time.time() - self._pause_started
+                    self._pause_started = None
+                self.input_stream = new_stream
+                self.is_paused = False
+        self.update_status(self.localization_manager.get_string("recording_resumed"), "green")
+        self._push_overlay_event("recording", 0, 0)
+        self.logger.info("Grabación reanudada (stream reabierto, misma sesión).")
+        return True
+
     def stop_recording(self):
         if not self.is_recording:
             return
 
         self.stop_event.set()
         self.is_recording = False
+        # REQ-1: stopped is terminal — clear any paused state and offset.
+        self.is_paused = False
+        self._pause_started = None
+        self._pause_total = 0.0
         self.sound_manager.sound_stop_recording()
         self.update_status(self.localization_manager.get_string("status_processing"), "yellow")
         self.logger.info("Grabación detenida. Iniciando procesamiento.")
