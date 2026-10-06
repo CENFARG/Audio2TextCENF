@@ -254,16 +254,16 @@ class SupervisorViewMixin:
         ):
             ctk.CTkButton(row, **kwargs).pack(side="right", padx=4)
 
-        quote = ctk.CTkTextbox(
-            row, height=50, placeholder_text=loc.get_string("supervisor_quote_placeholder")
-        )
+        # CTkTextbox no soporta placeholder_text (crashea en Tcl/Tk estricto):
+        # el campo arranca vacío y el contenido real se inserta abajo.
+        quote = ctk.CTkTextbox(row, height=50)
         quote.pack(fill="x", pady=(2, 0))
-        quote.insert("1.0", entry.quote)
-        response = ctk.CTkTextbox(
-            row, height=110, placeholder_text=loc.get_string("supervisor_response_placeholder")
-        )
+        if entry.quote:
+            quote.insert("1.0", entry.quote)
+        response = ctk.CTkTextbox(row, height=110)
         response.pack(fill="x", pady=(2, 4))
-        response.insert("1.0", entry.response)
+        if entry.response:
+            response.insert("1.0", entry.response)
         for textbox in (quote, response):
             textbox.bind("<KeyRelease>", lambda _e, n=number: self._supervisor_schedule_autosave(n))
             textbox.bind("<FocusOut>", lambda _e, n=number: self._supervisor_flush_entry(n))
