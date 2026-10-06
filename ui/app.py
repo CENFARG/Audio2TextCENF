@@ -15,8 +15,6 @@ import keyboard
 from groq import Groq
 import re
 import logging
-import json
-from datetime import datetime
 
 # Backend imports
 from backend.config_manager import ConfigManager, validate_api_key_charset
@@ -33,7 +31,6 @@ from ui.hotkey_selector import show_hotkey_selector
 from backend.hotkey_manager import HotkeyManager
 
 # Importar LocalizationManager directamente para usar sus strings
-from backend.localization_manager import LocalizationManager
 
 # UI imports
 from ui.recording_overlay import RecordingOverlay
@@ -191,7 +188,12 @@ class DesignSystem:
 
 
 class App(
-    SupervisorViewMixin, FilesViewMixin, HistoryViewMixin, VocabDialogMixin, _FilesDndBase, ctk.CTk
+    SupervisorViewMixin,
+    FilesViewMixin,
+    HistoryViewMixin,
+    VocabDialogMixin,
+    _FilesDndBase,
+    ctk.CTk,
 ):
     """HC-02: God-class descompuesta vía mixins. Ver ui/views/history_view.py y ui/dialogs/vocab_dialog.py."""
 
@@ -228,7 +230,10 @@ class App(
                 "icono.ico",
                 os.path.join("assets", "icons", "icono.ico"),
                 os.path.join(
-                    os.path.dirname(os.path.dirname(__file__)), "assets", "icons", "icono.ico"
+                    os.path.dirname(os.path.dirname(__file__)),
+                    "assets",
+                    "icons",
+                    "icono.ico",
                 ),
             ]
             _icon_loaded = False
@@ -291,7 +296,6 @@ class App(
         self.tutorial_manager = None
 
         # Crear overlay de grabación - REACTIVADO
-        from ui.recording_overlay import RecordingOverlay
 
         self.recording_overlay = RecordingOverlay(self)
 
@@ -389,7 +393,9 @@ class App(
         self._lang_switch_var = tk.StringVar(value=current)
 
         ctk.CTkLabel(
-            top_bar, text="🌐 Transcripción:", font=DesignSystem.TYPOGRAPHY["body_small"]
+            top_bar,
+            text="🌐 Transcripción:",
+            font=DesignSystem.TYPOGRAPHY["body_small"],
         ).pack(side="left", padx=(5, 5))
 
         self._lang_switch = ctk.CTkSegmentedButton(
@@ -461,7 +467,8 @@ class App(
             self._sound_switch.configure(text="🔊 Sonido" if enabled else "🔇 Sonido")
         self.logger.info(f"Sonido {'ON' if enabled else 'OFF'} (omnipresente)")
         self.update_status(
-            f"{'🔊 Sonido ON' if enabled else '🔇 Sonido OFF'}", "green" if enabled else "white"
+            f"{'🔊 Sonido ON' if enabled else '🔇 Sonido OFF'}",
+            "green" if enabled else "white",
         )
         # Sincronizar CTkSwitch de Config tab si existe (futuro)
         if hasattr(self, "_sound_config_switch_var"):
@@ -564,7 +571,7 @@ class App(
                                 text_color=DesignSystem.COLORS["warning"],
                             )
                             logging.getLogger("transcription_debug").debug(
-                                f"UI poll PROGRESS Chunk {cur}/{total} ETA {eta_s}s queue_depth~{transcriber.timer_queue.qsize() if hasattr(transcriber,'timer_queue') and transcriber.timer_queue else -1}"
+                                f"UI poll PROGRESS Chunk {cur}/{total} ETA {eta_s}s queue_depth~{transcriber.timer_queue.qsize() if hasattr(transcriber, 'timer_queue') and transcriber.timer_queue else -1}"
                             )
                             # También overlay si existe
                             if self.recording_overlay:
@@ -584,7 +591,7 @@ class App(
                                 text_color=DesignSystem.COLORS["success"],
                             )
                             logging.getLogger("transcription_debug").debug(
-                                f"UI poll STREAMING En vivo Chunk {cur}/{total} queue_depth~{transcriber.timer_queue.qsize() if hasattr(transcriber,'timer_queue') and transcriber.timer_queue else -1}"
+                                f"UI poll STREAMING En vivo Chunk {cur}/{total} queue_depth~{transcriber.timer_queue.qsize() if hasattr(transcriber, 'timer_queue') and transcriber.timer_queue else -1}"
                             )
                             # 💡 se elabora: en vivo al entrar C ft compatible
                         except Exception:
@@ -593,7 +600,7 @@ class App(
                 if _events_received:
                     try:
                         logging.getLogger("transcription_debug").debug(
-                            f"UI poll batch events={_events_received} queue_remaining={transcriber.timer_queue.qsize() if hasattr(transcriber,'timer_queue') and transcriber.timer_queue else -1}"
+                            f"UI poll batch events={_events_received} queue_remaining={transcriber.timer_queue.qsize() if hasattr(transcriber, 'timer_queue') and transcriber.timer_queue else -1}"
                         )
                     except Exception:
                         pass
@@ -664,7 +671,8 @@ class App(
         )
         self.audio_size_label.grid(row=0, column=0, sticky="w")
         self.log_size_label = ctk.CTkLabel(
-            info_frame, text=self.localization_manager.get_string("transcriptions_info", size="...")
+            info_frame,
+            text=self.localization_manager.get_string("transcriptions_info", size="..."),
         )
         self.log_size_label.grid(row=0, column=1, sticky="e")
 
@@ -688,7 +696,9 @@ class App(
             self.transcription_frame = ctk.CTkFrame(tab, fg_color="transparent")
             self.transcription_frame.grid(row=3, column=0, padx=10, pady=(0, 10), sticky="nsew")
             self.transcription_textbox = ctk.CTkTextbox(
-                self.transcription_frame, wrap="word", font=DesignSystem.TYPOGRAPHY["body_medium"]
+                self.transcription_frame,
+                wrap="word",
+                font=DesignSystem.TYPOGRAPHY["body_medium"],
             )
             self.transcription_textbox.pack(expand=True, fill="both")
         else:
@@ -718,7 +728,11 @@ class App(
         ).grid(row=0, column=0, columnspan=3, padx=10, pady=5, sticky="w")
 
         self.api_key_status_label = ctk.CTkLabel(
-            main_conf_frame, text="●", font=("Segoe UI", 20), text_color="grey", cursor="hand2"
+            main_conf_frame,
+            text="●",
+            font=("Segoe UI", 20),
+            text_color="grey",
+            cursor="hand2",
         )
         self.api_key_status_label.grid(row=1, column=0, padx=(10, 0), sticky="w")
         self.api_key_status_label.bind("<Button-1>", lambda e: self._on_api_dot_click())
@@ -742,7 +756,8 @@ class App(
         # ASR Provider Selection (solo Groq — Gemini ELIMINADO por completo de la
         # herramienta: benchmark 5-87s por transcripción vs 1-2s de Groq, inutilizable)
         ctk.CTkLabel(
-            main_conf_frame, text=self.localization_manager.get_string("asr_provider_label")
+            main_conf_frame,
+            text=self.localization_manager.get_string("asr_provider_label"),
         ).grid(row=2, column=0, padx=10, pady=5, sticky="w")
         self.asr_provider_var = tk.StringVar(value=self.config_manager.get("asr_provider", "groq"))
         asr_provider_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
@@ -764,7 +779,6 @@ class App(
 
         # Parsear hotkey actual
         current_hotkey = self.config_manager.get("hotkey", default="f12")
-        from backend.hotkey_manager import HotkeyManager
 
         hm = HotkeyManager()
         parsed = hm.parse_hotkey_string(current_hotkey)
@@ -831,7 +845,8 @@ class App(
 
         # Recording Mode
         ctk.CTkLabel(
-            main_conf_frame, text=self.localization_manager.get_string("record_mode_label")
+            main_conf_frame,
+            text=self.localization_manager.get_string("record_mode_label"),
         ).grid(row=8, column=0, padx=10, pady=5, sticky="w")
         self.record_mode_var = tk.StringVar(value=self.config_manager.get("record_mode"))
         record_mode_frame = ctk.CTkFrame(main_conf_frame, fg_color="transparent")
@@ -853,7 +868,8 @@ class App(
 
         # Max Recording Duration — CAP TRANSITORIO A - reevaluar post B (max 12 min)
         ctk.CTkLabel(
-            main_conf_frame, text=self.localization_manager.get_string("max_duration_label")
+            main_conf_frame,
+            text=self.localization_manager.get_string("max_duration_label"),
         ).grid(row=9, column=0, padx=10, pady=5, sticky="w")
         current_duration = self.config_manager.get("max_recording_time", 720)
         # CAP TRANSITORIO A - reevaluar post B: 12 min max (antes 20 min)
@@ -914,7 +930,8 @@ class App(
         ).grid(row=13, column=0, padx=10, pady=5, sticky="w")
         self.language_var = tk.StringVar(
             value=self.config_manager.get(
-                "transcription_language", self.config_manager.get("default_language", "es")
+                "transcription_language",
+                self.config_manager.get("default_language", "es"),
             )
         )
         ctk.CTkComboBox(
@@ -950,7 +967,8 @@ class App(
         ).grid(row=1, column=2, padx=(0, 10))
 
         ctk.CTkLabel(
-            files_frame, text=self.localization_manager.get_string("transcriptions_path_label")
+            files_frame,
+            text=self.localization_manager.get_string("transcriptions_path_label"),
         ).grid(row=2, column=0, padx=10, sticky="w")
         self.transcriptions_path_var = tk.StringVar(
             value=self.config_manager.get("transcriptions_path")
@@ -1094,7 +1112,10 @@ class App(
         )
         import_vocab_btn.pack(side="left", padx=5)
         export_vocab_btn = ctk.CTkButton(
-            vocab_buttons_frame, text="💾 Exportar", width=100, command=self._export_vocab_file
+            vocab_buttons_frame,
+            text="💾 Exportar",
+            width=100,
+            command=self._export_vocab_file,
         )
         export_vocab_btn.pack(side="left", padx=5)
 
@@ -1413,7 +1434,8 @@ class App(
                     }
                 )
                 self.update_status(
-                    self.localization_manager.get_string("transcription_completed"), "green"
+                    self.localization_manager.get_string("transcription_completed"),
+                    "green",
                 )
                 self.sound_manager.sound_success()
             else:
@@ -1517,7 +1539,8 @@ class App(
                 )
                 self._api_key_last_valid = False
                 self.update_status(
-                    "❌ API Key de Groq inválida — ver Información para configurarla", "red"
+                    "❌ API Key de Groq inválida — ver Información para configurarla",
+                    "red",
                 )
                 if show_popup:
                     self._show_api_key_error_hint(str(e))
@@ -1589,7 +1612,10 @@ class App(
         link.bind("<Button-1>", lambda e: webbrowser.open_new("https://console.groq.com/keys"))
         if error_detail:
             ctk.CTkLabel(
-                hint_win, text=error_detail[:80], font=ctk.CTkFont(size=10), text_color="gray"
+                hint_win,
+                text=error_detail[:80],
+                font=ctk.CTkFont(size=10),
+                text_color="gray",
             ).pack(pady=2)
         ctk.CTkLabel(
             hint_win,
@@ -1647,7 +1673,9 @@ class App(
                 status_color = "green" if block_stats["enabled"] else "gray"
 
                 ctk.CTkLabel(
-                    frame, text=f"{block_name}", font=DesignSystem.TYPOGRAPHY["body_bold"]
+                    frame,
+                    text=f"{block_name}",
+                    font=DesignSystem.TYPOGRAPHY["body_bold"],
                 ).pack(side="left", padx=10, pady=5)
 
                 ctk.CTkLabel(frame, text=status_text, text_color=status_color).pack(
@@ -1660,7 +1688,9 @@ class App(
                     stats_text = f"Procesados: {stats_data.get('processed', 0)} | Fallos: {stats_data.get('failed', 0)}"
 
                     ctk.CTkLabel(
-                        frame, text=stats_text, font=DesignSystem.TYPOGRAPHY["body_small"]
+                        frame,
+                        text=stats_text,
+                        font=DesignSystem.TYPOGRAPHY["body_small"],
                     ).pack(side="left", padx=10)
 
             # Botón cerrar
@@ -1698,7 +1728,8 @@ class App(
 
         # Usar after para no bloquear la UI mientras se prepara el thread
         self.after(
-            100, lambda: threading.Thread(target=self._record_hotkey_thread, daemon=True).start()
+            100,
+            lambda: threading.Thread(target=self._record_hotkey_thread, daemon=True).start(),
         )
 
     def _record_hotkey_thread(self):
@@ -1776,7 +1807,8 @@ class App(
             "record_mode": self.record_mode_var.get(),
             # CAP TRANSITORIO A - reevaluar post B: max 12 min
             "max_recording_time": {"5 min": 300, "10 min": 600, "12 min": 720}.get(
-                self.max_duration_var.get() if hasattr(self, "max_duration_var") else "12 min", 720
+                self.max_duration_var.get() if hasattr(self, "max_duration_var") else "12 min",
+                720,
             ),
             "auto_paste_text": self.auto_paste_var.get(),
             "show_transcription_panel": self.show_panel_var.get(),
@@ -1873,7 +1905,12 @@ class App(
         # UX-5/UX-7: un estado terminal (verde/rojo) bloquea la reescritura por
         # eventos "Chunk X/X" tardíos que aún estén en la cola del poller.
         self._status_terminal = color in _TERMINAL_STATUS_COLORS
-        color_map = {"green": "success", "yellow": "warning", "red": "error", "orange": "warning"}
+        color_map = {
+            "green": "success",
+            "yellow": "warning",
+            "red": "error",
+            "orange": "warning",
+        }
         text_color = DesignSystem.COLORS.get(
             color_map.get(color), DesignSystem.COLORS["text_primary"]
         )
@@ -1951,6 +1988,12 @@ class App(
         result = self._supervisor_capture_handler.on_trigger()
         if result is None:
             return
+        if result.action == "new":
+            # REQ-2: a freshly captured entry joins the session currently
+            # selected in the Supervisor workbench (replaces keep theirs).
+            self.supervisor_store.set_session(
+                result.entry.number, self._supervisor_current_session()
+            )
         self.update_status(
             self.localization_manager.get_string(result.message_key, number=result.entry.number)
         )
@@ -2129,7 +2172,8 @@ class App(
             self.refresh_history_list(full_reload=True)
         else:
             self.update_status(
-                self.localization_manager.get_string("error_deleting_transcriptions"), "red"
+                self.localization_manager.get_string("error_deleting_transcriptions"),
+                "red",
             )
             self.logger.error("Error al eliminar archivos de transcripciones.")
         self.update_file_info()
@@ -2237,10 +2281,16 @@ class App(
         draw.ellipse((10, 10, 54, 54), fill=DesignSystem.COLORS["primary"])
         menu = (
             item(self.localization_manager.get_string("tray_menu_show"), self.show_window),
-            item(self.localization_manager.get_string("tray_menu_exit"), self.quit_application),
+            item(
+                self.localization_manager.get_string("tray_menu_exit"),
+                self.quit_application,
+            ),
         )
         self.tray_icon = pystray.Icon(
-            "audio2text", image, f"Audio2Text CENF v.{self.config_manager.get('app_version')}", menu
+            "audio2text",
+            image,
+            f"Audio2Text CENF v.{self.config_manager.get('app_version')}",
+            menu,
         )
         self.tray_icon.run_detached()
         self.logger.info("Aplicación minimizada a la bandeja del sistema.")

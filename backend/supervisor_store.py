@@ -14,6 +14,12 @@ Numbers come from a persisted ``next_number`` counter that is saved with every
 write and initialized to ``max(existing)+1`` when absent (C-2 migration) — so
 numbers are NEVER reused, not even after deleting the highest entry. Illegal
 status transitions are no-ops with a warning.
+
+REQ-2 sessions: every entry carries a free-form ``session`` name (default
+``"general"``) identifying which agent/work session the response belongs to.
+Legacy JSON entries without a ``session`` field migrate to ``"general"`` on
+load (backward compatible). The store can list and assemble one session's
+entries in numeric order (``entries_by_session`` / ``assemble_session``).
 """
 
 from __future__ import annotations
@@ -27,6 +33,8 @@ from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+
+from backend.context_blocks import assemble_all
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +53,9 @@ _LEGAL_TRANSITIONS: dict[str, set[str]] = {
 #: On-disk schema version for the workbench JSON file.
 _SCHEMA_VERSION = 1
 
+#: Default session name (REQ-2): entries always belong to some session.
+DEFAULT_SESSION = "general"
+
 #: Fields a caller may mutate through :meth:`SupervisorStore.update_entry`.
 _MUTABLE_FIELDS = frozenset({"quote", "response", "blocks"})
 
@@ -59,6 +70,7 @@ class SupervisorEntry:
         response: User correction; may contain inserted context-block text.
         blocks: Context-block ids inserted into this entry (no duplicates).
         status: ``draft`` or ``sent``.
+        session: Free-form agent/work-session name (REQ-2, never empty).
         created_at: ISO-8601 creation timestamp (UTC).
         updated_at: ISO-8601 last-mutation timestamp (UTC).
     """
@@ -68,6 +80,7 @@ class SupervisorEntry:
     response: str = ""
     blocks: list[str] = field(default_factory=list)
     status: str = STATUS_DRAFT
+    session: str = DEFAULT_SESSION
     created_at: str = ""
     updated_at: str = ""
 
@@ -96,6 +109,7 @@ def _entry_to_dict(entry: SupervisorEntry) -> dict:
         "response": entry.response,
         "blocks": list(entry.blocks),
         "status": entry.status,
+        "session": entry.session,
         "created_at": entry.created_at,
         "updated_at": entry.updated_at,
     }
@@ -119,6 +133,7 @@ def _entry_from_dict(data: dict) -> SupervisorEntry:
         response=str(data.get("response", "")),
         blocks=[str(b) for b in data.get("blocks", []) if str(b)],
         status=status,
+        session=str(data.get("session") or DEFAULT_SESSION),
         created_at=str(data.get("created_at", "")),
         updated_at=str(data.get("updated_at", "")),
     )
@@ -159,6 +174,17 @@ class SupervisorStore:
         """
         return self._entries.get(int(number))
 
+    def entries_by_session(self, session: str) -> list[SupervisorEntry]:
+        """Return the entries of one session ordered by number (REQ-2).
+
+        Args:
+            session: Session name to filter by (exact match).
+
+        Returns:
+            That session's entries in numeric order; empty when none match.
+        """
+        return [entry for entry in self.all() if entry.session == session]
+
     def _next_number(self) -> int:
         """Return the next sequential number.
 
@@ -168,13 +194,29 @@ class SupervisorStore:
         """
         return self._next
 
+    @staticmethod
+    def _normalize_session(session: str) -> str:
+        """Normalize a session name; blank values fall back to the default.
+
+        Args:
+            session: Raw session name from a caller or persisted JSON.
+
+        Returns:
+            The stripped name, or ``DEFAULT_SESSION`` when blank.
+        """
+        return str(session).strip() or DEFAULT_SESSION
+
     # ── Mutations (each persists immediately) ────────────────────────
-    def create_entry(self, quote: str = "", response: str = "") -> SupervisorEntry:
+    def create_entry(
+        self, quote: str = "", response: str = "", session: str = DEFAULT_SESSION
+    ) -> SupervisorEntry:
         """Append a new draft entry and persist.
 
         Args:
             quote: Optional AI excerpt.
             response: Optional initial correction text.
+            session: Session name this entry belongs to (REQ-2); blank values
+                fall back to ``DEFAULT_SESSION``.
 
         Returns:
             The freshly created entry.
@@ -187,6 +229,7 @@ class SupervisorStore:
             response=str(response),
             blocks=[],
             status=STATUS_DRAFT,
+            session=self._normalize_session(session),
             created_at=now,
             updated_at=now,
         )
@@ -275,6 +318,45 @@ class SupervisorStore:
         self._entries[updated.number] = updated
         self._save()
         return updated
+
+    def set_session(self, number: int, session: str) -> SupervisorEntry | None:
+        """Move one entry to another session and persist (REQ-2).
+
+        Args:
+            number: Historical entry number.
+            session: Target session name; blank values fall back to
+                ``DEFAULT_SESSION``.
+
+        Returns:
+            The updated entry, or ``None`` when the number is unknown.
+        """
+        entry = self.get(number)
+        if entry is None:
+            logger.warning("Supervisor: session change ignored, unknown entry #%s", number)
+            return None
+        updated = replace(
+            entry,
+            session=self._normalize_session(session),
+            updated_at=self._now(),
+        )
+        self._entries[updated.number] = updated
+        self._save()
+        return updated
+
+    def assemble_session(self, session: str) -> str:
+        """Assemble one session's entries for copying (REQ-2).
+
+        Same format as :func:`backend.context_blocks.assemble_all` — entries
+        joined by a blank line in numeric order, empty ones skipped — but
+        restricted to the given session.
+
+        Args:
+            session: Session name to assemble.
+
+        Returns:
+            The assembled copy payload, or ``""`` when nothing has content.
+        """
+        return assemble_all(self.entries_by_session(session))
 
     # ── Persistence ──────────────────────────────────────────────────
     def _load(self) -> None:

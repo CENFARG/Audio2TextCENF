@@ -53,6 +53,8 @@
   "supervisor_reopen": "↩ Reopen",
   "supervisor_captured_new": "✅ Response #{number} captured from clipboard",
   "supervisor_captured_replaced": "🔁 Response #{number} replaced from clipboard",
+  "supervisor_session_label": "Session",
+  "supervisor_session_filter": "this session only",
   "files_filetype_audio": "Audio",
   "files_filetype_all": "All files",
   "status_ready": "🎤 Ready to record",

@@ -14,6 +14,7 @@ import logging
 from typing import Any
 
 from backend.context_blocks import assemble_all
+from backend.supervisor_store import DEFAULT_SESSION
 
 logger = logging.getLogger(__name__)
 
@@ -117,9 +118,37 @@ def compute_multi_insert(content: str, texts: list[str], char_index: int | None)
     return content
 
 
-def format_entry_label(number: int, status_label: str) -> str:
-    """Format the row header label: ``#N · status``."""
-    return f"#{number} · {status_label}"
+def format_entry_label(number: int, status_label: str, session: str = "") -> str:
+    """Format the row header label: ``#N · status`` (REQ-2: ``· session`` suffix).
+
+    Args:
+        number: Historical entry number.
+        status_label: Localized status word (``borrador`` / ``enviada``).
+        session: Entry session name; appended when non-empty so entries from
+            every session stay distinguishable in the unfiltered list.
+
+    Returns:
+        The row header text.
+    """
+    label = f"#{number} · {status_label}"
+    return f"{label} · {session}" if session else label
+
+
+def select_visible_entries(entries, current_session: str, only_session: bool) -> list:
+    """REQ-2: entries shown and copied under the "solo esta sesión" switch.
+
+    Args:
+        entries: All store entries in numeric order.
+        current_session: Session selected in the workbench selector.
+        only_session: Switch state — ``True`` keeps only entries whose
+            session matches ``current_session``; ``False`` returns them all.
+
+    Returns:
+        The filtered entries, original order preserved.
+    """
+    if not only_session:
+        return list(entries)
+    return [entry for entry in entries if entry.session == current_session]
 
 
 def build_copy_payload(entries) -> str:
@@ -189,15 +218,41 @@ class SupervisorViewMixin:
 
         tab = self.main_frame.tab(loc.get_string("tab_supervisor"))
         tab.grid_columnconfigure(0, weight=1)
-        tab.grid_rowconfigure(1, weight=1)
+        tab.grid_rowconfigure(3, weight=1)
         ctk.CTkLabel(
             tab,
             text=loc.get_string("supervisor_title"),
             anchor="w",
             font=DesignSystem.TYPOGRAPHY["heading_medium"],
         ).grid(row=0, column=0, padx=10, pady=(5, 0), sticky="ew")
+        # REQ-2: session selector (editable combo persisted in the config key
+        # ``supervisor_last_session``) + "solo esta sesión" filter switch.
+        self._supervisor_session_only = False
+        self._supervisor_session_var = ctk.StringVar(
+            value=self.config_manager.get("supervisor_last_session", DEFAULT_SESSION)
+            or DEFAULT_SESSION
+        )
+        session_bar = ctk.CTkFrame(tab, fg_color="transparent")
+        session_bar.grid(row=1, column=0, padx=10, pady=(4, 0), sticky="ew")
+        ctk.CTkLabel(session_bar, text=loc.get_string("supervisor_session_label"), anchor="w").pack(
+            side="left", padx=(0, 6)
+        )
+        self._supervisor_session_combo = ctk.CTkComboBox(
+            session_bar,
+            values=self._supervisor_known_sessions(),
+            variable=self._supervisor_session_var,
+            width=150,
+            command=self._supervisor_on_session_changed,
+        )
+        self._supervisor_session_combo.pack(side="left")
+        self._supervisor_session_switch = ctk.CTkSwitch(
+            session_bar,
+            text=loc.get_string("supervisor_session_filter"),
+            command=self._supervisor_on_session_filter_toggled,
+        )
+        self._supervisor_session_switch.pack(side="right")
         bar = ctk.CTkFrame(tab, fg_color="transparent")
-        bar.grid(row=0, column=0, padx=10, pady=(36, 5), sticky="ew")
+        bar.grid(row=2, column=0, padx=10, pady=(6, 5), sticky="ew")
         # UX-3: window is 590px wide — compact widths + small padx keep
         # "Copiar todo" fully visible instead of clipped at the right edge.
         ctk.CTkButton(
@@ -224,7 +279,7 @@ class SupervisorViewMixin:
             command=self._supervisor_copy_all,
         ).pack(side="right", padx=(3, 0))
         self.supervisor_scroll = ctk.CTkScrollableFrame(tab, fg_color="transparent")
-        self.supervisor_scroll.grid(row=1, column=0, padx=6, pady=5, sticky="nsew")
+        self.supervisor_scroll.grid(row=3, column=0, padx=6, pady=5, sticky="nsew")
         self.supervisor_status_label = ctk.CTkLabel(
             tab,
             text="",
@@ -233,15 +288,53 @@ class SupervisorViewMixin:
             font=DesignSystem.TYPOGRAPHY["body_small"],
             text_color=DesignSystem.COLORS["warning"],
         )
-        self.supervisor_status_label.grid(row=2, column=0, padx=10, pady=(0, 8), sticky="ew")
+        self.supervisor_status_label.grid(row=4, column=0, padx=10, pady=(0, 8), sticky="ew")
+        self._supervisor_rebuild_rows()
+
+    def _supervisor_current_session(self) -> str:
+        """REQ-2: session name currently selected in the workbench selector.
+
+        Returns:
+            The stripped selector value, or ``DEFAULT_SESSION`` when blank.
+        """
+        var = getattr(self, "_supervisor_session_var", None)
+        value = var.get() if var is not None else ""
+        return str(value or "").strip() or DEFAULT_SESSION
+
+    def _supervisor_known_sessions(self) -> list[str]:
+        """REQ-2: combo values — default first, then every store session sorted.
+
+        Returns:
+            Session names for the selector dropdown.
+        """
+        sessions = {entry.session for entry in self.supervisor_store.all()}
+        sessions.add(self._supervisor_current_session())
+        return [DEFAULT_SESSION, *sorted(sessions - {DEFAULT_SESSION})]
+
+    def _supervisor_on_session_changed(self, _value: str = "") -> None:
+        """REQ-2: persist the selected session and re-render the entry list."""
+        self.config_manager.set("supervisor_last_session", self._supervisor_current_session())
+        self._supervisor_rebuild_rows()
+
+    def _supervisor_on_session_filter_toggled(self) -> None:
+        """REQ-2: apply/clear the "solo esta sesión" filter and re-render."""
+        self._supervisor_session_only = bool(self._supervisor_session_switch.get())
         self._supervisor_rebuild_rows()
 
     def _supervisor_rebuild_rows(self) -> None:
-        """Re-render every entry row after a structural change (CRUD)."""
+        """Re-render the visible entry rows after a structural change (CRUD).
+
+        REQ-2: with the session filter ON only the current session's entries
+        are rendered; OFF renders every entry.
+        """
         for widget in self.supervisor_scroll.winfo_children():
             widget.destroy()
         self._supervisor_rows = {}
-        entries = self.supervisor_store.all()
+        entries = select_visible_entries(
+            self.supervisor_store.all(),
+            self._supervisor_current_session(),
+            self._supervisor_session_only,
+        )
         for entry in entries:
             self._supervisor_build_row(entry)
         self._supervisor_selected = resolve_selection(
@@ -270,7 +363,9 @@ class SupervisorViewMixin:
         header.grid(row=0, column=0, sticky="ew")
         status_key = "supervisor_status_sent" if is_sent else "supervisor_status_draft"
         ctk.CTkLabel(
-            header, text=format_entry_label(number, loc.get_string(status_key)), anchor="w"
+            header,
+            text=format_entry_label(number, loc.get_string(status_key), entry.session),
+            anchor="w",
         ).pack(side="left")
         record_btn = ctk.CTkButton(
             header,
@@ -336,8 +431,14 @@ class SupervisorViewMixin:
         )
 
     def _supervisor_new_entry(self) -> None:
-        """Create the next numbered entry and focus its response field."""
-        entry = self.supervisor_store.create_entry()
+        """Create the next numbered entry in the current session and focus it.
+
+        REQ-2: the fresh entry captures the session selected in the workbench
+        selector, which is also persisted for the next boot.
+        """
+        session = self._supervisor_current_session()
+        entry = self.supervisor_store.create_entry(session=session)
+        self.config_manager.set("supervisor_last_session", session)
         self._supervisor_selected = entry.number
         self._supervisor_rebuild_rows()
         row = self._supervisor_rows.get(entry.number)
@@ -386,8 +487,18 @@ class SupervisorViewMixin:
         self._supervisor_copy_to_clipboard(payload)
 
     def _supervisor_copy_all(self) -> None:
-        """Copy every non-empty entry assembled in numeric order to the clipboard."""
-        payload = build_copy_payload(self.supervisor_store.all())
+        """Copy the visible entries assembled in numeric order to the clipboard.
+
+        REQ-2: with "solo esta sesión" ON only the current session's entries
+        are copied (accumulated corrections to re-anchor one agent); OFF
+        copies every entry (previous behavior).
+        """
+        entries = select_visible_entries(
+            self.supervisor_store.all(),
+            self._supervisor_current_session(),
+            self._supervisor_session_only,
+        )
+        payload = build_copy_payload(entries)
         if not payload.strip():
             # C-3: nothing to copy anywhere — same localized feedback.
             self._supervisor_set_status(

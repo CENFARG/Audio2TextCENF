@@ -53,6 +53,8 @@
   "supervisor_reopen": "↩ Reabrir",
   "supervisor_captured_new": "✅ Respuesta #{number} capturada desde el portapapeles",
   "supervisor_captured_replaced": "🔁 Respuesta #{number} reemplazada con el portapapeles",
+  "supervisor_session_label": "Sesión",
+  "supervisor_session_filter": "solo esta sesión",
   "files_filetype_audio": "Audio",
   "files_filetype_all": "Todos los archivos",
   "status_ready": "🎤 Listo para grabar",

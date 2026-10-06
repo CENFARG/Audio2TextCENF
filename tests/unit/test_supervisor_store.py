@@ -10,6 +10,9 @@ Covers the JSON-backed workbench contract (openspec audio2text-f2-supervisor):
 - Number stability: deleted numbers are NEVER reassigned
 - State machine: draft -> sent -> draft legal; unknown/same transitions
   are no-ops with a logged warning
+- REQ-2 sessions: DEFAULT_SESSION contract, create/set_session persistence,
+  entries_by_session filter, assemble_session and the no-``session`` JSON
+  migration to "general"
 """
 
 import json
@@ -462,3 +465,136 @@ class TestModuleHelpers:
         assert entry.response == ""
         assert entry.blocks == []
         assert entry.status == STATUS_DRAFT
+
+
+@pytest.mark.unit
+class TestSessions:
+    """REQ-2: per-entry session — default, set/persist, filter and assembly."""
+
+    def test_default_session_constant_is_general(self):
+        # Assert: the session vocabulary is contract (UI + migration rely on it)
+        assert supervisor_store.DEFAULT_SESSION == "general"
+
+    def test_entry_defaults_session_to_general(self):
+        # Act
+        entry = SupervisorEntry(number=1)
+
+        # Assert
+        assert entry.session == "general"
+
+    def test_create_entry_captures_given_session(self, tmp_path):
+        # Arrange
+        store = SupervisorStore(tmp_path / "entries.json", now_fn=_FakeClock())
+
+        # Act
+        entry = store.create_entry(session="agente-x")
+
+        # Assert
+        assert entry.session == "agente-x"
+
+    def test_create_entry_blank_session_falls_back_to_general(self, tmp_path):
+        # Arrange
+        store = SupervisorStore(tmp_path / "entries.json", now_fn=_FakeClock())
+
+        # Act / Assert: a session is never persisted as an empty string
+        assert store.create_entry(session="   ").session == "general"
+
+    def test_set_session_changes_and_persists_across_reload(self, tmp_path):
+        # Arrange
+        path = tmp_path / "entries.json"
+        store = SupervisorStore(path, now_fn=_FakeClock())
+        entry = store.create_entry()
+        updated_at = entry.updated_at
+
+        # Act
+        updated = store.set_session(entry.number, "gemini")
+
+        # Assert: mutation bumps updated_at and survives a fresh load
+        assert updated is not None
+        assert updated.session == "gemini"
+        assert updated.updated_at != updated_at
+        reloaded = SupervisorStore(path, now_fn=_FakeClock())
+        assert reloaded.get(entry.number).session == "gemini"
+
+    def test_set_session_unknown_number_returns_none(self, tmp_path):
+        # Arrange
+        store = SupervisorStore(tmp_path / "entries.json", now_fn=_FakeClock())
+
+        # Act / Assert
+        assert store.set_session(99, "gemini") is None
+
+    def test_entries_by_session_filters_in_number_order(self, tmp_path):
+        # Arrange
+        store = SupervisorStore(tmp_path / "entries.json", now_fn=_FakeClock())
+        e1 = store.create_entry(session="gemini")
+        e2 = store.create_entry()
+        e3 = store.create_entry(session="gemini")
+        store.create_entry(session="claude")
+
+        # Act / Assert: numeric order inside each session, unknown session empty
+        assert [e.number for e in store.entries_by_session("gemini")] == [e1.number, e3.number]
+        assert [e.number for e in store.entries_by_session("general")] == [e2.number]
+        assert store.entries_by_session("sin-entradas") == []
+
+    def test_assemble_session_joins_only_that_session_in_number_order(self, tmp_path):
+        # Arrange
+        store = SupervisorStore(tmp_path / "entries.json", now_fn=_FakeClock())
+        store.create_entry(quote="q1", response="r1", session="gemini")
+        store.create_entry(quote="q2", response="r2")  # general: must NOT appear
+        store.create_entry(quote="q3", response="r3", session="gemini")
+
+        # Act
+        payload = store.assemble_session("gemini")
+
+        # Assert: historical numbers preserved, only that session's entries
+        assert payload == '1. "q1"\n: r1\n\n3. "q3"\n: r3'
+        assert store.assemble_session("general") == '2. "q2"\n: r2'
+        assert store.assemble_session("sin-entradas") == ""
+
+    def test_migration_entries_without_session_become_general(self, tmp_path):
+        # Arrange: pre-REQ-2 JSON has no ``session`` field at all
+        path = tmp_path / "entries.json"
+        path.write_text(
+            json.dumps(
+                {
+                    "version": 1,
+                    "next_number": 3,
+                    "entries": [
+                        {"number": 1, "response": "legacy"},
+                        {"number": 2, "session": "claude", "response": "ya etiquetada"},
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        # Act
+        store = SupervisorStore(path, now_fn=_FakeClock())
+
+        # Assert: missing -> "general" (backward compatible), existing preserved
+        assert store.get(1).session == "general"
+        assert store.get(2).session == "claude"
+
+    def test_migration_persists_session_field_on_next_save(self, tmp_path):
+        # Arrange: legacy file without ``session`` anywhere
+        path = tmp_path / "entries.json"
+        path.write_text(json.dumps({"version": 1, "entries": [{"number": 1}]}), encoding="utf-8")
+        store = SupervisorStore(path, now_fn=_FakeClock())
+
+        # Act: any mutation rewrites the whole file
+        store.create_entry(response="nueva")
+
+        # Assert: both the migrated and the fresh entry carry a session
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        assert payload["entries"][0]["session"] == "general"
+        assert payload["entries"][1]["session"] == "general"
+
+    def test_roundtrip_preserves_session(self):
+        # Arrange
+        entry = SupervisorEntry(number=5, quote="q", response="r", session="agente-x")
+
+        # Act
+        restored = supervisor_store._entry_from_dict(supervisor_store._entry_to_dict(entry))
+
+        # Assert
+        assert restored == entry
