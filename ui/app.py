@@ -160,6 +160,14 @@ def _safe_int(value, default):
         return default
 
 
+#: MS que un estado verde/rojo permanece antes de auto-limpiarse (UX-4).
+STATUS_AUTOCLEAR_MS = 8000
+
+#: Colores de estado TERMINALES (UX-5/UX-7): una vez pintados, los eventos
+#: tardíos de chunk/streaming NO reescriben el label (single writer al final).
+_TERMINAL_STATUS_COLORS = ("green", "red")
+
+
 class DesignSystem:
     COLORS = {
         "primary": "#2563EB",
@@ -504,6 +512,8 @@ class App(
                     _events_received.append(event[0])
                     if event[0] == "timer" and len(event) >= 3:
                         _, minutes, seconds = event
+                        # Nueva actividad de grabación: los chunks vuelven a pintar.
+                        self._status_terminal = False
                         # Timer en el status label
                         msg = self.localization_manager.get_string("status_recording")
                         self.status_label.configure(
@@ -531,6 +541,10 @@ class App(
                         self.update_overlay(state, minutes or 0, seconds or 0)
                     elif event[0] == "progress" and len(event) >= 4:
                         _, cur, total, eta_s = event
+                        # UX-5/UX-7: tras un estado terminal ("Transcripción
+                        # completada"/fallo) los chunks tardíos NO reescriben.
+                        if getattr(self, "_status_terminal", False):
+                            continue
                         # Progress real Chunk X/48 ETA 12s durante transcripción
                         try:
                             eta_s = int(float(eta_s))
@@ -549,6 +563,9 @@ class App(
                             pass
                     elif event[0] == "streaming" and len(event) >= 3:
                         _, cur, total = event
+                        # UX-5/UX-7: mismo guard que progress (estado terminal manda).
+                        if getattr(self, "_status_terminal", False):
+                            continue
                         # Slice C streaming incremental: En vivo durante grabación
                         try:
                             self.status_label.configure(
@@ -582,7 +599,10 @@ class App(
         self.logger.debug("Creando pestaña 'Principal'.")
         tab = self.main_frame.tab(self.localization_manager.get_string("tab_main"))
         tab.grid_columnconfigure(0, weight=1)
+        # UX-1: la transcripción EXPANDE (row 3); la sección Archivos (row 4,
+        # altura fija + scroll interno) NO compite por el espacio en 590px.
         tab.grid_rowconfigure(3, weight=1)  # Row 3 será el panel de transcripción (antes row 4)
+        tab.grid_rowconfigure(4, weight=0)
 
         # Status frame - REDUCIDO padding de 20 a 10
         status_frame = ctk.CTkFrame(tab, fg_color="transparent")
@@ -1355,6 +1375,12 @@ class App(
                 messagebox.showerror("Error", str(e))
 
     def _start_retranscription(self, file_path):
+        # C-4: si la fuente ya no existe, fallar con causa específica ANTES de
+        # llamar a la API (antes: transcribe_with_groq → None → "Fallo" genérico).
+        if not os.path.exists(file_path):
+            self.logger.warning(f"Retranscripción cancelada, archivo no encontrado: {file_path}")
+            self.update_status(self.localization_manager.get_string("files_reason_missing"), "red")
+            return
         self.update_status(self.localization_manager.get_string("retranscribing"), "yellow")
         threading.Thread(target=self._retranscribe_thread, args=(file_path,), daemon=True).start()
 
@@ -1833,13 +1859,16 @@ class App(
 
     def _update_status_on_main_thread(self, message, color):
         self.logger.debug(f"Actualizando estado de UI: {message} ({color})")
+        # UX-5/UX-7: un estado terminal (verde/rojo) bloquea la reescritura por
+        # eventos "Chunk X/X" tardíos que aún estén en la cola del poller.
+        self._status_terminal = color in _TERMINAL_STATUS_COLORS
         color_map = {"green": "success", "yellow": "warning", "red": "error", "orange": "warning"}
         text_color = DesignSystem.COLORS.get(
             color_map.get(color), DesignSystem.COLORS["text_primary"]
         )
         self.status_label.configure(text=message, text_color=text_color)
 
-    def update_status(self, message, color="white"):
+    def update_status(self, message, color="white", persistent=False):
         # FIX v0.15.0 (punto 0): evitar acumular callbacks pendientes del thread de
         # grabación (en grabaciones largas, miles de after(0) pendientes colapsaban
         # la UI y congelaban la captura de audio). Se conserva solo el último.
@@ -1849,6 +1878,37 @@ class App(
             except Exception:
                 pass
         self._status_after_id = self.after(0, self._update_status_on_main_thread, message, color)
+        self._schedule_status_autoclear(color, persistent)
+
+    def _schedule_status_autoclear(self, color, persistent):
+        """UX-4: programa el auto-limpieado de estados green/red (8s).
+
+        Args:
+            color: Color del estado recién agendado.
+            persistent: ``True`` cuando el mensaje NO debe autolimpiarse.
+        """
+        if hasattr(self, "_status_clear_after_id") and self._status_clear_after_id is not None:
+            try:
+                self.after_cancel(self._status_clear_after_id)
+            except Exception:
+                pass
+        self._status_clear_after_id = None
+        if persistent or color not in _TERMINAL_STATUS_COLORS:
+            return
+        self._status_clear_after_id = self.after(STATUS_AUTOCLEAR_MS, self._auto_clear_status)
+
+    def _auto_clear_status(self):
+        """UX-4: restaurar el estado listo tras 8s de un mensaje green/red."""
+        self._status_clear_after_id = None
+        transcriber = getattr(self, "transcriber", None)
+        if getattr(transcriber, "is_recording", False):
+            # El timer de grabación es dueño del label ahora; no pisar "Grabando...".
+            return
+        self._status_terminal = False
+        self.status_label.configure(
+            text=self.localization_manager.get_string("status_ready"),
+            text_color=DesignSystem.COLORS["text_primary"],
+        )
 
     # F3: captura global del portapapeles al Supervisor (hotkey, sin threads nuevos)
     def _register_supervisor_capture_hotkey(self):

@@ -20,6 +20,7 @@ import os
 import threading
 from collections.abc import Iterable
 from tkinter import filedialog
+from typing import Any
 
 from backend import file_import
 from backend.file_import import DEFAULT_AUDIO_EXTENSIONS, filter_audio_paths
@@ -35,8 +36,66 @@ except ImportError:  # distributed builds may not ship tkdnd
     _TKDND_AVAILABLE = False
 
 
+def queue_reason_display_text(loc: Any, reason: str) -> str:
+    """Localized reason text for a queue row, extending the backend map (C-4).
+
+    ``backend/file_import.py`` is a frozen surface for this view, so the
+    extra stable reason ``missing`` is translated here; every other reason
+    delegates to :func:`backend.file_import.file_reason_text` untouched.
+
+    Args:
+        loc: Localization manager exposing ``get_string(key, **kwargs)``.
+        reason: Stable technical reason (e.g. ``missing``) or free-form text.
+
+    Returns:
+        Localized text when the reason is known, otherwise the raw reason.
+    """
+    if reason == file_import.REASON_MISSING:
+        text = loc.get_string("files_reason_missing")
+        if not str(text).startswith("MISSING_TRANSLATION_"):
+            return str(text)
+    return file_import.file_reason_text(loc, reason)
+
+
+def queue_status_label_text(loc: Any, entry: tuple[str, str]) -> str:
+    """Compose the queue row label for one ``(state, reason)`` pair (C-4).
+
+    Mirrors :func:`backend.file_import.file_status_label_text` but routes
+    the reason through :func:`queue_reason_display_text` so a vanished
+    source file shows ``Error (Archivo no encontrado)`` instead of the raw
+    ``missing`` id.
+
+    Args:
+        loc: Localization manager exposing ``get_string(key, **kwargs)``.
+        entry: ``(state, reason)`` pair as stored by
+            :func:`backend.file_import.record_file_status`.
+
+    Returns:
+        Localized state name, plus a parenthesized reason for error entries.
+    """
+    state, reason = entry
+    key = file_import.FILES_STATUS_KEYS.get(state)
+    text = loc.get_string(key) if key else state
+    if state == "error" and reason:
+        return f"{text} ({queue_reason_display_text(loc, reason)})"
+    return text
+
+
 class FilesViewMixin:
     """Mixin providing the files queue section: import sources + queue."""
+
+    # Host attributes (HC-02 mixin pattern; provided by ui.app.App at runtime).
+    localization_manager: Any
+    config_manager: Any
+    transcriber: Any
+    file_manager: Any
+    sound_manager: Any
+    main_frame: Any
+    after: Any
+    after_cancel: Any
+    update_status: Any
+    display_transcription: Any
+    _dnd_available: bool
 
     #: status → DesignSystem color (fallbacks match ui.app palette)
     _STATUS_COLORS = {
@@ -137,7 +196,9 @@ class FilesViewMixin:
         )
         self.files_rejected_label.grid(row=3, column=0, padx=10, pady=(0, 5), sticky="ew")
 
-        self.files_queue_frame = ctk.CTkScrollableFrame(section, fg_color="transparent", height=110)
+        # UX-1: small FIXED height + internal scroll — the files section must
+        # not eat the 590px window; the transcription panel keeps the space.
+        self.files_queue_frame = ctk.CTkScrollableFrame(section, fg_color="transparent", height=80)
         self.files_queue_frame.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
 
         if self._dnd_available and _TKDND_AVAILABLE:
@@ -156,7 +217,7 @@ class FilesViewMixin:
             return
         self._files_queue: list[str] = []
         self._files_status: dict[str, tuple[str, str]] = {}
-        self._files_status_labels: dict[str, object] = {}
+        self._files_status_labels: dict[str, Any] = {}
         self._files_worker_running = False
         self._files_worker_lock = threading.Lock()
 
@@ -295,7 +356,7 @@ class FilesViewMixin:
             return
         loc = self.localization_manager
         shown = [
-            f"{path} ({file_import.file_reason_text(loc, reason)})" for path, reason in rejected[:5]
+            f"{path} ({queue_reason_display_text(loc, reason)})" for path, reason in rejected[:5]
         ]
         if len(rejected) > 5:
             shown.append(f"+{len(rejected) - 5}")
@@ -343,7 +404,7 @@ class FilesViewMixin:
                 self._files_status_labels.pop(path, None)
                 return
             label.configure(
-                text=file_import.file_status_label_text(self.localization_manager, entry),
+                text=queue_status_label_text(self.localization_manager, entry),
                 text_color=self._STATUS_COLORS[entry[0]],
             )
         except Exception as exc:
@@ -424,6 +485,11 @@ class FilesViewMixin:
         Returns:
             True when the file was transcribed and saved successfully.
         """
+        if not os.path.exists(path):
+            # C-4: a vanished source must fail fast with a specific localized
+            # reason — no Groq call, no generic "Fallo en la transcripción".
+            self._mark_file_error(path, file_import.REASON_MISSING)
+            return False
         self._set_file_state_threadsafe(path, "transcribing")
         try:
             text = self.transcriber.transcribe_with_groq(path)

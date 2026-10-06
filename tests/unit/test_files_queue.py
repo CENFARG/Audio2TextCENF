@@ -18,13 +18,18 @@ import logging
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pytest
 
 from backend import file_import
-from ui.views.files_view import FilesViewMixin
+from ui.views.files_view import (
+    FilesViewMixin,
+    queue_reason_display_text,
+    queue_status_label_text,
+)
 
 LANG_DIR = Path(__file__).resolve().parents[2] / "lang"
 
@@ -42,6 +47,12 @@ class _FakeLocalization:
 
 class _QueueHarness(FilesViewMixin):
     """Headless harness exercising FilesViewMixin queue logic without Tk."""
+
+    # Host attributes injected per-test (HC-02 mixin host dependencies).
+    transcriber: Any
+    file_manager: Any
+    config_manager: Any
+    display_transcription: Any
 
     def __init__(self, strings=None):
         self.localization_manager = _FakeLocalization(strings)
@@ -266,6 +277,94 @@ class TestMarkFileError:
 
 
 @pytest.mark.unit
+class TestMissingSourceSkip:
+    """C-4: a queued file whose source vanished fails fast — no Groq call."""
+
+    class _RecordingTranscriber:
+        """Duck-typed Transcriber recording every transcribe call."""
+
+        def __init__(self):
+            self.calls: list[str] = []
+
+        def transcribe_with_groq(self, path):
+            self.calls.append(path)
+            return "texto"
+
+    def _make_harness(self, strings=None):
+        app = _QueueHarness(strings)
+        app._ensure_files_queue_state()
+        app.transcriber = self._RecordingTranscriber()
+        app.file_manager = SimpleNamespace(save_transcription_entry=lambda entry: None)
+        app.config_manager = SimpleNamespace(get=lambda key, default=None: default)
+        app.display_transcription = lambda text: None
+        return app
+
+    def test_process_one_file_missing_source_marks_error_without_transcribing(self, tmp_path):
+        # Arrange: queue holds a path that no longer exists on disk
+        app = self._make_harness()
+        missing = str(tmp_path / "gone.mp3")
+        app._files_queue.append(missing)
+        file_import.record_file_status(app._files_status, missing, "pending")
+
+        # Act
+        ok = app._process_one_file(missing)
+
+        # Assert: skipped with the specific ``missing`` reason, no API call
+        assert ok is False
+        assert app._files_status[missing] == ("error", file_import.REASON_MISSING)
+        assert app.transcriber.calls == []
+
+    def test_process_one_file_existing_source_still_transcribes(self, tmp_path):
+        # Arrange: PRESERVE — the happy path is untouched by the C-4 guard
+        app = self._make_harness()
+        audio = _make_audio(tmp_path)
+        app._files_queue.append(str(audio))
+        file_import.record_file_status(app._files_status, str(audio), "pending")
+
+        # Act
+        ok = app._process_one_file(str(audio))
+
+        # Assert
+        assert ok is True
+        assert app._files_status[str(audio)] == ("done", "")
+        assert app.transcriber.calls == [str(audio)]
+
+    def test_reason_missing_is_localized(self):
+        # Arrange
+        loc = _FakeLocalization({"files_reason_missing": "Archivo no encontrado"})
+
+        # Act / Assert
+        assert queue_reason_display_text(loc, file_import.REASON_MISSING) == (
+            "Archivo no encontrado"
+        )
+
+    def test_reason_missing_without_key_falls_back_to_raw(self):
+        # Act / Assert: never fabricates text when the key is absent
+        assert queue_reason_display_text(_FakeLocalization({}), "missing") == "missing"
+
+    def test_status_label_uses_localized_missing_reason(self):
+        # Arrange
+        loc = _FakeLocalization(
+            {
+                "files_status_error": "Error",
+                "files_reason_missing": "Archivo no encontrado",
+            }
+        )
+
+        # Act / Assert
+        assert queue_status_label_text(loc, ("error", file_import.REASON_MISSING)) == (
+            "Error (Archivo no encontrado)"
+        )
+
+    def test_status_label_non_error_states_unchanged(self):
+        # Arrange: PRESERVE — pending/done labels keep the backend composition
+        loc = _FakeLocalization({"files_status_done": "Completado"})
+
+        # Act / Assert
+        assert queue_status_label_text(loc, ("done", "")) == "Completado"
+
+
+@pytest.mark.unit
 class TestFilesQueueLangKeys:
     """Language-file contract for the files queue section (C1/C2/C4)."""
 
@@ -280,6 +379,7 @@ class TestFilesQueueLangKeys:
             "files_reason_empty_result",
             "files_reason_save_failed",
             "files_reason_unknown",
+            "files_reason_missing",
         ):
             assert key in es, f"missing {key} in lang/es.json"
             assert key in en, f"missing {key} in lang/en.json"
@@ -298,5 +398,5 @@ class TestFilesQueueLangKeys:
         es = json.loads(LANG_DIR.joinpath("es.json").read_text(encoding="utf-8"))
 
         # Assert: every reason key carries real user-facing text
-        for key in ("files_reason_unreadable", "files_reason_empty_result"):
+        for key in ("files_reason_unreadable", "files_reason_empty_result", "files_reason_missing"):
             assert es[key] and not es[key].startswith("MISSING")
