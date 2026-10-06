@@ -75,7 +75,7 @@ config/version_info.txt (+3 variantes), setup.py, config/version.json (manifest 
 ## Estado
 
 - **v0.16.0 LIBERADA EN MAIN** (tag v0.16.0 · 482d10c) — suite 421+ tests 0F/0E, cov ~64.7%, mypy backend 0 issues
-- Pendientes menores: live tests de GR (guía: docs/PRUEBAS_MANUALES_v0.16.md) · D5-residual (103 ruff) · D9-style · D11 hardening flakes · G5 Tauri · backup push remoto · release instalador (dispatch build.yml)
+- **RELEASE v0.16.1 PUBLICADA** (exe 48.8MB en GitHub Releases, tag v0.16.1) · Pendientes: live test oficial de GR ya ejecutado informalmente · D5-residual (19 ruff no-safe) · D9-style · D11 flakes · G5 Tauri
 - Nuevo en roadmap (2026-09-25): A4 Prompter Gate + A5 Visual QA harness — alcance de A4 a definir (Supervisor vs TUI agentes vs ambos)
 - A5 nivel 1 ✅: scripts/visual_qa_capture.py (captura a pedido → qa_screenshots/ → auditoría por el agente). A4 alcance: ambos (Supervisor + TUI agentes) — spec pendiente
 - Hotfix post-release (4a88652): crash arranque en Python 3.12.13 (Tcl estricto rechaza pads flotantes de CTk) — monkeypatch en main.py fuerza enteros post-escalado; verificado con reproducción de la llamada exacta
