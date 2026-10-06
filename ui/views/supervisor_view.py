@@ -93,6 +93,30 @@ def append_block_id(ids: list[str], block_id: str) -> list[str]:
     return [*ids, block_id]
 
 
+def select_blocks(check_state: dict[str, bool], blocks) -> list:
+    """REQ-3: map checkbox state ``{block_id: bool}`` to the selected blocks.
+
+    Blocks are returned in loaded (list) order — sorted by name — never in
+    check order; unknown ids in the state are ignored; missing or False ids
+    are excluded.
+    """
+    return [block for block in blocks if check_state.get(block.id)]
+
+
+def compute_multi_insert(content: str, texts: list[str], char_index: int | None) -> str:
+    """REQ-3: insert each text at the cursor sequentially, in list order.
+
+    The cursor advances by every inserted body so later texts land after
+    earlier ones; ``None`` (or a past-end index) appends.
+    """
+    cursor = char_index
+    for text in texts:
+        content = compute_inserted_text(content, text, cursor)
+        if cursor is not None:
+            cursor += len(text)
+    return content
+
+
 def format_entry_label(number: int, status_label: str) -> str:
     """Format the row header label: ``#N · status``."""
     return f"#{number} · {status_label}"
@@ -101,6 +125,28 @@ def format_entry_label(number: int, status_label: str) -> str:
 def build_copy_payload(entries) -> str:
     """Assemble entries via the store assembler (numeric order, blank-line separated)."""
     return assemble_all(entries)
+
+
+def load_design_system():
+    """Resolve ``ui.app.DesignSystem`` with a headless fallback palette."""
+    try:
+        from ui.app import DesignSystem  # type: ignore[assignment]
+    except ImportError:  # pragma: no cover - direct-run convenience
+
+        class DesignSystem:  # type: ignore[no-redef]
+            """Fallback palette matching ui.app.DesignSystem."""
+
+            COLORS = {
+                "primary": "#2563EB",
+                "warning": "#F59E0B",
+                "text_primary": "#E2E8F0",
+            }
+            TYPOGRAPHY = {
+                "heading_medium": ("Segoe UI", 16, "bold"),
+                "body_small": ("Segoe UI", 12, "normal"),
+            }
+
+    return DesignSystem
 
 
 class SupervisorViewMixin:
@@ -118,18 +164,7 @@ class SupervisorViewMixin:
         """Build the Supervisor tab: state, widgets and initial render."""
         import customtkinter as ctk
 
-        try:
-            from ui.app import DesignSystem  # type: ignore[assignment]
-        except ImportError:  # pragma: no cover - direct-run convenience
-
-            class DesignSystem:  # type: ignore[no-redef]
-                """Fallback palette matching ui.app.DesignSystem."""
-
-                COLORS = {"primary": "#2563EB", "warning": "#F59E0B"}
-                TYPOGRAPHY = {
-                    "heading_medium": ("Segoe UI", 16, "bold"),
-                    "body_small": ("Segoe UI", 12, "normal"),
-                }
+        DesignSystem = load_design_system()
 
         import backend.context_blocks as context_blocks
         from backend.supervisor_recorder import SupervisorRecorder
@@ -171,15 +206,15 @@ class SupervisorViewMixin:
             width=118,
             command=self._supervisor_new_entry,
         ).pack(side="left", padx=(0, 3))
-        names = [b.name for b in self.context_blocks] or [loc.get_string("supervisor_no_blocks")]
-        self._supervisor_block_menu = ctk.CTkOptionMenu(bar, values=names, width=148)
-        self._supervisor_block_menu.pack(side="left", padx=3)
+        # REQ-3: the single-select menu + "Insertar bloque" button pair is
+        # replaced by one "Bloques" button opening the multi-select dialog;
+        # insertion happens inside that dialog ("Insertar seleccionados").
         ctk.CTkButton(
             bar,
-            text=loc.get_string("supervisor_insert_block"),
-            width=106,
+            text=loc.get_string("supervisor_blocks_button"),
+            width=92,
             state="normal" if self.context_blocks else "disabled",
-            command=self._supervisor_insert_block,
+            command=self._supervisor_open_blocks_dialog,
         ).pack(side="left", padx=3)
         ctk.CTkButton(
             bar,
@@ -373,33 +408,91 @@ class SupervisorViewMixin:
             logger.error("Supervisor clipboard copy failed: %s", exc)
             self._supervisor_set_status(f"{loc.get_string('supervisor_copied')} (error)")
 
-    def _supervisor_insert_block(self) -> None:
-        """Insert the selected block body at the response cursor (records id)."""
+    def _supervisor_open_blocks_dialog(self) -> None:
+        """REQ-3: open the multi-select context-blocks dialog.
+
+        Lists ALL loaded blocks (sorted by name) with one checkbox each and
+        the description under the name; "Insertar seleccionados" inserts the
+        checked bodies at the response cursor and closes the window.
+        """
+        import customtkinter as ctk
+
+        DesignSystem = load_design_system()
+
+        loc = self.localization_manager
+        dialog = ctk.CTkToplevel(self)
+        dialog.title(loc.get_string("supervisor_blocks_title"))
+        dialog.geometry("360x430")
+        dialog.transient(self)  # type: ignore[arg-type]  # HC-02: host is a Tk window
+        dialog.attributes("-topmost", True)
+        frame = ctk.CTkScrollableFrame(dialog, fg_color="transparent")
+        frame.pack(fill="both", expand=True, padx=10, pady=(10, 4))
+        check_vars: dict[str, Any] = {}
+        for block in self.context_blocks:  # loaded order: sorted by name
+            var = ctk.BooleanVar(value=False)
+            check_vars[block.id] = var
+            ctk.CTkCheckBox(frame, text=block.name, variable=var).pack(anchor="w", pady=(6, 0))
+            if block.description:
+                ctk.CTkLabel(
+                    frame,
+                    text=block.description,
+                    anchor="w",
+                    wraplength=310,
+                    justify="left",
+                    font=DesignSystem.TYPOGRAPHY["body_small"],
+                    text_color=DesignSystem.COLORS["text_primary"],
+                ).pack(anchor="w", padx=(28, 0))
+        buttons = ctk.CTkFrame(dialog, fg_color="transparent")
+        buttons.pack(fill="x", padx=10, pady=(4, 10))
+        ctk.CTkButton(
+            buttons,
+            text=loc.get_string("supervisor_insert_selected"),
+            command=lambda: self._supervisor_insert_selected_blocks(
+                {block_id: bool(var.get()) for block_id, var in check_vars.items()},
+                on_done=dialog.destroy,
+            ),
+        ).pack(side="left", padx=(0, 6))
+        ctk.CTkButton(
+            buttons,
+            text=loc.get_string("supervisor_close"),
+            fg_color="transparent",
+            border_width=1,
+            command=dialog.destroy,
+        ).pack(side="right")
+
+    def _supervisor_insert_selected_blocks(self, check_state, on_done=None) -> None:
+        """REQ-3: insert every checked block at the response cursor, in order.
+
+        Bodies go in as one cursor-anchored sequence in list order and each
+        block id is recorded in the entry's ``blocks`` list (dedup). With no
+        selected entry the localized select-entry-first hint is shown.
+        ``on_done`` runs after a successful insert (dialog closes itself).
+        """
         loc = self.localization_manager
         number = self._supervisor_selected
         if number is None:
             # C-6: the real problem is the missing entry, not the blocks.
             self._supervisor_set_status(loc.get_string("supervisor_select_entry_first"))
             return
+        selected = select_blocks(check_state, self.context_blocks)
         row = self._supervisor_rows.get(number)
-        name = self._supervisor_block_menu.get()
-        block = next((b for b in self.context_blocks if b.name == name), None)
-        if row is None or block is None:
+        if row is None or not selected:
             self._supervisor_set_status(loc.get_string("supervisor_no_blocks"))
             return
         response = row["response"]
         content = response.get("1.0", "end-1c")
         line, col = parse_tk_index(response.index("insert"))
         cursor = tk_index_to_char_index(content, line, col)
-        new_text = compute_inserted_text(content, block.body, cursor)
+        new_text = compute_multi_insert(content, [block.body for block in selected], cursor)
         response.delete("1.0", "end")
         response.insert("1.0", new_text)
         entry = self.supervisor_store.get(number)
-        self.supervisor_store.update_entry(
-            number,
-            response=new_text,
-            blocks=append_block_id(entry.blocks, block.id) if entry else [],
-        )
+        blocks = list(entry.blocks) if entry else []
+        for block in selected:
+            blocks = append_block_id(blocks, block.id)
+        self.supervisor_store.update_entry(number, response=new_text, blocks=blocks)
+        if on_done is not None:
+            on_done()
 
     def _supervisor_toggle_record(self, number: int) -> None:
         """Toggle the per-entry record button (one supervisor recording at a time)."""

@@ -28,9 +28,11 @@ from ui.views.supervisor_view import (
     append_block_id,
     build_copy_payload,
     compute_inserted_text,
+    compute_multi_insert,
     format_entry_label,
     parse_tk_index,
     resolve_selection,
+    select_blocks,
     tk_index_to_char_index,
 )
 
@@ -63,6 +65,10 @@ SUPERVISOR_LANG_KEYS = [
     "supervisor_transcription_failed",
     "supervisor_mark_sent",
     "supervisor_reopen",
+    "supervisor_blocks_button",
+    "supervisor_blocks_title",
+    "supervisor_insert_selected",
+    "supervisor_close",
 ]
 
 
@@ -204,6 +210,88 @@ class TestRowGlue:
     def test_format_entry_label(self):
         # Act / Assert
         assert format_entry_label(3, "borrador") == "#3 · borrador"
+
+
+@pytest.mark.unit
+class TestBlockMultiSelect:
+    """REQ-3: checkbox state {block_id: bool} -> ordered selected blocks."""
+
+    @staticmethod
+    def _blocks():
+        # Loaded order is sorted by name (load_context_blocks contract).
+        return [
+            SimpleNamespace(id="alpha", name="Alpha", description="d-a", body="A"),
+            SimpleNamespace(id="mike", name="Mike", description="d-m", body="M"),
+            SimpleNamespace(id="zulu", name="Zulu", description="d-z", body="Z"),
+        ]
+
+    def test_returns_checked_blocks_in_list_order(self):
+        state = {"zulu": True, "alpha": True}
+
+        # Act
+        selected = select_blocks(state, self._blocks())
+
+        # Assert: list order (Alpha, Zulu), NOT dict/check order.
+        assert [b.id for b in selected] == ["alpha", "zulu"]
+
+    def test_unchecked_and_missing_keys_are_excluded(self):
+        state = {"alpha": False, "mike": True}
+
+        # Act
+        selected = select_blocks(state, self._blocks())
+
+        # Assert
+        assert [b.id for b in selected] == ["mike"]
+
+    def test_unknown_ids_in_state_are_ignored(self):
+        state = {"ghost": True, "mike": True}
+
+        # Act
+        selected = select_blocks(state, self._blocks())
+
+        # Assert
+        assert [b.id for b in selected] == ["mike"]
+
+    def test_empty_state_selects_nothing(self):
+        # Act / Assert
+        assert select_blocks({}, self._blocks()) == []
+
+    def test_no_blocks_selects_nothing(self):
+        # Act / Assert
+        assert select_blocks({"alpha": True}, []) == []
+
+
+@pytest.mark.unit
+class TestComputeMultiInsert:
+    """REQ-3: insert several block bodies at the cursor, in list order."""
+
+    def test_inserts_in_order_at_cursor(self):
+        # Act
+        result = compute_multi_insert("AB--GH", ["CD", "EF"], 3)
+
+        # Assert: CD lands at cursor 3 (between the dashes), EF follows CD;
+        # order preserved, cursor advanced by each body length.
+        assert result == "AB-CDEF-GH"
+
+    def test_inserts_in_order_at_start(self):
+        # Act / Assert
+        assert compute_multi_insert("world", ["hello ", "big "], 0) == "hello big world"
+
+    def test_none_cursor_appends_in_order(self):
+        # Act / Assert
+        assert compute_multi_insert("end", [" A", " B"], None) == "end A B"
+
+    def test_multiline_bodies_keep_cursor_math(self):
+        # Act
+        result = compute_multi_insert("x|y", ["one\ntwo", "!"], 2)
+
+        # Assert: "one\ntwo" (7 chars) lands before "y", cursor advances by
+        # each body length (newline counts as 1), then "!" lands after it.
+        assert result == "x|one\ntwo!y"
+
+    def test_empty_selection_leaves_content_unchanged(self):
+        # Act / Assert
+        assert compute_multi_insert("same", [], 2) == "same"
 
 
 @pytest.mark.unit
