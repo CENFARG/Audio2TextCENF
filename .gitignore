@@ -74,3 +74,8 @@ htmlcov/
 app_log.txt
 test_session.log
 transcription_metadata.json
+
+# REQ-2/D5 runtime artifacts
+no-such-config.json
+supervisor_entries.json
+qa_screenshots/
