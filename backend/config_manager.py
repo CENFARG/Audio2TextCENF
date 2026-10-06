@@ -69,6 +69,7 @@ class ConfigManager:
             "hotkey": "f9",  # FIX: default F9 (estaba f12) — pedido del usuario
             "hotkey_modifier": "",  # DEPRECATED: Usar formato "ctrl+f9" en hotkey
             "supervisor_capture_hotkey": "ctrl+alt+v",  # F3: hotkey global que captura el portapapeles al Supervisor
+            "pause_hotkey": "ctrl+alt+p",  # REQ-1: hotkey global para pausar/reanudar la grabación
             "record_mode": "toggle",  # Opciones: "hold" o "toggle"
             "default_language": "es",  # Idioma de INTERFAZ (siempre es)
             "transcription_language": "es",  # Idioma de TRANSCRIPCIÓN (es/en, configurable por el usuario)

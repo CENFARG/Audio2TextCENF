@@ -11,6 +11,7 @@
     "audio_import_extensions": ["mp3", "wav", "m4a", "ogg", "flac", "webm", "opus", "aac"],
     "supervisor_data_path": "supervisor_entries.json",
     "supervisor_capture_hotkey": "ctrl+alt+v",
+    "pause_hotkey": "ctrl+alt+p",
     "context_blocks_dir": "C:\\Dropbox\\DOC.RECA\\.amBotHs\\contextBlocks",
     "show_transcription_panel": true,
     "tutorial_completed": false,

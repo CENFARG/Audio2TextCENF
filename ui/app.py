@@ -325,6 +325,10 @@ class App(
         # store existe). Si el registro falla, se loggea warning y la app continúa.
         self._register_supervisor_capture_hotkey()
 
+        # REQ-1: hotkey global de pausa/reanudación (configurable). Si el
+        # registro falla, se loggea warning y la app continúa sin el hotkey.
+        self._register_pause_hotkey()
+
         # Tutorial deshabilitado — no iniciar
 
     def create_widgets(self):
@@ -484,6 +488,13 @@ class App(
             if state == "recording":
                 self.recording_overlay.set_recording()
                 self.recording_overlay.update_timer(minutes, seconds)
+            elif state == "paused":
+                # REQ-1: paused — amber LED; the timer label stays frozen at
+                # its last value because the loop emits no ticks while paused.
+                # The "Pausado" text lives in the status bar (persistent).
+                self.recording_overlay.led_canvas.itemconfig(
+                    self.recording_overlay.led, fill="#F59E0B"
+                )
             elif state == "processing":
                 self.recording_overlay.set_processing()
             elif state == "ready":
@@ -1944,6 +1955,42 @@ class App(
             self.localization_manager.get_string(result.message_key, number=result.entry.number)
         )
         self._supervisor_rebuild_rows()
+
+    # REQ-1: pausa/reanudación de grabación (hotkey global configurable)
+    def _register_pause_hotkey(self):
+        """REQ-1: register the configurable pause/resume hotkey at boot.
+
+        Same pattern as the supervisor capture hotkey: the ``keyboard``
+        listener defers to the Tk main thread via ``after``; a registration
+        failure logs a warning and the app continues without the hotkey.
+        """
+        combo = self.config_manager.get("pause_hotkey", default="ctrl+alt+p")
+        try:
+            keyboard.add_hotkey(combo, self._on_pause_hotkey)
+        except Exception as e:
+            self.logger.warning(f"Pause hotkey '{combo}' no registrada: {e}")
+            return
+        self.logger.info(f"Pause hotkey registrada: {combo}")
+
+    def _on_pause_hotkey(self):
+        """keyboard-listener callback: defer the pause toggle to the Tk main thread."""
+        self.after(0, self._toggle_pause_recording)
+
+    def _toggle_pause_recording(self):
+        """REQ-1: toggle pause/resume on the live recording (main thread).
+
+        Press pauses a running recording or resumes a paused one; with no
+        recording in progress the press is ignored. Status messages and the
+        overlay state are emitted by the transcriber state machine itself.
+        """
+        transcriber = getattr(self, "transcriber", None)
+        if transcriber is None:
+            return
+        if getattr(transcriber, "is_paused", False):
+            transcriber.resume_recording()
+        elif getattr(transcriber, "is_recording", False):
+            transcriber.pause_recording()
+        # else: nothing recording — ignore the hotkey press.
 
     def _safe_display_transcription_on_main_thread(self, text):
         self.logger.info(f"Mostrando transcripcion (truncada): {text[:100]}...")
