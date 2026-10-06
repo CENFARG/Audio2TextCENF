@@ -15,6 +15,7 @@ Uso:
 Las capturas se guardan como PNG numeradas: 01_<etiqueta>.png, ...
 El agente revisa la carpeta completa y produce el backlog estético.
 """
+
 from __future__ import annotations
 
 import sys

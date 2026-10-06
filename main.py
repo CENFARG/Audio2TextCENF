@@ -4,31 +4,36 @@ import io
 import os
 
 # CRITICAL: Forzar UTF-8 en Windows ANTES de cualquier import de librerías externas
-if sys.platform.startswith('win'):
+if sys.platform.startswith("win"):
     # Método 1: Variables de entorno (debe estar PRIMERO)
     os.environ["PYTHONUTF8"] = "1"
     os.environ["PYTHONIOENCODING"] = "utf-8"
-    
+
     # Método 2: Configurar locale para Windows
     import locale
+
     try:
-        locale.setlocale(locale.LC_ALL, 'es_ES.UTF-8')
+        locale.setlocale(locale.LC_ALL, "es_ES.UTF-8")
     except locale.Error:
         try:
             # Fallback a configuración genérica UTF-8
-            locale.setlocale(locale.LC_ALL, 'C.UTF-8')
+            locale.setlocale(locale.LC_ALL, "C.UTF-8")
         except locale.Error:
             # Si todo falla, al menos configurar LC_CTYPE
             try:
-                locale.setlocale(locale.LC_CTYPE, 'UTF-8')
+                locale.setlocale(locale.LC_CTYPE, "UTF-8")
             except:
                 pass  # Continuamos sin locale específico
 
     # Método 3: Reconfigurar stdout/stderr para UTF-8
     if hasattr(sys.stdout, "buffer"):
-        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+        sys.stdout = io.TextIOWrapper(
+            sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True
+        )
     if hasattr(sys.stderr, "buffer"):
-        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+        sys.stderr = io.TextIOWrapper(
+            sys.stderr.buffer, encoding="utf-8", errors="replace", line_buffering=True
+        )
 
 import logging
 from logging.handlers import RotatingFileHandler
@@ -37,7 +42,7 @@ from pathlib import Path
 from backend.logger import ensure_transcription_debug_handler  # Slice A deterministic debug log
 
 # Add the project root to the Python path
-if getattr(sys, 'frozen', False):
+if getattr(sys, "frozen", False):
     # Running as compiled executable
     base_path = sys._MEIPASS
     external_path = os.path.dirname(sys.executable)
@@ -52,29 +57,29 @@ sys.path.insert(0, base_path)
 # Cause: CTkTabview passes float 300.0 to Canvas, which this Tcl version rejects.
 try:
     import tkinter
-    import customtkinter # Return this import to ensure correct load order
+    import customtkinter  # Return this import to ensure correct load order
 
     def patch_canvas_methods():
         original_configure = tkinter.Canvas.configure
         original_init = tkinter.Canvas.__init__
 
         def patched_configure(self, cnf=None, **kwargs):
-            if 'width' in kwargs and isinstance(kwargs['width'], float):
-                kwargs['width'] = int(kwargs['width'])
-            if 'height' in kwargs and isinstance(kwargs['height'], float):
-                kwargs['height'] = int(kwargs['height'])
+            if "width" in kwargs and isinstance(kwargs["width"], float):
+                kwargs["width"] = int(kwargs["width"])
+            if "height" in kwargs and isinstance(kwargs["height"], float):
+                kwargs["height"] = int(kwargs["height"])
             return original_configure(self, cnf, **kwargs)
 
         def patched_init(self, master=None, cnf={}, **kwargs):
-            if 'width' in kwargs and isinstance(kwargs['width'], float):
-                kwargs['width'] = int(kwargs['width'])
-            if 'height' in kwargs and isinstance(kwargs['height'], float):
-                kwargs['height'] = int(kwargs['height'])
+            if "width" in kwargs and isinstance(kwargs["width"], float):
+                kwargs["width"] = int(kwargs["width"])
+            if "height" in kwargs and isinstance(kwargs["height"], float):
+                kwargs["height"] = int(kwargs["height"])
             original_init(self, master, cnf, **kwargs)
 
         tkinter.Canvas.configure = patched_configure
         tkinter.Canvas.__init__ = patched_init
-    
+
     patch_canvas_methods()
 except Exception as e:
     print(f"Warning: Could not apply tkinter.Canvas monkeypatch: {e}")
@@ -125,6 +130,7 @@ except Exception as e:
 from backend.config_manager import ConfigManager
 from ui.app import App
 
+
 # --- FIX: single-instance — evitar dos instancias montadas con el mismo hotkey ---
 def ensure_single_instance():
     """
@@ -133,39 +139,43 @@ def ensure_single_instance():
     Dos instancias (ej: 0.9.0 y 0.15.0) escuchan el MISMO hotkey y se pisan:
     graban juntas y al cerrar una, la otra queda colgada con el timer arriba.
     """
-    if not getattr(sys, 'frozen', False):
+    if not getattr(sys, "frozen", False):
         return True  # En desarrollo (python main.py) no aplicar la restricción
     try:
         import psutil
+
         current_pid = os.getpid()
         my_name = os.path.basename(sys.executable).lower()
-        for proc in psutil.process_iter(['pid', 'name']):
+        for proc in psutil.process_iter(["pid", "name"]):
             try:
-                if proc.info['pid'] == current_pid:
+                if proc.info["pid"] == current_pid:
                     continue
-                name = (proc.info.get('name') or '').lower()
-                if 'audio2text' in name and name != my_name:
+                name = (proc.info.get("name") or "").lower()
+                if "audio2text" in name and name != my_name:
                     return False
             except Exception as exc:
                 logging.getLogger(__name__).debug(
                     "single-instance: proceso %s inspeccionable: %s",
-                    proc.info.get('pid'), exc,
+                    proc.info.get("pid"),
+                    exc,
                 )
                 continue
         return True
     except Exception:
         return True  # Si psutil falla, permitir arranque (no bloquear la app)
 
+
 if not ensure_single_instance():
     import tkinter as tk
     from tkinter import messagebox
+
     _root = tk.Tk()
     _root.withdraw()
     messagebox.showwarning(
         "Audio2Text CENF",
         "Ya hay otra instancia de Audio2Text en ejecución.\n"
         "Cerrá la otra ventana antes de abrir esta, para evitar\n"
-        "que ambas escuchen el mismo hotkey."
+        "que ambas escuchen el mismo hotkey.",
     )
     _root.destroy()
     sys.exit(0)
@@ -183,21 +193,20 @@ log_file_name = datetime.now().strftime("app_%Y%m%d_%H%M%S.log")
 log_file_path = os.path.join(logs_path, log_file_name)
 
 # Check if running as frozen executable
-is_frozen = getattr(sys, 'frozen', False)
+is_frozen = getattr(sys, "frozen", False)
 
 # Use RotatingFileHandler for log rotation
 file_handler = RotatingFileHandler(
-    log_file_path,
-    maxBytes=10*1024*1024, # 10 MB
-    backupCount=5,
-    encoding='utf-8'
+    log_file_path, maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"  # 10 MB
 )
 
 # Configurar StreamHandler con UTF-8 explícito para la consola
 stream_handler = logging.StreamHandler(sys.stdout)
 if hasattr(stream_handler.stream, "buffer"):
     try:
-        stream_handler.stream = io.TextIOWrapper(stream_handler.stream.buffer, encoding='utf-8', errors='replace')
+        stream_handler.stream = io.TextIOWrapper(
+            stream_handler.stream.buffer, encoding="utf-8", errors="replace"
+        )
     except Exception as exc:
         print(f"[main] consola sin wrapper UTF-8: {exc}")
 
@@ -208,9 +217,9 @@ stream_handler.setLevel(logging.INFO)
 handlers: list[logging.Handler] = [file_handler, stream_handler]
 
 logging.basicConfig(
-    level=logging.DEBUG, # Nivel base baixo para permitir que os handlers filtren
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=handlers
+    level=logging.DEBUG,  # Nivel base baixo para permitir que os handlers filtren
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=handlers,
 )
 
 # Slice A: deterministic transcription_debug.log (flush per record, DEBUG)
@@ -230,7 +239,6 @@ for lib in ["httpcore", "httpx", "groq", "PIL", "agno", "openai", "urllib3"]:
 # Suppress verbose logs from specific libraries
 for lib in ["httpcore", "httpx", "groq", "PIL", "agno", "openai"]:
     logging.getLogger(lib).setLevel(logging.ERROR)
-
 
 
 if __name__ == "__main__":
