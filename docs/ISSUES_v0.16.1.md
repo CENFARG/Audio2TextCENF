@@ -27,6 +27,17 @@
 | C-6 | minor | "Insertar bloque" sin entrada seleccionada → mensaje "Sin bloques de contexto" aunque haya 12 — engañoso. `ui/views/supervisor_view.py:349-353`. | QA C-6 |
 | C-7 | minor | `iterativo-acumulativo.md` malformado (sin frontmatter válido) se omite silenciosamente del menú de bloques — su contenido no es usable. Fix: cargar con id derivado del filename + warning visible. | QA B |
 
+
+## Ronda 2 (live test 2, capturas 10-18)
+
+| ID | Sev | Descripción | Evidencia |
+|---|---|---|---|
+| UX-2b | major | CONFIRMADA causa visible de UX-2: los dos textareas de cada entrada (cita + respuesta) se renderizan como tiras verticales de ~30px — pack sin fill/expand dentro de la fila. Fix: pack(fill="both", expand=True) o grid con pesos de columna. | shots 11/17/18 |
+| UX-7 | minor | Indicador "Chunk X/X ETA 0s" es INTERMITENTE: a veces pasa a "Transcripción completada" (shots 15/16), a veces queda pegado (shots 05/14). La limpieza del estado depende de la ruta de finalización. | shots 05/14/15/16 |
+| UX-8 | minor | El texto de transcripción previo convive con "Fallo en la transcripción" en el header sin indicar qué es válido. | shots 06/08 |
+| OK-1 | info | Campo "Carpeta de bloques de contexto" EXISTE y funciona en Configuración → Gestión de Archivos (GR no lo había visto). | shot 12 |
+| OK-2 | info | Grabación: header "Grabando... 00:05" y "Transcripción completada" funcionan correctamente. | shots 13/15 |
+
 ## De GR a investigar
 
 | ID | Sev | Descripción |
