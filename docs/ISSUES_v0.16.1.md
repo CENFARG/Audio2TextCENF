@@ -53,3 +53,4 @@
 | REQ-2 | **Sesiones de Supervisor**: identificar a qué agente/sesión se responde; acumulado de respuestas/correcciones por sesión; seleccionar qué copiar del acumulado (sistema acumulativo para agentes que olvidan contexto) + bloques de contexto encima. | Extiende SupervisorStore: session_id/agente por entrada, vista agrupada |
 | REQ-3 | **Bloques de contexto multi-select**: elegir VARIOS bloques a la vez (hoy es uno por inserción). | UI: checkboxes o multiselect + orden de inserción |
 | A4 | Prompter Gate (alcance: Supervisor + TUI agentes) — ver roadmap Track A. | Spec pendiente |
+| REQ-4 | **Notificación de no-grabación**: detectar rápido cuando se habla sin grabar (health-check de frames al iniciar captura: si 0 frames en ~2s → notificar "no hay audio entrante") + notificación proactiva si el recorder muere en silencio. Complementa C-1. | Spec pendiente |
