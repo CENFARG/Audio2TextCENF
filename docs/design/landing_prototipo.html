@@ -1,0 +1,367 @@
+<!doctype html>
+<!--
+  Audio2Text — Landing page concept
+  Purpose: Responsive product presentation and access point for Audio2Text.
+  Version: 0.1.0
+  Author: CENFARG / design prototype
+  License: To be aligned with the repository's Apache-2.0 license and asset notices.
+  Note: Replace the Cafecito placeholder and verify the official download URL before publishing.
+-->
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080d18">
+  <meta name="description" content="Audio2Text convierte voz en texto con IA. Transcripción en tiempo real, atajos globales e historial en una aplicación de escritorio.">
+  <title>Audio2Text — Tu voz, en texto. En tiempo real.</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #080d18;
+      --surface: #101827;
+      --surface-2: #141f32;
+      --line: rgba(160, 190, 230, .14);
+      --text: #f2f7ff;
+      --muted: #9aaac2;
+      --cyan: #56e5e3;
+      --blue: #6b8cff;
+      --violet: #ad82ff;
+      --green: #77e4b1;
+      --radius: 22px;
+      --max: 1160px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0; background:
+        radial-gradient(ellipse at 78% 5%, rgba(70, 95, 210, .16), transparent 36rem),
+        radial-gradient(ellipse at 5% 32%, rgba(48, 194, 192, .08), transparent 30rem), var(--bg);
+      color: var(--text); font: 16px/1.6 Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      overflow-x: hidden;
+    }
+    a { color: inherit; text-decoration: none; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    a:focus-visible, button:focus-visible { outline: 3px solid var(--cyan); outline-offset: 4px; }
+    .container { width: min(var(--max), calc(100% - 44px)); margin-inline: auto; }
+    .topbar { position: sticky; top: 0; z-index: 20; backdrop-filter: blur(18px); background: rgba(8,13,24,.78); border-bottom: 1px solid rgba(160,190,230,.08); }
+    .nav { min-height: 76px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .brand { display: inline-flex; align-items: center; gap: 11px; font-weight: 750; letter-spacing: -.04em; font-size: 1.1rem; }
+    .brand-mark { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 11px; background: linear-gradient(145deg, rgba(86,229,227,.22), rgba(107,140,255,.24)); border: 1px solid rgba(86,229,227,.35); box-shadow: 0 0 24px rgba(86,229,227,.1); }
+    .brand-mark svg { width: 22px; height: 22px; }
+    .navlinks { display: flex; align-items: center; gap: 28px; color: var(--muted); font-size: .9rem; }
+    .navlinks a:hover { color: var(--text); }
+    .nav-actions { display: flex; align-items: center; gap: 10px; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 45px; padding: 0 18px; border-radius: 12px; border: 1px solid transparent; font-weight: 650; font-size: .9rem; transition: transform .2s ease, border-color .2s ease, background .2s ease; }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-primary { color: #071319; background: linear-gradient(110deg, var(--cyan), #8bf0d2); box-shadow: 0 8px 28px rgba(86,229,227,.16); }
+    .btn-ghost { border-color: var(--line); color: var(--text); background: rgba(255,255,255,.025); }
+    .btn-ghost:hover { border-color: rgba(86,229,227,.4); background: rgba(86,229,227,.06); }
+    .hero { position: relative; padding: 92px 0 76px; min-height: 630px; display: grid; align-items: center; }
+    .hero-grid { display: grid; grid-template-columns: 1.02fr .98fr; align-items: center; gap: 54px; }
+    .eyebrow { display: inline-flex; align-items: center; gap: 9px; border: 1px solid rgba(86,229,227,.2); background: rgba(86,229,227,.055); border-radius: 999px; padding: 6px 12px; color: #b8f7ef; font-size: .76rem; letter-spacing: .09em; text-transform: uppercase; font-weight: 700; }
+    .pulse { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 0 rgba(119,228,177,.55); animation: pulse 2s infinite; }
+    h1 { margin: 22px 0 20px; font-size: clamp(3rem, 5.4vw, 5.15rem); line-height: .99; letter-spacing: -.075em; font-weight: 760; max-width: 720px; }
+    .gradient-text { background: linear-gradient(100deg, #f3f8ff 8%, #9bece7 48%, #a99aff 95%); color: transparent; -webkit-background-clip: text; background-clip: text; }
+    .hero-copy { max-width: 540px; color: var(--muted); font-size: 1.08rem; line-height: 1.75; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+    .microcopy { margin-top: 18px; color: #7f91ab; font-size: .78rem; }
+    .visual { position: relative; min-height: 420px; display: grid; place-items: center; isolation: isolate; }
+    .orbital { position: absolute; width: min(100%, 450px); aspect-ratio: 1; border: 1px solid rgba(111,151,219,.16); border-radius: 50%; transform: rotate(-18deg); }
+    .orbital::before, .orbital::after { content: ""; position: absolute; inset: 10%; border: 1px dashed rgba(86,229,227,.14); border-radius: 50%; }
+    .orbital::after { inset: 22%; border-style: solid; border-color: rgba(173,130,255,.14); }
+    .orbit-dot { position: absolute; width: 9px; height: 9px; border-radius: 50%; background: var(--cyan); box-shadow: 0 0 18px var(--cyan); top: 16%; left: 20%; }
+    .app-window { position: relative; width: min(100%, 440px); border: 1px solid rgba(165,194,232,.2); border-radius: 19px; background: linear-gradient(145deg, rgba(22,34,55,.96), rgba(12,20,35,.96)); box-shadow: 0 32px 90px rgba(0,0,0,.45), 0 0 70px rgba(86,229,227,.07); overflow: hidden; transform: perspective(1000px) rotateY(-7deg) rotateX(3deg); }
+    .window-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 17px; border-bottom: 1px solid var(--line); color: #a8b7cd; font-size: .72rem; }
+    .window-title { display: flex; align-items: center; gap: 9px; font-weight: 650; color: #dfeaff; }
+    .window-title .mini-mark { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 6px; color: var(--cyan); background: rgba(86,229,227,.1); }
+    .window-dots { display: flex; gap: 5px; }
+    .window-dots i { width: 7px; height: 7px; border-radius: 50%; background: #51627a; }
+    .window-body { padding: 21px; }
+    .recording { display: flex; align-items: center; gap: 9px; color: #a5f0d0; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+    .recording .pulse { width: 6px; height: 6px; }
+    .wave { width: 100%; height: 76px; margin: 14px 0 18px; overflow: visible; }
+    .wave path { fill: none; stroke: url(#waveGradient); stroke-width: 2.4; stroke-linecap: round; stroke-dasharray: 6 7; animation: waveflow 9s linear infinite; }
+    .transcript-label { color: #8294ae; font-size: .68rem; text-transform: uppercase; letter-spacing: .1em; margin-bottom: 10px; }
+    .transcript { min-height: 110px; color: #d9e4f6; font-size: .9rem; line-height: 1.8; }
+    .typed { border-right: 1px solid var(--cyan); animation: caret 1s steps(1) infinite; }
+    .window-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--line); color: #8294ae; font-size: .68rem; }
+    .status-pill { border: 1px solid rgba(119,228,177,.2); color: #a5f0d0; background: rgba(119,228,177,.06); border-radius: 999px; padding: 4px 8px; }
+    .float-chip { position: absolute; z-index: 2; display: flex; align-items: center; gap: 9px; border: 1px solid rgba(165,194,232,.18); border-radius: 13px; padding: 10px 13px; background: rgba(17,28,46,.88); backdrop-filter: blur(14px); box-shadow: 0 14px 35px rgba(0,0,0,.22); font-size: .72rem; color: #dce8f8; }
+    .float-chip span { color: var(--cyan); font-size: 1rem; }
+    .chip-top { top: 10%; right: -1%; animation: drift 5s ease-in-out infinite; }
+    .chip-bottom { bottom: 10%; left: -2%; animation: drift 6s ease-in-out infinite reverse; }
+    .trust-strip { border-block: 1px solid var(--line); background: rgba(255,255,255,.018); }
+    .trust-inner { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 16px 40px; padding: 20px 0; color: #9eafc6; font-size: .8rem; }
+    .trust-item { display: inline-flex; align-items: center; gap: 9px; }
+    .trust-item svg { width: 16px; height: 16px; color: var(--cyan); }
+    section.content-section { padding: 100px 0; }
+    .section-head { max-width: 690px; margin: 0 auto 48px; text-align: center; }
+    .section-kicker { color: var(--cyan); font-size: .74rem; font-weight: 750; letter-spacing: .14em; text-transform: uppercase; }
+    h2 { margin: 12px 0 14px; font-size: clamp(2rem, 3.6vw, 3.1rem); line-height: 1.1; letter-spacing: -.06em; }
+    .section-head p { color: var(--muted); margin: 0; }
+    .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .feature-card { position: relative; overflow: hidden; min-height: 220px; padding: 25px; border: 1px solid var(--line); border-radius: var(--radius); background: linear-gradient(145deg, rgba(20,31,50,.85), rgba(12,20,34,.72)); transition: transform .25s ease, border-color .25s ease; }
+    .feature-card:hover { transform: translateY(-5px); border-color: rgba(86,229,227,.28); }
+    .feature-icon { display: grid; place-items: center; width: 43px; height: 43px; border-radius: 13px; background: rgba(86,229,227,.08); border: 1px solid rgba(86,229,227,.13); color: var(--cyan); margin-bottom: 21px; }
+    .feature-icon svg { width: 21px; height: 21px; }
+    .feature-card h3 { margin: 0 0 8px; font-size: 1.05rem; letter-spacing: -.025em; }
+    .feature-card p { margin: 0; color: var(--muted); font-size: .88rem; line-height: 1.7; }
+    .feature-card::after { content: ""; position: absolute; width: 120px; height: 120px; border-radius: 50%; right: -70px; bottom: -75px; background: rgba(86,229,227,.045); filter: blur(3px); }
+    .flow-section { background: linear-gradient(180deg, transparent, rgba(18,29,48,.38), transparent); }
+    .flow-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; position: relative; }
+    .flow-step { text-align: center; padding: 26px 18px; }
+    .step-number { display: grid; place-items: center; width: 46px; height: 46px; margin: 0 auto 18px; border: 1px solid rgba(86,229,227,.32); background: rgba(86,229,227,.07); color: var(--cyan); border-radius: 15px; font-weight: 750; }
+    .flow-step h3 { margin: 0 0 8px; font-size: 1rem; }
+    .flow-step p { color: var(--muted); font-size: .86rem; max-width: 270px; margin: auto; }
+    .flow-line { position: absolute; height: 1px; top: 49px; left: 20%; right: 20%; background: linear-gradient(90deg, transparent, rgba(86,229,227,.4), rgba(173,130,255,.4), transparent); }
+    .support-wrap { padding: 1px; border-radius: 28px; background: linear-gradient(115deg, rgba(86,229,227,.55), rgba(107,140,255,.34), rgba(173,130,255,.55)); }
+    .support-card { border-radius: 27px; padding: 48px; display: flex; align-items: center; justify-content: space-between; gap: 30px; background: radial-gradient(ellipse at 90% 0%, rgba(107,140,255,.13), transparent 50%), #0d1525; }
+    .support-card h2 { font-size: clamp(1.8rem, 3vw, 2.5rem); margin: 0 0 10px; }
+    .support-card p { color: var(--muted); max-width: 600px; margin: 0; }
+    .coffee-btn { flex-shrink: 0; color: #26170b; background: linear-gradient(110deg, #ffd18a, #ffb96b); box-shadow: 0 10px 30px rgba(255,185,107,.14); }
+    .coffee-btn:hover { filter: brightness(1.05); }
+    .closing { padding: 75px 0 86px; text-align: center; }
+    .closing p { color: var(--muted); margin: 0 auto 25px; max-width: 560px; }
+    footer { border-top: 1px solid var(--line); padding: 27px 0; color: #7f91ab; font-size: .76rem; }
+    .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+    .footer-links { display: flex; gap: 20px; flex-wrap: wrap; }
+    .footer-links a:hover { color: var(--text); }
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity .65s ease, transform .65s ease; }
+    .reveal.visible { opacity: 1; transform: translateY(0); }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(119,228,177,.5); } 70% { box-shadow: 0 0 0 8px rgba(119,228,177,0); } 100% { box-shadow: 0 0 0 0 rgba(119,228,177,0); } }
+    @keyframes waveflow { to { stroke-dashoffset: -180; } }
+    @keyframes caret { 50% { border-color: transparent; } }
+    @keyframes drift { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+      .reveal { opacity: 1; transform: none; }
+    }
+    @media (max-width: 900px) {
+      .hero { padding-top: 65px; }
+      .hero-grid { grid-template-columns: 1fr; gap: 30px; }
+      .hero-copy { max-width: 650px; }
+      .visual { min-height: 390px; }
+      .feature-grid { grid-template-columns: repeat(2, 1fr); }
+      .support-card { align-items: flex-start; flex-direction: column; }
+    }
+    @media (max-width: 640px) {
+      .container { width: min(100% - 32px, var(--max)); }
+      .nav { min-height: 66px; }
+      .navlinks { display: none; }
+      .nav-actions .btn-ghost { display: none; }
+      .nav-actions .btn { min-height: 39px; padding: 0 12px; font-size: .78rem; }
+      .hero { min-height: auto; padding: 58px 0 55px; }
+      h1 { font-size: clamp(2.8rem, 14vw, 4.3rem); }
+      .hero-copy { font-size: .98rem; }
+      .visual { min-height: 340px; }
+      .app-window { transform: none; }
+      .orbital { width: 330px; }
+      .chip-top { right: -5px; top: 2%; }
+      .chip-bottom { left: -5px; bottom: 2%; }
+      section.content-section { padding: 72px 0; }
+      .section-head { margin-bottom: 32px; }
+      .feature-grid, .flow-grid { grid-template-columns: 1fr; }
+      .flow-line { display: none; }
+      .flow-step { padding: 14px 10px; }
+      .support-card { padding: 30px 24px; }
+      .footer-inner { align-items: flex-start; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <nav class="nav container" aria-label="Navegación principal">
+      <a class="brand" href="#inicio" aria-label="Audio2Text, inicio">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 12h2l2-6 4 12 3-9 2 3h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span>audio<span style="color:var(--cyan)">2</span>text</span>
+      </a>
+      <div class="navlinks">
+        <a href="#funciones">Funciones</a>
+        <a href="#como-funciona">Cómo funciona</a>
+        <a href="#apoyar">Apoyar</a>
+      </div>
+      <div class="nav-actions">
+        <a class="btn btn-ghost" href="https://github.com/CENFARG/Audio2TextCENF" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+        <a class="btn btn-primary" href="https://github.com/CENFARG/Audio2TextCENF/releases" target="_blank" rel="noopener noreferrer">Explorar versiones <span aria-hidden="true">↗</span></a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero" id="inicio">
+      <div class="container hero-grid">
+        <div>
+          <div class="eyebrow"><span class="pulse"></span> Voz + inteligencia artificial</div>
+          <h1><span class="gradient-text">Tu voz.</span><br>En texto.<br><span class="gradient-text">En tiempo real.</span></h1>
+          <p class="hero-copy">Convertí conversaciones, ideas y notas de voz en texto con una experiencia simple, ágil y diseñada para acompañar tu forma de trabajar.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="https://github.com/CENFARG/Audio2TextCENF/releases" target="_blank" rel="noopener noreferrer">Conocer versiones <span aria-hidden="true">↗</span></a>
+            <a class="btn btn-ghost" href="#como-funciona">Descubrir cómo funciona <span aria-hidden="true">↓</span></a>
+          </div>
+          <p class="microcopy">Aplicación de escritorio · IA para transcripción · Proyecto CENF</p>
+        </div>
+
+        <div class="visual" aria-label="Visualización conceptual de la interfaz de Audio2Text">
+          <div class="orbital"><span class="orbit-dot"></span></div>
+          <div class="float-chip chip-top"><span>⌘</span> Atajos globales</div>
+          <div class="float-chip chip-bottom"><span>✳</span> Voz transformada en texto</div>
+          <div class="app-window">
+            <div class="window-head">
+              <div class="window-title"><span class="mini-mark">⌁</span> Audio2Text <span style="color:#71839e;font-weight:400">/ Transcripción</span></div>
+              <div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+            </div>
+            <div class="window-body">
+              <div class="recording"><span class="pulse"></span> Capturando audio <span style="margin-left:auto;color:#8294ae;font-weight:500">00:18</span></div>
+              <svg class="wave" viewBox="0 0 400 76" preserveAspectRatio="none" role="img" aria-label="Onda de audio animada">
+                <defs><linearGradient id="waveGradient" x1="0" x2="1"><stop offset="0" stop-color="#56e5e3"/><stop offset=".55" stop-color="#6b8cff"/><stop offset="1" stop-color="#ad82ff"/></linearGradient></defs>
+                <path d="M0 38 L8 38 14 27 20 50 27 13 34 62 42 32 49 38 57 38 64 21 71 55 78 29 86 42 94 38 102 38 109 9 116 65 124 25 132 48 140 38 148 38 156 18 164 58 172 30 180 44 188 38 196 38 204 14 212 62 220 25 228 49 236 38 244 38 252 21 260 56 268 29 276 45 284 38 292 38 300 11 308 64 316 25 324 49 332 38 340 38 348 20 356 57 364 28 372 46 380 38 388 38 400 38"/>
+              </svg>
+              <div class="transcript-label">Transcripción en vivo</div>
+              <div class="transcript">Las ideas aparecen mientras hablás. Audio2Text transforma tu voz en texto para que puedas concentrarte en lo importante<span class="typed">&nbsp;</span></div>
+              <div class="window-foot"><span>Whisper Large v3 · Groq API</span><span class="status-pill">● Conectado</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="trust-strip">
+      <div class="container trust-inner">
+        <span class="trust-item"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v18M3 12h18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> Transcripción en tiempo real</span>
+        <span class="trust-item"><svg viewBox="0 0 24 24" fill="none"><path d="M4 12h3l2-6 4 12 3-9 2 3h2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg> Tecnología Whisper + Groq</span>
+        <span class="trust-item"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="10" width="14" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.7"/></svg> Aplicación de escritorio</span>
+        <span class="trust-item"><svg viewBox="0 0 24 24" fill="none"><path d="M5 5h14v14H5zM9 9h6M9 12h6M9 15h4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg> Historial y organización</span>
+      </div>
+    </div>
+
+    <section class="content-section" id="funciones">
+      <div class="container">
+        <div class="section-head reveal">
+          <div class="section-kicker">Diseñado para acompañarte</div>
+          <h2>Menos fricción.<br><span class="gradient-text">Más ideas en movimiento.</span></h2>
+          <p>Una interfaz que acerca la inteligencia artificial a las tareas cotidianas, sin sumar complejidad innecesaria.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card reveal">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 12h2l2-6 4 12 3-9 2 3h3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h3>Transcripción en tiempo real</h3>
+            <p>Convertí audio en texto mientras hablás, con Whisper Large v3 a través de Groq API.</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M8 4h8M12 4v16M5 8h14M7 20h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
+            <h3>Atajos globales</h3>
+            <p>Iniciá y detené la captura con teclas configurables, sin tener que cambiar constantemente de ventana.</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M5 5h14v15H5zM8 9h8M8 12h8M8 15h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
+            <h3>Historial accesible</h3>
+            <p>Volvé a consultar transcripciones anteriores y mantené el material organizado.</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v18M3 12h18M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+            <h3>Experiencia integrada</h3>
+            <p>Una aplicación de escritorio con acceso desde la bandeja del sistema y una interfaz enfocada en la tarea.</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 7h16M7 4v6M17 4v6M5 12h14v8H5z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h3>Español e inglés</h3>
+            <p>Trabajá con los idiomas documentados actualmente por el proyecto.</p>
+          </article>
+          <article class="feature-card reveal">
+            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3 20 7v5c0 5-3.4 7.8-8 9-4.6-1.2-8-4-8-9V7l8-4Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            <h3>Control y transparencia</h3>
+            <p>Conocé el proyecto, revisá su código y consultá sus condiciones antes de empezar.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="content-section flow-section" id="como-funciona">
+      <div class="container">
+        <div class="section-head reveal">
+          <div class="section-kicker">Interacción humano–IA</div>
+          <h2>De la voz a una idea<br>que podés usar.</h2>
+          <p>La tecnología trabaja en segundo plano. Vos seguís al frente de la conversación.</p>
+        </div>
+        <div class="flow-grid">
+          <div class="flow-line" aria-hidden="true"></div>
+          <article class="flow-step reveal">
+            <div class="step-number">01</div>
+            <h3>Activá la captura</h3>
+            <p>Usá el atajo configurado o los controles de la aplicación para comenzar.</p>
+          </article>
+          <article class="flow-step reveal">
+            <div class="step-number">02</div>
+            <h3>Hablá con naturalidad</h3>
+            <p>Audio2Text procesa el audio mediante el servicio de transcripción configurado.</p>
+          </article>
+          <article class="flow-step reveal">
+            <div class="step-number">03</div>
+            <h3>Recuperá el texto</h3>
+            <p>Consultá el resultado y accedé al historial para retomar tu trabajo.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="content-section" id="apoyar">
+      <div class="container">
+        <div class="support-wrap reveal">
+          <div class="support-card">
+            <div>
+              <div class="section-kicker">Comunidad y colaboración</div>
+              <h2>¿Audio2Text te resulta útil?</h2>
+              <p>Podés acompañar el desarrollo del proyecto con una contribución voluntaria. Cada aporte ayuda a sostener el trabajo y la evolución de la herramienta.</p>
+            </div>
+            <!-- TODO: Reemplazar por la URL real y verificada del perfil de Cafecito antes de publicar. -->
+            <a class="btn coffee-btn" href="https://cafecito.app/USUARIO" target="_blank" rel="noopener noreferrer" aria-label="Apoyar Audio2Text en Cafecito">☕ Invitar un Cafecito <span aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="closing">
+      <div class="container reveal">
+        <div class="section-kicker">Audio2Text · CENF</div>
+        <h2>La tecnología escucha.<br><span class="gradient-text">Vos decidís qué sigue.</span></h2>
+        <p>Explorá el proyecto, conocé sus versiones disponibles y descubrí cómo la transcripción con IA puede integrarse a tu flujo de trabajo.</p>
+        <a class="btn btn-primary" href="https://github.com/CENFARG/Audio2TextCENF" target="_blank" rel="noopener noreferrer">Explorar en GitHub ↗</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <a class="brand" href="#inicio"><span class="brand-mark" aria-hidden="true">⌁</span><span>audio<span style="color:var(--cyan)">2</span>text</span></a>
+      <span>Un proyecto de CENF · Verificar datos y enlaces antes de publicar.</span>
+      <div class="footer-links">
+        <a href="https://github.com/CENFARG/Audio2TextCENF" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="https://github.com/CENFARG/Audio2TextCENF/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">Licencia</a>
+        <a href="#apoyar">Cafecito</a>
+      </div>
+    </div>
+  </footer>
+  <script>
+    // Progressive enhancement: reveal sections when they enter the viewport.
+    // The page remains readable if IntersectionObserver is unavailable.
+    (function () {
+      const elements = document.querySelectorAll(".reveal");
+      if (!("IntersectionObserver" in window)) {
+        elements.forEach((element) => element.classList.add("visible"));
+        return;
+      }
+      const observer = new IntersectionObserver((entries, currentObserver) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add("visible");
+            currentObserver.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12 });
+      elements.forEach((element) => observer.observe(element));
+    }());
+  </script>
+</body>
+</html>

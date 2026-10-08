@@ -54,6 +54,10 @@ Lectura: PWA distribuye ya y barato, pero sin dictado por hotkey ni audio en bac
 
 **ARCHIVAR.** Con RN en camino, Tauri es una 3ª línea insostenible para un solo dev; RN Web cubre "usar sin Windows". Acción: documentar los 2 stashes, no borrar nada. **Absorber** las ideas de layout de Svelte 5 como insumo de diseño para RN. Revisitar solo si Fase 1 falla.
 
+## 5b. Design reference (nuevo, 2026-09-25)
+
+Landing prototipo con la estética objetivo: `docs/design/landing_prototipo.html` (preview: `landing_preview.png`, factibilidad: `RN_UI_FEASIBILITY.md`). Veredicto: 100% reproducible en RN — el prototipo sirve doble: landing web publicable tal cual (GitHub Pages) y design system de referencia para la app RN (Fase 1/2).
+
 ## 6. Cafecito
 
 Link pasivo desde Fase 2-3. Gating de features: NO antes de ~100 MAU + retention 4 semanas — un paywall temprano mata el boca-a-boca. Qué justifica pago después: bloques POST, historial en la nube, vocabularios por rubro. **El dictado core: siempre gratis** — es el diferenciador y el canal de adquisición. Cafecito es tips, no salario.
