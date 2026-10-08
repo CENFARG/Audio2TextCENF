@@ -22,8 +22,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pytest
 
-from ui.views import supervisor_view as sv
-from ui.views.supervisor_view import (
+from ui.views import supervisor_helpers as sh
+from ui.views.supervisor_helpers import (
     AUTOSAVE_DEBOUNCE_MS,
     DebounceTimer,
     append_block_id,
@@ -359,25 +359,25 @@ class TestSessionGlue:
 
     def test_filter_on_keeps_only_current_session_in_order(self):
         # Act
-        visible = sv.select_visible_entries(self._entries(), "gemini", True)
+        visible = sh.select_visible_entries(self._entries(), "gemini", True)
 
         # Assert
         assert [e.number for e in visible] == [1, 3]
 
     def test_filter_off_shows_all_sessions(self):
         # Act
-        visible = sv.select_visible_entries(self._entries(), "gemini", False)
+        visible = sh.select_visible_entries(self._entries(), "gemini", False)
 
         # Assert
         assert [e.number for e in visible] == [1, 2, 3]
 
     def test_filter_on_without_matches_is_empty(self):
         # Act / Assert
-        assert sv.select_visible_entries(self._entries(), "claude", True) == []
+        assert sh.select_visible_entries(self._entries(), "claude", True) == []
 
     def test_row_label_includes_session(self):
         # Act / Assert: REQ-2 row format "#1 · borrador · agente-x"
-        assert sv.format_entry_label(1, "borrador", "agente-x") == "#1 · borrador · agente-x"
+        assert sh.format_entry_label(1, "borrador", "agente-x") == "#1 · borrador · agente-x"
 
     def test_row_label_without_session_stays_two_part(self):
         # Act / Assert: previous two-arg behavior preserved

@@ -15,12 +15,21 @@ import os
 import logging
 import tkinter as tk
 from tkinter import messagebox, filedialog
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 class VocabDialogMixin:
     """Mixin de gestión de vocabulario personalizado."""
+
+    # Host attributes (HC-02 mixin pattern; provided by ui.app.App at runtime).
+    transcriber: Any
+    logger: Any
+    update_status: Any
+    vocab_incorrect_var: Any
+    vocab_correct_var: Any
+    vocab_list_frame: Any
 
     # ── CRUD básico ───────────────────────────────────────────────────
     def _add_vocab_correction(self):
@@ -114,7 +123,7 @@ class VocabDialogMixin:
             try:
                 from ui.app import DesignSystem
             except Exception:
-                class DesignSystem:  # fallback
+                class DesignSystem:  # type: ignore[no-redef]  # fallback
                     TYPOGRAPHY = {"body_small": ("Segoe UI", 12, "normal")}
 
             if not hasattr(self.transcriber, 'custom_vocab'):
@@ -182,7 +191,7 @@ class VocabDialogMixin:
             try:
                 from ui.app import DesignSystem
             except Exception:
-                class DesignSystem:
+                class DesignSystem:  # type: ignore[no-redef]
                     TYPOGRAPHY = {"body_small": ("Segoe UI", 12, "normal")}
             for widget in self.vocab_list_frame.winfo_children():
                 widget.destroy()
@@ -205,7 +214,7 @@ class VocabDialogMixin:
             try:
                 from ui.app import DesignSystem
             except Exception:
-                class DesignSystem:
+                class DesignSystem:  # type: ignore[no-redef]
                     TYPOGRAPHY = {
                         "heading_medium": ("Segoe UI", 16, "bold"),
                         "body_small": ("Segoe UI", 12, "normal"),

@@ -18,7 +18,7 @@ class HotkeySelector(ctk.CTkToplevel):
         localization_manager,
         on_hotkey_selected: Callable[[str], None],
         current_hotkey: str = "f12",
-        title: str = None,
+        title: str | None = None,
     ):
         """
         Inicializar selector de hotkeys.
