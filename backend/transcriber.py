@@ -126,6 +126,11 @@ class Transcriber:
         self.audio_lock = threading.Lock()
         # v0.15.8 blindaje anti-duplicación: single-owner
         self.process_lock = threading.Lock()
+        # v0.16.x anti doble-pego: serializa stop_recording — el auto-cut del hilo
+        # de grabación y el hotkey thread pueden entrar concurrentes; sin este
+        # lock ambos pasaban el chequeo is_recording y lanzaban DOS
+        # process_recording (doble transcripción → doble pegado).
+        self._stop_lock = threading.Lock()
         self.current_recording_id = None
         self.last_audio_hash = None
         self.last_process_time = 0.0
@@ -1432,15 +1437,25 @@ class Transcriber:
         return True
 
     def stop_recording(self):
-        if not self.is_recording:
-            return
+        """Detiene la grabación y lanza el procesamiento exactamente una vez.
 
-        self.stop_event.set()
-        self.is_recording = False
-        # REQ-1: stopped is terminal — clear any paused state and offset.
-        self.is_paused = False
-        self._pause_started = None
-        self._pause_total = 0.0
+        v0.16.x anti doble-pego: el chequeo y el flip de ``is_recording`` son
+        atómicos bajo ``_stop_lock``. El auto-cut (hilo de grabación) y el
+        hotkey (hilo del listener) pueden invocar este método concurrentes;
+        antes del lock, ambos podían pasar el chequeo y cada uno lanzaba su
+        propio ``process_recording`` — dos callbacks de transcripción para una
+        sola grabación.
+        """
+        with self._stop_lock:
+            if not self.is_recording:
+                return
+
+            self.stop_event.set()
+            self.is_recording = False
+            # REQ-1: stopped is terminal — clear any paused state and offset.
+            self.is_paused = False
+            self._pause_started = None
+            self._pause_total = 0.0
         self.sound_manager.sound_stop_recording()
         self.update_status(self.localization_manager.get_string("status_processing"), "yellow")
         self.logger.info("Grabación detenida. Iniciando procesamiento.")
