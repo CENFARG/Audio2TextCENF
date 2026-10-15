@@ -70,6 +70,9 @@ class ConfigManager:
             "hotkey_modifier": "",  # DEPRECATED: Usar formato "ctrl+f9" en hotkey
             "supervisor_capture_hotkey": "ctrl+alt+v",  # F3: hotkey global que captura el portapapeles al Supervisor
             "pause_hotkey": "ctrl+alt+p",  # REQ-1: hotkey global para pausar/reanudar la grabación
+            "prompter_gate_auto": True,  # A4: Prompter Gate automático en el Supervisor
+            "prompter_gate_min_points": 8,  # A4: umbral de puntos numerados/viñetas del gate
+            "prompter_gate_min_chars": 1200,  # A4: umbral de longitud del borrador
             "record_mode": "toggle",  # Opciones: "hold" o "toggle"
             "default_language": "es",  # Idioma de INTERFAZ (siempre es)
             "transcription_language": "es",  # Idioma de TRANSCRIPCIÓN (es/en, configurable por el usuario)
@@ -99,7 +102,7 @@ class ConfigManager:
         # Cargar configuración ANTES de inicializar localization_manager
         self.config = self.load_config()
         self.localization_manager = LocalizationManager(
-            lang_code=self.config.get("default_language")
+            lang_code=self.config.get("default_language", "es")
         )
 
     def load_config(self):

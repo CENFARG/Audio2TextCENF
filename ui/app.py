@@ -2008,6 +2008,28 @@ class App(
         )
         self._supervisor_rebuild_rows()
 
+    # A4: Prompter Gate — pass LLM del Supervisor (patrón metadata generator)
+    def _prompter_llm(self, messages):
+        """A4: one Prompter restructure pass via Groq (same client/key path).
+
+        Runs on the PrompterRunner worker thread (never the Tk thread); raises
+        on any failure so the runner delivers ``on_error`` and the UI keeps
+        the untouched draft.
+        """
+        from groq import Groq
+
+        api_key = self.config_manager.get_groq_api_key()
+        if not api_key:
+            raise RuntimeError("GROQ_API_KEY no configurada")
+        client = Groq(api_key=api_key)
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",  # rápido y económico (patrón metadata generator)
+            messages=messages,
+            temperature=0.3,
+            max_tokens=2048,
+        )
+        return (response.choices[0].message.content or "").strip()
+
     # REQ-1: pausa/reanudación de grabación (hotkey global configurable)
     def _register_pause_hotkey(self):
         """REQ-1: register the configurable pause/resume hotkey at boot.

@@ -1,13 +1,6 @@
 """
-SupervisorViewMixin — F2 Supervisor tab (AI-response drafting workbench).
-
-Thin CustomTkinter mixin (HC-02 pattern): numbered entries (AI quote +
-correction), insertable context blocks, per-entry record toggle, 500 ms
-debounced autosave, CRUD with confirm, assembled copy to the clipboard.
-Pure glue, the blocks dialog and the record lifecycle live in
-:mod:`ui.views.supervisor_helpers` (headless unit tests); Tk widget
-construction by inspection + import smoke. Host dependencies come from the
-App instance.
+SupervisorViewMixin — F2 Supervisor tab: workbench UI + A4 Prompter Gate glue.
+HC-02 pattern; pure helpers in ui.views.supervisor_helpers; Tk by inspection.
 """
 
 from __future__ import annotations
@@ -15,6 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from backend.prompter_gate import PrompterGate, build_prompter_messages, select_block_bodies
 from backend.supervisor_store import DEFAULT_SESSION
 from ui.views.supervisor_helpers import (
     DebounceTimer,
@@ -40,6 +34,7 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
     main_frame: Any
     after: Any
     after_cancel: Any
+    _prompter_llm: Any
 
     def create_supervisor_tab(self) -> None:
         """Build the Supervisor tab: state, widgets and initial render."""
@@ -63,6 +58,7 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
             transcribe_fn=self.transcriber.transcribe_with_groq,
             main_transcriber=self.transcriber,
         )
+        self.prompter_gate = PrompterGate(self.config_manager.get, self._prompter_llm)
         self._supervisor_debounce = DebounceTimer()
         self._supervisor_rows: dict[int, dict[str, Any]] = {}
         self._supervisor_selected: int | None = None
@@ -77,8 +73,7 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
             anchor="w",
             font=DesignSystem.TYPOGRAPHY["heading_medium"],
         ).grid(row=0, column=0, padx=10, pady=(5, 0), sticky="ew")
-        # REQ-2: session selector (editable combo persisted in the config key
-        # ``supervisor_last_session``) + "solo esta sesión" filter switch.
+        # REQ-2: session selector (persisted in supervisor_last_session) + filter.
         self._supervisor_session_only = False
         self._supervisor_session_var = ctk.StringVar(
             value=self.config_manager.get("supervisor_last_session", DEFAULT_SESSION)
@@ -105,17 +100,15 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
         self._supervisor_session_switch.pack(side="right")
         bar = ctk.CTkFrame(tab, fg_color="transparent")
         bar.grid(row=2, column=0, padx=10, pady=(6, 5), sticky="ew")
-        # UX-3: window is 590px wide — compact widths + small padx keep
-        # "Copiar todo" fully visible instead of clipped at the right edge.
+        # UX-3: compact widths keep "Copiar todo" visible on the 590px window.
         ctk.CTkButton(
             bar,
             text=loc.get_string("supervisor_new_entry"),
             width=118,
             command=self._supervisor_new_entry,
         ).pack(side="left", padx=(0, 3))
-        # REQ-3: the single-select menu + "Insertar bloque" button pair is
-        # replaced by one "Bloques" button opening the multi-select dialog;
-        # insertion happens inside that dialog ("Insertar seleccionados").
+        # REQ-3: one "Bloques" button opens the multi-select dialog; insertion
+        # happens inside that dialog ("Insertar seleccionados").
         ctk.CTkButton(
             bar,
             text=loc.get_string("supervisor_blocks_button"),
@@ -130,6 +123,16 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
             fg_color=DesignSystem.COLORS["primary"],
             command=self._supervisor_copy_all,
         ).pack(side="right", padx=(3, 0))
+        self._supervisor_prompter_switch = ctk.CTkSwitch(
+            bar,
+            text=loc.get_string("supervisor_prompter_button"),
+            command=lambda: self.config_manager.set(
+                "prompter_gate_auto", bool(self._supervisor_prompter_switch.get())
+            ),
+        )
+        if self.config_manager.get("prompter_gate_auto", True):
+            self._supervisor_prompter_switch.select()
+        self._supervisor_prompter_switch.pack(side="right", padx=(6, 3))
         self.supervisor_scroll = ctk.CTkScrollableFrame(tab, fg_color="transparent")
         self.supervisor_scroll.grid(row=3, column=0, padx=6, pady=5, sticky="nsew")
         self.supervisor_status_label = ctk.CTkLabel(
@@ -144,21 +147,13 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
         self._supervisor_rebuild_rows()
 
     def _supervisor_current_session(self) -> str:
-        """REQ-2: session name currently selected in the workbench selector.
-
-        Returns:
-            The stripped selector value, or ``DEFAULT_SESSION`` when blank.
-        """
+        """REQ-2: session name currently selected in the workbench selector."""
         var = getattr(self, "_supervisor_session_var", None)
         value = var.get() if var is not None else ""
         return str(value or "").strip() or DEFAULT_SESSION
 
     def _supervisor_known_sessions(self) -> list[str]:
-        """REQ-2: combo values — default first, then every store session sorted.
-
-        Returns:
-            Session names for the selector dropdown.
-        """
+        """REQ-2: combo values — default first, then every store session sorted."""
         sessions = {entry.session for entry in self.supervisor_store.all()}
         sessions.add(self._supervisor_current_session())
         return [DEFAULT_SESSION, *sorted(sessions - {DEFAULT_SESSION})]
@@ -174,11 +169,7 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
         self._supervisor_rebuild_rows()
 
     def _supervisor_rebuild_rows(self) -> None:
-        """Re-render the visible entry rows after a structural change (CRUD).
-
-        REQ-2: with the session filter ON only the current session's entries
-        are rendered; OFF renders every entry.
-        """
+        """Re-render the visible entry rows (REQ-2: session filter honored)."""
         for widget in self.supervisor_scroll.winfo_children():
             widget.destroy()
         self._supervisor_rows = {}
@@ -194,13 +185,7 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
         )
 
     def _supervisor_build_row(self, entry) -> None:
-        """Build one entry row: header (label + actions) + full-width textboxes.
-
-        UX-2b: the quote/response textareas live in their own grid rows and
-        expand to the row width (``sticky="ew"`` + weighted column 0); the
-        buttons stay visible in the top header line instead of squeezing
-        the textboxes into ~30px slivers on the 590px window.
-        """
+        """Build one entry row: header (label + actions) + full-width textareas (UX-2b grid)."""
         import customtkinter as ctk
 
         loc = self.localization_manager
@@ -228,6 +213,11 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
         record_btn.pack(side="right", padx=(4, 0))
         for kwargs in (
             {
+                "text": loc.get_string("supervisor_prompter_button"),
+                "width": 88,
+                "command": lambda n=number: self._supervisor_start_prompter(n),
+            },
+            {
                 "text": loc.get_string("supervisor_copy_entry", number=number),
                 "width": 106,
                 "command": lambda n=number: self._supervisor_copy_entry(n),
@@ -249,8 +239,7 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
         ):
             ctk.CTkButton(header, **kwargs).pack(side="right", padx=3)
 
-        # CTkTextbox no soporta placeholder_text (crashea en Tcl/Tk estricto):
-        # el campo arranca vacío y el contenido real se inserta abajo.
+        # CTkTextbox no soporta placeholder_text (crashea en Tcl/Tk estricto).
         quote = ctk.CTkTextbox(row, height=50)
         quote.grid(row=1, column=0, sticky="ew", pady=(2, 0))
         if entry.quote:
@@ -272,22 +261,19 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
         )
 
     def _supervisor_flush_entry(self, number: int) -> None:
-        """Persist the current textbox contents of one entry (autosave)."""
+        """Persist the current textboxes of one entry, then run the A4 auto gate."""
         row = self._supervisor_rows.get(number)
         if row is None:
             return
+        response = row["response"].get("1.0", "end-1c")
         self.supervisor_store.update_entry(
-            number,
-            quote=row["quote"].get("1.0", "end-1c"),
-            response=row["response"].get("1.0", "end-1c"),
+            number, quote=row["quote"].get("1.0", "end-1c"), response=response
         )
+        if self.prompter_gate.auto_enabled() and self.prompter_gate.evaluate(response).trigger:
+            self._supervisor_start_prompter(number)
 
     def _supervisor_new_entry(self) -> None:
-        """Create the next numbered entry in the current session and focus it.
-
-        REQ-2: the fresh entry captures the session selected in the workbench
-        selector, which is also persisted for the next boot.
-        """
+        """Create the next numbered entry in the current session and focus it."""
         session = self._supervisor_current_session()
         entry = self.supervisor_store.create_entry(session=session)
         self.config_manager.set("supervisor_last_session", session)
@@ -330,8 +316,7 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
             return
         payload = build_copy_payload([entry])
         if not payload.strip():
-            # C-3: an entry with no quote AND no response copies nothing —
-            # tell the user instead of putting a bare number on the clipboard.
+            # C-3: no quote AND no response copies nothing — say it instead.
             self._supervisor_set_status(
                 self.localization_manager.get_string("supervisor_copy_empty", number=number)
             )
@@ -339,12 +324,7 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
         self._supervisor_copy_to_clipboard(payload)
 
     def _supervisor_copy_all(self) -> None:
-        """Copy the visible entries assembled in numeric order to the clipboard.
-
-        REQ-2: with "solo esta sesión" ON only the current session's entries
-        are copied (accumulated corrections to re-anchor one agent); OFF
-        copies every entry (previous behavior).
-        """
+        """Copy visible entries assembled in numeric order (REQ-2: session filter)."""
         entries = select_visible_entries(
             self.supervisor_store.all(),
             self._supervisor_current_session(),
@@ -374,3 +354,47 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
     def _supervisor_set_status(self, message: str) -> None:
         """Show a transient status message on the bottom label."""
         self.supervisor_status_label.configure(text=message)
+
+    def _supervisor_start_prompter(self, number: int) -> bool:
+        """A4: run one Prompter pass for an entry (manual button or auto gate)."""
+        entry = self.supervisor_store.get(number)
+        if entry is None or not str(entry.response or "").strip():
+            return False
+        if self.prompter_gate.is_running(number):
+            self._supervisor_set_status(
+                self.localization_manager.get_string("supervisor_prompter_running")
+            )
+            return False
+        quote = str(entry.quote or "").strip()
+        blocks = select_block_bodies(self.context_blocks, entry.blocks)
+        messages = build_prompter_messages(entry.response, blocks, quote or None)
+        started = self.prompter_gate.start(
+            number,
+            messages,
+            on_done=lambda n, t: self.after(0, self._supervisor_on_prompter_result, n, t, None),
+            on_error=lambda n, e: self.after(0, self._supervisor_on_prompter_result, n, None, e),
+        )
+        if started:
+            self._supervisor_set_status(
+                self.localization_manager.get_string("supervisor_prompter_running")
+            )
+        return started
+
+    def _supervisor_on_prompter_result(
+        self, number: int, text: str | None, error: str | None
+    ) -> None:
+        """A4: pass outcome — replace the response on success, keep the draft on error."""
+        if error is not None:
+            logger.error("Supervisor Prompter pass failed on #%s: %s", number, error)
+            self._supervisor_set_status(
+                self.localization_manager.get_string("supervisor_prompter_error")
+            )
+            return
+        self.supervisor_store.update_entry(number, response=text or "")
+        row = self._supervisor_rows.get(number)
+        if row is not None:
+            row["response"].delete("1.0", "end")
+            row["response"].insert("1.0", text or "")
+        self._supervisor_set_status(
+            self.localization_manager.get_string("supervisor_prompter_done")
+        )
