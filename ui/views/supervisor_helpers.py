@@ -14,7 +14,6 @@ import logging
 from typing import Any
 
 from backend.context_blocks import assemble_all
-from backend.supervisor_store import DEFAULT_SESSION
 
 logger = logging.getLogger(__name__)
 

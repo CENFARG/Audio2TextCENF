@@ -319,9 +319,7 @@ class TestStreamingPostStop:
         # no bloqueó: si hubiera propagado, test habría fallado
         # post-stop debe reintentar el fallido
         audio = _make_pattern(55)  # ~2 chunks
-        from backend.audio_chunker import split_audio_on_silence
 
-        chunks = split_audio_on_silence(audio, SR, target_s=25.0, max_s=29.0)
         # streamed con solo 1 ok, merge debe intentar remaining (incluye el fallido)
         tr._groq_chunk_callback = Mock(return_value="reintento ok")
         streamed = {1: "ok2"}
