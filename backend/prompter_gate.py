@@ -33,6 +33,7 @@ import re
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +131,8 @@ _FENCE_CLOSE = re.compile(r"\r?\n?```[ \t]*$")
 #: Sentence terminator split for the imperative heuristic.
 _SENTENCE_SPLIT = re.compile(r"[.!?…]+")
 
-#: System prompt for the restructure pass: expert that NEVER invents content.
+#: System prompt inline de respaldo (usado solo si falta el archivo versionado
+# backend/prompts/prompter_system_v1.md — ej: builds empaquetados sin --add-data).
 PROMPTER_SYSTEM_PROMPT = (
     "Sos un experto en prompt engineering. Reestructurás borradores dictados "
     "en instrucciones claras para un agente de IA: título corto, puntos "
@@ -140,6 +142,38 @@ PROMPTER_SYSTEM_PROMPT = (
     "contenido a incorporar). Mantené el idioma del borrador y no agregues "
     "secciones que el borrador no pida."
 )
+
+
+_PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
+_PROMPT_FILE = _PROMPTS_DIR / "prompter_system_v1.md"
+_FRONTMATTER_RE = re.compile(r"^---\n.*?\n---\n", re.DOTALL)
+
+
+def _safe_int(value: object, default: int) -> int:
+    """Parse a config value as int, falling back on missing/garbage input."""
+    try:
+        return int(float(str(value)))
+    except (TypeError, ValueError):
+        return default
+
+
+def load_prompter_system_prompt() -> str:
+    """Load the canonical versioned Prompter system prompt.
+
+    Reads ``backend/prompts/prompter_system_v1.md`` and strips its YAML
+    frontmatter (metadata never reaches the model). Falls back to the
+    inline :data:`PROMPTER_SYSTEM_PROMPT` constant when the file is
+    missing (packaged builds without ``--add-data``).
+
+    Returns:
+        The system prompt text (no frontmatter, no fences).
+    """
+    try:
+        text = _PROMPT_FILE.read_text(encoding="utf-8")
+    except OSError:
+        return PROMPTER_SYSTEM_PROMPT
+    stripped = _FRONTMATTER_RE.sub("", text, count=1).strip()
+    return stripped or PROMPTER_SYSTEM_PROMPT
 
 
 @dataclass
@@ -234,7 +268,7 @@ def build_prompter_messages(draft: str, blocks: list, target_note: str | None = 
     if note:
         user_sections.append(f"NOTA DESTINO:\n{note}")
     return [
-        {"role": "system", "content": PROMPTER_SYSTEM_PROMPT},
+        {"role": "system", "content": load_prompter_system_prompt()},
         {"role": "user", "content": "\n\n".join(user_sections)},
     ]
 
@@ -371,8 +405,14 @@ class PrompterGate:
         """Evaluate the draft with the configured thresholds."""
         return evaluate_draft(
             text,
-            min_points=int(self._config_get("prompter_gate_min_points", DEFAULT_MIN_POINTS)),
-            min_chars=int(self._config_get("prompter_gate_min_chars", DEFAULT_MIN_CHARS)),
+            min_points=_safe_int(
+                self._config_get("prompter_gate_min_points", DEFAULT_MIN_POINTS),
+                DEFAULT_MIN_POINTS,
+            ),
+            min_chars=_safe_int(
+                self._config_get("prompter_gate_min_chars", DEFAULT_MIN_CHARS),
+                DEFAULT_MIN_CHARS,
+            ),
         )
 
     def is_running(self, number: int) -> bool:

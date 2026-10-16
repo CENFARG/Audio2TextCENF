@@ -99,6 +99,7 @@ def _add_data(src: Path, dst: str):
 
 # lang es directorio — requerido
 _add_data(current_dir / "lang", "lang")
+_add_data(current_dir / "backend" / "prompts", "backend/prompts")
 # config: preferir config/config.json si existe, sino fallback a config.json en root, sino omitir
 _config_src = current_dir / "config" / "config.json"
 if not _config_src.exists():

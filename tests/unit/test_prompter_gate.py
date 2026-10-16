@@ -27,10 +27,10 @@ from backend.context_blocks import ContextBlock
 from backend.prompter_gate import (
     DEFAULT_MIN_CHARS,
     DEFAULT_MIN_POINTS,
-    PROMPTER_SYSTEM_PROMPT,
     GateDecision,
     PrompterGate,
     PrompterRunner,
+    load_prompter_system_prompt,
     build_prompter_messages,
     evaluate_draft,
     select_block_bodies,
@@ -171,10 +171,12 @@ class TestBuildPrompterMessages:
         assert [m["role"] for m in messages] == ["system", "user"]
 
     def test_system_message_is_the_prompter_expert(self):
-        # Assert: the no-invention + draft-language rules are in the prompt
-        assert "sin inventar" in PROMPTER_SYSTEM_PROMPT
-        assert "idioma" in PROMPTER_SYSTEM_PROMPT
-        assert build_prompter_messages("borrador", [], None)[0]["content"] == PROMPTER_SYSTEM_PROMPT
+        # Assert: the system message IS the canonical versioned prompt (A4
+        # integration) and keeps the single-source + draft-language rules.
+        expected = load_prompter_system_prompt()
+        assert "única fuente de contenido" in expected
+        assert "idioma" in expected
+        assert build_prompter_messages("borrador", [], None)[0]["content"] == expected
 
     def test_user_message_contains_the_draft(self):
         # Act / Assert
@@ -312,7 +314,11 @@ class TestPrompterRunner:
     def test_second_start_for_same_entry_refused_while_running(self):
         # Arrange: llm blocks until the test releases it
         release = threading.Event()
-        runner = PrompterRunner(llm_fn=lambda messages: release.wait(5) and "ok")
+        def blocking_llm(messages):
+            release.wait(5)
+            return "ok"
+
+        runner = PrompterRunner(llm_fn=blocking_llm)
         callbacks = _RunnerCallbacks()
 
         # Act
@@ -330,7 +336,11 @@ class TestPrompterRunner:
     def test_other_entries_can_run_in_parallel(self):
         # Arrange
         release = threading.Event()
-        runner = PrompterRunner(llm_fn=lambda messages: release.wait(5) and "ok")
+        def blocking_llm(messages):
+            release.wait(5)
+            return "ok"
+
+        runner = PrompterRunner(llm_fn=blocking_llm)
         first, second = _RunnerCallbacks(), _RunnerCallbacks()
 
         # Act
@@ -579,3 +589,28 @@ class TestPrompterSupervisorFlow:
         assert host.done.wait(5)
         host.prompter_gate.runner.join(5)
         assert host.supervisor_store.get(number).response == "estructura"
+
+
+class TestPromptLoader:
+    """Contrato del loader del system prompt versionado (integración A4)."""
+
+    def test_loads_versioned_file_stripping_frontmatter(self):
+        from backend.prompter_gate import load_prompter_system_prompt
+
+        text = load_prompter_system_prompt()
+        assert text.strip()
+        assert not text.startswith("---")
+        assert "reestructur" in text.lower() or "prompt" in text.lower()
+
+    def test_fallback_to_inline_constant_when_file_missing(self, monkeypatch, tmp_path):
+        import backend.prompter_gate as pg
+
+        monkeypatch.setattr(pg, "_PROMPT_FILE", tmp_path / "missing.md")
+        assert pg.load_prompter_system_prompt() == pg.PROMPTER_SYSTEM_PROMPT
+
+    def test_build_prompter_messages_uses_loaded_prompt(self):
+        from backend.prompter_gate import build_prompter_messages, load_prompter_system_prompt
+
+        messages = build_prompter_messages("borrador de prueba", [], None)
+        assert messages[0]["role"] == "system"
+        assert messages[0]["content"] == load_prompter_system_prompt()
