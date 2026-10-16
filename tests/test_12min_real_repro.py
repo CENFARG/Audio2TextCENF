@@ -114,7 +114,6 @@ class Test12MinRealRepro:
                 tr.stop_event = threading.Event()
                 # Mock process_recording tracking
                 called = {}
-                orig_proc = tr.process_recording
 
                 def fake_proc(*a, **kw):
                     called["called"] = True

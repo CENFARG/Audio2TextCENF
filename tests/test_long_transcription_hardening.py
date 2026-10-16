@@ -162,7 +162,7 @@ class TestGroqHardening:
             cm.get_groq_api_key_from_env = Mock(return_value="gsk_test_dummy_key_123")
             cm.localization_manager = Mock()
             with patch("backend.transcriber.NvidiaASR"):
-                tr = Transcriber(cm, Mock(), Mock(), Mock(), Mock(), Mock())
+                Transcriber(cm, Mock(), Mock(), Mock(), Mock(), Mock())
             # verificar llamada con timeout
             assert mock_groq.called
             kwargs = mock_groq.call_args[1]
@@ -359,7 +359,6 @@ class TestProgressYCheckpoint:
         from backend.audio_chunker import transcribe_chunks
 
         audio = _make_small_pattern(70)  # ~70s => 3 chunks
-        calls = []
         progress = []
 
         def fake_api(chunk, prompt=None):
@@ -370,7 +369,7 @@ class TestProgressYCheckpoint:
             progress.append((idx, total, eta))
 
         # test audio_chunker progress
-        res = transcribe_chunks(
+        transcribe_chunks(
             audio, SR, fake_api, target_s=25.0, max_s=29.0, progress_callback=prog
         )
         assert len(progress) >= 3
@@ -405,7 +404,7 @@ class TestProgressYCheckpoint:
                 def cb(idx, total, eta):
                     progress2.append((idx, total))
 
-                res2 = tr.transcribe_with_groq(str(wav), progress_callback=cb)
+                tr.transcribe_with_groq(str(wav), progress_callback=cb)
                 assert len(progress2) >= 1
                 # verificar cola timer_queue recibió progress
                 events = []

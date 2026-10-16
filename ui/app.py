@@ -1794,7 +1794,6 @@ class App(
         old_tlang = self.config_manager.get(
             "transcription_language", self.config_manager.get("default_language", "es")
         )
-        old_show_panel = self.config_manager.get("show_transcription_panel")
 
         # Obtener configuración de bloques actual
         blocks_config = self.config_manager.get("blocks", {})

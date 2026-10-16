@@ -237,7 +237,7 @@ class TestHotkeyRegistration:
             mock_keyboard.add_hotkey.return_value = True
 
             callback = Mock()
-            result = manager.register_hotkey("ctrl+f5", callback)
+            manager.register_hotkey("ctrl+f5", callback)
 
             # Verify keyboard.add_hotkey was called
             assert mock_keyboard.add_hotkey.called

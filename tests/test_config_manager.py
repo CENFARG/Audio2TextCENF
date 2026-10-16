@@ -387,7 +387,6 @@ class TestConfigIntegrity:
 
     def test_multiple_save_load_cycles(self, manager):
         """Test that multiple save/load cycles maintain integrity."""
-        original_hotkey = manager.get("hotkey")
 
         # Save and load 3 times
         for i in range(3):

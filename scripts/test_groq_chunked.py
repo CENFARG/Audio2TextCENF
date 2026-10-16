@@ -17,7 +17,7 @@ import soundfile as sf
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
-from backend.audio_chunker import (
+from backend.audio_chunker import (  # noqa: E402
     split_audio_on_silence,
     transcribe_chunks,
     MAX_WINDOW_S,
@@ -122,7 +122,7 @@ def main():
     # Comparar con transcripción original (con truncados)
     jsonl = REPO / "transcriptions" / "transcriptions_log.jsonl"
     entries = [
-        json.loads(l) for l in jsonl.read_text(encoding="utf-8").strip().splitlines()
+        json.loads(line) for line in jsonl.read_text(encoding="utf-8").strip().splitlines()
     ]
     orig = [
         e for e in entries if "audio_20260815_042105" in (e.get("audio_file") or "")

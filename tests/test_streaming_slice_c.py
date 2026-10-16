@@ -322,7 +322,6 @@ class TestStreamingPostStop:
         from backend.audio_chunker import split_audio_on_silence
 
         chunks = split_audio_on_silence(audio, SR, target_s=25.0, max_s=29.0)
-        total = len(chunks)
         # streamed con solo 1 ok, merge debe intentar remaining (incluye el fallido)
         tr._groq_chunk_callback = Mock(return_value="reintento ok")
         streamed = {1: "ok2"}

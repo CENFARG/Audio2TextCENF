@@ -1,3 +1,5 @@
+import os
+
 import json
 
 launch_config = {
@@ -37,7 +39,6 @@ launch_config = {
 }
 
 # Crear directorio si no existe
-import os
 os.makedirs('.vscode', exist_ok=True)
 
 # Guardar archivo

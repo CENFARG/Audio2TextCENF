@@ -201,8 +201,8 @@ class UpdateTab(ctk.CTkFrame):
                 progress_callback=self._update_progress,
             )
             self.after(0, lambda: self._install(temp_path))
-        except Exception:
-            self.after(0, lambda: self._show_error(str(e)))
+        except Exception as e:
+            self.after(0, lambda err=str(e): self._show_error(err))
 
     def _update_progress(self, downloaded, total):
         """Actualizar barra de progreso"""

@@ -72,6 +72,10 @@ SUPERVISOR_LANG_KEYS = [
     "supervisor_close",
     "supervisor_session_label",
     "supervisor_session_filter",
+    "supervisor_prompter_button",
+    "supervisor_prompter_running",
+    "supervisor_prompter_done",
+    "supervisor_prompter_error",
 ]
 
 

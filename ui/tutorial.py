@@ -108,7 +108,7 @@ class TutorialManager:
             try:
                 self.app.main_frame.set(step['tab'])
                 self.app.update_idletasks()
-            except:
+            except Exception:
                 pass
 
         # 2. Crear Frame "Tooltip" Compacto
@@ -196,10 +196,14 @@ class TutorialManager:
                     y = t_y + t_h_widget + 10
         
         # Safety bounds
-        if x < 10: x = 10
-        if x + tt_w > app_w: x = app_w - tt_w - 10
-        if y < 10: y = 10
-        if y + tt_h > app_h: y = app_h - tt_h - 10
+        if x < 10:
+            x = 10
+        if x + tt_w > app_w:
+            x = app_w - tt_w - 10
+        if y < 10:
+            y = 10
+        if y + tt_h > app_h:
+            y = app_h - tt_h - 10
 
         self.tooltip_frame.place(x=x, y=y)
 
