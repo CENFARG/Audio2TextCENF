@@ -15,14 +15,44 @@ TODO v0.16: extraer HistoryView a clase vista completa con inyección de depende
 import os
 import json
 import logging
+from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from customtkinter import CTkScrollableFrame
+
+    from backend.file_manager import FileManager
+    from backend.transcription_metadata import TranscriptionMetadata
 
 # Lazy imports for DesignSystem / emoji_picker to avoid circular at import time
 
 
 class HistoryViewMixin:
-    """Mixin que provee toda la lógica de la pestaña Historial."""
+    """Mixin que provee toda la lógica de la pestaña Historial.
+
+    Atributos y métodos provistos por la clase anfitriona (App):
+    logger, file_manager, metadata_manager, localization_manager,
+    history_scroll_frame, _change_emoji, _play_audio_file,
+    _start_retranscription, _delete_audio_file, update_status.
+    """
+
+    if TYPE_CHECKING:
+        logger: logging.Logger
+        file_manager: FileManager
+        metadata_manager: TranscriptionMetadata
+        localization_manager: Any
+        history_scroll_frame: CTkScrollableFrame
+
+        def _change_emoji(
+            self, filepath: str, emoji: str, button: Any, label: Any
+        ) -> None: ...
+
+        def _play_audio_file(self, filepath: str, button: Any) -> None: ...
+
+        def _start_retranscription(self, file_path: str) -> None: ...
+
+        def _delete_audio_file(self, filepath: str) -> None: ...
 
     # ── Duration ──────────────────────────────────────────────────────
     def _format_duration(self, seconds: float) -> str:
@@ -55,7 +85,7 @@ class HistoryViewMixin:
                 if current_mtime == self._transcriptions_cache_mtime:
                     return
             cache = {}
-            with open(transcriptions_path, "r", encoding="utf-8") as f:
+            with open(transcriptions_path, encoding="utf-8") as f:
                 for line in f:
                     if not line.strip():
                         continue

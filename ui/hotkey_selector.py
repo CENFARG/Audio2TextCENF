@@ -4,8 +4,9 @@ Hotkey Selector - Selector de hotkeys con modificadores.
 Permite al usuario seleccionar combinaciones de teclas con Ctrl, Alt, Shift.
 """
 
+from collections.abc import Callable
+
 import customtkinter as ctk
-from typing import Optional, Callable
 from backend.hotkey_manager import HotkeyManager
 
 
@@ -16,7 +17,7 @@ class HotkeySelector(ctk.CTkToplevel):
         self,
         parent,
         localization_manager,
-        on_hotkey_selected: Callable[[str], None],
+        on_hotkey_selected: Callable[[str], None] | None = None,
         current_hotkey: str = "f12",
         title: str | None = None,
     ):
@@ -345,7 +346,7 @@ def show_hotkey_selector(
     localization_manager,
     on_hotkey_selected: Callable[[str], None],
     current_hotkey: str = "f12",
-) -> Optional[str]:
+) -> str | None:
     """
     Mostrar selector de hotkeys.
 
@@ -377,7 +378,7 @@ if __name__ == "__main__":
     ctk.CTkButton(
         root,
         text="Seleccionar Hotkey",
-        command=lambda: show_hotkey_selector(root, on_select),
+        command=lambda: show_hotkey_selector(root, None, on_select),
     ).pack(expand=True)
 
     root.mainloop()
