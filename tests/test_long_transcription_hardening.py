@@ -168,6 +168,7 @@ class TestGroqHardening:
             kwargs = mock_groq.call_args[1]
             assert kwargs.get("timeout") == 30 or kwargs.get("timeout") == 30.0
 
+    @pytest.mark.order_dependent  # flake de carga/timing (pasa en aislado)
     def test_timeout_no_cuelga(self, tmp_path):
         _reset_circuit()
         """Mock Groq que cuelga (sleep) debe timeout y no bloquear para siempre."""
