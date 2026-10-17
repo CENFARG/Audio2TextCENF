@@ -395,7 +395,7 @@ class HistoryViewMixin:
         duration_label.pack(side="left", padx=(0, 4))
         self._bind_tooltip(duration_label, f"Duración: {duration_str}")
 
-        emoji_btn = ctk.CTkButton(
+        emoji_btn: ctk.CTkButton = ctk.CTkButton(
             action_frame,
             text=custom_emoji,
             width=35,

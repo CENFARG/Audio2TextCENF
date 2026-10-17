@@ -192,7 +192,7 @@ class App(
     FilesViewMixin,
     HistoryViewMixin,
     VocabDialogMixin,
-    _FilesDndBase,
+    _FilesDndBase,  # type: ignore[misc,valid-type]
     ctk.CTk,
 ):
     """HC-02: God-class descompuesta vía mixins. Ver ui/views/history_view.py y ui/dialogs/vocab_dialog.py."""
@@ -1526,7 +1526,7 @@ class App(
             friendly = self.localization_manager.get_string("api_key_charset_error")
             self.logger.warning(f"API Key de Groq con caracteres no válidos: {friendly}")
             self.api_key_status_label.configure(text="●", text_color=DesignSystem.COLORS["error"])
-            self._api_key_last_valid = False
+            self._api_key_last_valid: bool | None = False
             self.update_status(f"❌ {friendly}", "red")
             if show_popup:
                 self._show_api_key_error_hint(friendly)
@@ -1581,7 +1581,7 @@ class App(
         now = time.time()
         if hasattr(self, "_last_api_hint_time") and (now - self._last_api_hint_time) < 10:
             return
-        self._last_api_hint_time = now
+        self._last_api_hint_time: float = now
 
         def _go_to_info():
             try:

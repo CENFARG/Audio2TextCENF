@@ -251,7 +251,7 @@ class VocabDialogMixin:
                 # HC-03 fallback cross-platform
                 try:
                     import ctypes
-                    return (ctypes.windll.user32.GetKeyState(0x10) & 0x8000) != 0
+                    return bool(ctypes.windll.user32.GetKeyState(0x10) & 0x8000)
                 except Exception as e:
                     try:
                         import keyboard as _kb
@@ -259,13 +259,13 @@ class VocabDialogMixin:
                             return True
                         if not getattr(_is_shift_pressed, "_warned", False):
                             self.logger.warning(f"Shift fallback activo (ctypes no disponible: {e}) — keyboard usado")
-                            _is_shift_pressed._warned = True
+                            _is_shift_pressed._warned = True  # type: ignore[attr-defined]
                         return False
                     except Exception:
                         pass
                     if not getattr(_is_shift_pressed, "_warned", False):
                         self.logger.warning(f"Shift ctypes fallback sin keyboard (Linux/macOS): {e}")
-                        _is_shift_pressed._warned = True
+                        _is_shift_pressed._warned = True  # type: ignore[attr-defined]
                     return False
 
             def _update_bulk_button():
