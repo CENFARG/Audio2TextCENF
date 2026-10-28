@@ -2,12 +2,14 @@
 import os
 import sys
 import webbrowser
+from pathlib import Path
+
 import tkinter as tk
 from tkinter import messagebox, filedialog
 import customtkinter as ctk
 import pystray
 from pystray import MenuItem as item
-from PIL import Image, ImageDraw
+from PIL import Image
 import pyperclip
 import pyautogui
 import threading
@@ -27,6 +29,7 @@ from backend.transcription_metadata import TranscriptionMetadata
 
 # UI imports
 from ui.emoji_picker import show_emoji_picker
+from ui.branding import build_tray_image, logo_candidates, resolve_logo_path
 from ui.hotkey_selector import show_hotkey_selector
 from backend.hotkey_manager import HotkeyManager
 
@@ -650,14 +653,17 @@ class App(
         )
         self.hotkey_display_label.grid(row=1, column=0, pady=(3, 5), sticky="ew")  # Reducido pady
 
-        # Logo del cliente (si existe)
-        logo_path = "logo.png"
-        if getattr(sys, "frozen", False):
-            logo_path = os.path.join(sys._MEIPASS, "logo.png")
+        # Logo del cliente (si existe) — S3: resolución unificada por branding
+        logo_path = resolve_logo_path(
+            logo_candidates(
+                Path(__file__).resolve().parent.parent, getattr(sys, "_MEIPASS", None)
+            )
+        )
 
-        if os.path.exists(logo_path):
+        if logo_path is not None:
             try:
-                pil_image = Image.open(logo_path)
+                with Image.open(logo_path) as _raw_logo:
+                    pil_image = _raw_logo.convert("RGBA")
                 # Resize keeping aspect ratio, max height 50
                 h_ratio = 50 / float(pil_image.size[1])
                 w_size = int((float(pil_image.size[0]) * float(h_ratio)))
@@ -2333,9 +2339,16 @@ class App(
         if self.tray_icon and self.tray_icon.visible:
             self.logger.debug("Icono de bandeja ya visible, omitiendo recreación.")
             return
-        image = Image.new("RGB", (64, 64), DesignSystem.COLORS["background"])
-        draw = ImageDraw.Draw(image)
-        draw.ellipse((10, 10, 54, 54), fill=DesignSystem.COLORS["primary"])
+        image = build_tray_image(
+            resolve_logo_path(
+                logo_candidates(
+                    Path(__file__).resolve().parent.parent,
+                    getattr(sys, "_MEIPASS", None),
+                )
+            ),
+            fallback_bg=DesignSystem.COLORS["background"],
+            fallback_fg=DesignSystem.COLORS["primary"],
+        )
         menu = (
             item(self.localization_manager.get_string("tray_menu_show"), self.show_window),
             item(
