@@ -141,7 +141,11 @@ class TutorialManager:
 
         # 2. Crear Frame "Tooltip" Compacto
         self.tooltip_frame = ctk.CTkFrame(
-            self.app, corner_radius=8, fg_color="#2B2B2B", border_width=1, border_color="#444444"
+            self.app,
+            corner_radius=8,
+            fg_color="#2B2B2B",
+            border_width=1,
+            border_color="#444444",
         )
 
         # Layout Compacto
@@ -149,7 +153,10 @@ class TutorialManager:
         header.pack(fill="x", padx=8, pady=(8, 2))
 
         ctk.CTkLabel(
-            header, text=step["title"], font=("Segoe UI", 12, "bold"), text_color="#60A5FA"
+            header,
+            text=step["title"],
+            font=("Segoe UI", 12, "bold"),
+            text_color="#60A5FA",
         ).pack(side="left")
         ctk.CTkLabel(
             header,
@@ -184,7 +191,12 @@ class TutorialManager:
 
         next_text = "Sig." if self.current_step_index < len(self.steps) - 1 else "Fin"
         ctk.CTkButton(
-            btns, text=next_text, width=40, height=20, font=("Segoe UI", 10), command=self.next_step
+            btns,
+            text=next_text,
+            width=40,
+            height=20,
+            font=("Segoe UI", 10),
+            command=self.next_step,
         ).pack(side="right")
 
         if self.current_step_index > 0:

@@ -158,11 +158,15 @@ class FilesViewMixin(FilesQueueWorkerMixin):
             font=DesignSystem.TYPOGRAPHY["body_small"],
             text_color=DesignSystem.COLORS["warning"],
         )
-        self.files_rejected_label.grid(row=2, column=0, padx=4, pady=(0, 4), sticky="ew")
+        self.files_rejected_label.grid(
+            row=2, column=0, padx=4, pady=(0, 4), sticky="ew"
+        )
 
         # UX-1: small FIXED height + internal scroll — the files section must
         # not eat the 590px window; the transcription panel keeps the space.
-        self.files_queue_frame = ctk.CTkScrollableFrame(body, fg_color="transparent", height=80)
+        self.files_queue_frame = ctk.CTkScrollableFrame(
+            body, fg_color="transparent", height=80
+        )
         self.files_queue_frame.grid(row=1, column=0, padx=4, pady=4, sticky="ew")
 
         if self._dnd_available and _TKDND_AVAILABLE:
@@ -226,7 +230,9 @@ class FilesViewMixin(FilesQueueWorkerMixin):
         return frozenset(configured) if configured else DEFAULT_AUDIO_EXTENSIONS
 
     # ── Import sources ────────────────────────────────────────────
-    def add_files_to_queue(self, paths: Iterable[str]) -> tuple[list[str], list[tuple[str, str]]]:
+    def add_files_to_queue(
+        self, paths: Iterable[str]
+    ) -> tuple[list[str], list[tuple[str, str]]]:
         """Validate candidates and append new ones to the pending queue.
 
         Files passing extension/existence validation are additionally probed
@@ -246,7 +252,9 @@ class FilesViewMixin(FilesQueueWorkerMixin):
                 readable.append(path)
             else:
                 rejected.append((path, file_import.REASON_UNREADABLE))
-                logger.warning("Audio file rejected as unreadable: %s (%s)", path, detail)
+                logger.warning(
+                    "Audio file rejected as unreadable: %s (%s)", path, detail
+                )
         accepted = readable
         already = {os.path.normcase(p) for p in self._files_queue}
         added = [p for p in accepted if os.path.normcase(p) not in already]
@@ -318,7 +326,9 @@ class FilesViewMixin(FilesQueueWorkerMixin):
             self.add_files_to_queue(paths)
 
     # ── Queue UI (main thread) ────────────────────────────────
-    def _append_queue_rows(self, added: list[str], rejected: list[tuple[str, str]]) -> None:
+    def _append_queue_rows(
+        self, added: list[str], rejected: list[tuple[str, str]]
+    ) -> None:
         """Render new queue rows and the rejection report.
 
         Args:
@@ -361,12 +371,15 @@ class FilesViewMixin(FilesQueueWorkerMixin):
             return
         loc = self.localization_manager
         shown = [
-            f"{path} ({queue_reason_display_text(loc, reason)})" for path, reason in rejected[:5]
+            f"{path} ({queue_reason_display_text(loc, reason)})"
+            for path, reason in rejected[:5]
         ]
         if len(rejected) > 5:
             shown.append(f"+{len(rejected) - 5}")
         self.files_rejected_label.configure(
-            text=self.localization_manager.get_string("files_rejected", items="; ".join(shown))
+            text=self.localization_manager.get_string(
+                "files_rejected", items="; ".join(shown)
+            )
         )
 
     def _set_file_status(self, path: str, entry: tuple[str, str]) -> None:

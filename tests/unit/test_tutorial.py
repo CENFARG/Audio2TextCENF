@@ -29,7 +29,9 @@ def _make_app(supervisor_enabled: bool) -> SimpleNamespace:
     return SimpleNamespace(
         localization_manager=_FakeLoc(),
         config_manager=SimpleNamespace(
-            get=lambda key, default=None: supervisor_enabled if key == "supervisor_tab_enabled" else default
+            get=lambda key, default=None: (
+                supervisor_enabled if key == "supervisor_tab_enabled" else default
+            )
         ),
     )
 
@@ -76,7 +78,11 @@ class TestTutorialSteps:
 
     def test_tutorial_lang_keys_still_localized(self):
         # Arrange: the tutorial tabs route through i18n keys (tab_main etc.)
-        es = dict(__import__("json").loads(LANG_DIR.joinpath("es.json").read_text(encoding="utf-8")))
+        es = dict(
+            __import__("json").loads(
+                LANG_DIR.joinpath("es.json").read_text(encoding="utf-8")
+            )
+        )
 
         # Act / Assert: keys used by the static steps keep existing
         for key in ("tab_main", "tab_settings", "tab_history"):

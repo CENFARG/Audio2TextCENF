@@ -330,7 +330,9 @@ class TestLangParity:
     @pytest.mark.parametrize("lang", ["es", "en"])
     def test_supervisor_keys_present(self, lang):
         # Arrange
-        translations = json.loads((LANG_DIR / f"{lang}.json").read_text(encoding="utf-8"))
+        translations = json.loads(
+            (LANG_DIR / f"{lang}.json").read_text(encoding="utf-8")
+        )
 
         # Act
         missing = [key for key in SUPERVISOR_LANG_KEYS if key not in translations]
@@ -338,11 +340,15 @@ class TestLangParity:
         # Assert
         assert missing == []
 
-    @pytest.mark.parametrize("key", ["supervisor_copy_entry", "supervisor_delete_confirm"])
+    @pytest.mark.parametrize(
+        "key", ["supervisor_copy_entry", "supervisor_delete_confirm"]
+    )
     def test_placeholder_keys_are_formattable(self, key):
         # Arrange: keys with {number} must survive .format(number=...)
         for lang in ("es", "en"):
-            translations = json.loads((LANG_DIR / f"{lang}.json").read_text(encoding="utf-8"))
+            translations = json.loads(
+                (LANG_DIR / f"{lang}.json").read_text(encoding="utf-8")
+            )
 
             # Act / Assert
             assert "{number}" in translations[key]
@@ -381,7 +387,10 @@ class TestSessionGlue:
 
     def test_row_label_includes_session(self):
         # Act / Assert: REQ-2 row format "#1 · borrador · agente-x"
-        assert sh.format_entry_label(1, "borrador", "agente-x") == "#1 · borrador · agente-x"
+        assert (
+            sh.format_entry_label(1, "borrador", "agente-x")
+            == "#1 · borrador · agente-x"
+        )
 
     def test_row_label_without_session_stays_two_part(self):
         # Act / Assert: previous two-arg behavior preserved
@@ -414,13 +423,19 @@ class TestSupervisorTabToggle:
 
     def test_tab_registration_is_guarded_in_app(self):
         # Arrange
-        src = (
-            Path(__file__).resolve().parents[2] / "ui" / "app.py"
-        ).read_text(encoding="utf-8")
+        src = (Path(__file__).resolve().parents[2] / "ui" / "app.py").read_text(
+            encoding="utf-8"
+        )
         lines = src.splitlines()
-        guard_i = next(i for i, line in enumerate(lines) if "supervisor_tab_enabled" in line)
-        add_i = next(i for i, line in enumerate(lines) if 'get_string("tab_supervisor")' in line)
-        create_i = next(i for i, line in enumerate(lines) if "self.create_supervisor_tab()" in line)
+        guard_i = next(
+            i for i, line in enumerate(lines) if "supervisor_tab_enabled" in line
+        )
+        add_i = next(
+            i for i, line in enumerate(lines) if 'get_string("tab_supervisor")' in line
+        )
+        create_i = next(
+            i for i, line in enumerate(lines) if "self.create_supervisor_tab()" in line
+        )
 
         # Assert: both call sites live inside the guarded block
         assert guard_i < add_i < create_i

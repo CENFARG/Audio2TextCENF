@@ -80,7 +80,9 @@ class TestRecordFileStatus:
         status_map = {}
 
         # Act
-        entry = file_import.record_file_status(status_map, "a.mp3", "error", "unreadable")
+        entry = file_import.record_file_status(
+            status_map, "a.mp3", "error", "unreadable"
+        )
 
         # Assert
         assert entry == ("error", "unreadable")
@@ -103,7 +105,10 @@ class TestRecordFileStatus:
     def test_non_error_states_carry_empty_reason(self):
         # Act / Assert
         assert file_import.record_file_status({}, "a", "pending") == ("pending", "")
-        assert file_import.record_file_status({}, "a", "transcribing") == ("transcribing", "")
+        assert file_import.record_file_status({}, "a", "transcribing") == (
+            "transcribing",
+            "",
+        )
         assert file_import.record_file_status({}, "a", "done") == ("done", "")
 
     def test_new_status_overwrites_previous_entry(self):
@@ -111,7 +116,9 @@ class TestRecordFileStatus:
         status_map = {"a.mp3": ("pending", "")}
 
         # Act
-        entry = file_import.record_file_status(status_map, "a.mp3", "error", "save_failed")
+        entry = file_import.record_file_status(
+            status_map, "a.mp3", "error", "save_failed"
+        )
 
         # Assert
         assert status_map["a.mp3"] == ("error", "save_failed")
@@ -131,9 +138,9 @@ class TestFileReasonText:
 
     def test_stable_reason_is_localized(self):
         # Act / Assert
-        assert file_import.file_reason_text(_FakeLocalization(self.STRINGS), "unreadable") == (
-            "Archivo ilegible"
-        )
+        assert file_import.file_reason_text(
+            _FakeLocalization(self.STRINGS), "unreadable"
+        ) == ("Archivo ilegible")
 
     def test_free_form_reason_is_passed_through_untouched(self):
         # Act / Assert
@@ -146,7 +153,10 @@ class TestFileReasonText:
 
     def test_stable_reason_without_translation_key_falls_back_to_raw(self):
         # Act / Assert
-        assert file_import.file_reason_text(_FakeLocalization({}), "unreadable") == "unreadable"
+        assert (
+            file_import.file_reason_text(_FakeLocalization({}), "unreadable")
+            == "unreadable"
+        )
 
 
 @pytest.mark.unit
@@ -163,7 +173,9 @@ class TestFileStatusLabelText:
     def test_non_error_label_is_localized_state_only(self):
         # Act / Assert
         assert (
-            file_import.file_status_label_text(_FakeLocalization(self.STRINGS), ("done", ""))
+            file_import.file_status_label_text(
+                _FakeLocalization(self.STRINGS), ("done", "")
+            )
             == "Completado"
         )
 
@@ -223,7 +235,9 @@ class TestEnqueueReadableProbe:
         assert added == [str(audio)]
         assert app._files_status[str(audio)] == ("pending", "")
 
-    def test_unreadable_rejection_logs_warning_with_path(self, tmp_path, monkeypatch, caplog):
+    def test_unreadable_rejection_logs_warning_with_path(
+        self, tmp_path, monkeypatch, caplog
+    ):
         # Arrange
         audio = _make_audio(tmp_path, "whatsapp.ogg")
 
@@ -301,7 +315,9 @@ class TestMissingSourceSkip:
         app.display_transcription = lambda text: None
         return app
 
-    def test_process_one_file_missing_source_marks_error_without_transcribing(self, tmp_path):
+    def test_process_one_file_missing_source_marks_error_without_transcribing(
+        self, tmp_path
+    ):
         # Arrange: queue holds a path that no longer exists on disk
         app = self._make_harness()
         missing = str(tmp_path / "gone.mp3")
@@ -435,9 +451,7 @@ class TestQueueCombinedDisplay:
 
     def _scheduled_display_texts(self, app):
         return [
-            args[0]
-            for fn, args in app.scheduled
-            if fn is app.display_transcription
+            args[0] for fn, args in app.scheduled if fn is app.display_transcription
         ]
 
     def test_two_files_display_once_with_combined_text(self, tmp_path):
@@ -518,7 +532,9 @@ class TestFilesSectionCollapse:
 
         # Assert
         assert app._files_section_expanded is True
-        assert any(fn.__name__ == "_apply_files_section_visibility" for fn, _ in app.scheduled)
+        assert any(
+            fn.__name__ == "_apply_files_section_visibility" for fn, _ in app.scheduled
+        )
 
     def test_toggle_flips_state(self):
         # Arrange
@@ -598,7 +614,11 @@ class TestFilesQueueLangKeys:
         es = json.loads(LANG_DIR.joinpath("es.json").read_text(encoding="utf-8"))
 
         # Assert: every reason key carries real user-facing text
-        for key in ("files_reason_unreadable", "files_reason_empty_result", "files_reason_missing"):
+        for key in (
+            "files_reason_unreadable",
+            "files_reason_empty_result",
+            "files_reason_missing",
+        ):
             assert es[key] and not es[key].startswith("MISSING")
 
 

@@ -57,9 +57,9 @@ class TestReregisterHotkey:
         # body only (a docstring mention of the old line is fine).
         import ast
 
-        src = (
-            Path(__file__).resolve().parents[2] / "ui" / "app.py"
-        ).read_text(encoding="utf-8")
+        src = (Path(__file__).resolve().parents[2] / "ui" / "app.py").read_text(
+            encoding="utf-8"
+        )
         tree = ast.parse(src)
 
         # Act

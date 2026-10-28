@@ -256,6 +256,8 @@ class FilesQueueWorkerMixin:
             path: Queued file path.
             reason: Stable reason id or free-form exception summary.
         """
-        entry = file_import.record_file_status(self._files_status, path, "error", reason)
+        entry = file_import.record_file_status(
+            self._files_status, path, "error", reason
+        )
         logger.error("Queued file failed (%s): %s", entry[1], path)
         self.after(0, self._set_file_status, path, entry)
