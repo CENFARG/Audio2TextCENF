@@ -1,8 +1,8 @@
 {
     "version": "0.17.0",
-    "download_url": "https://github.com/CENFARG/Audio2TextCENF/releases/download/v0.17.0/Audio2Text_CENF_v0.17.0.exe",
-    "changelog": "v0.10.0: Roadmap v0.10.0 Completado\n- FASE 1: Post-procesamiento de transcripciones con LLM\n- FASE 2: Migración de UI a Flet\n- FASE 3: Corrección UTF-8 para caracteres españoles\n- FASE 4: Reactivación de overlay de grabación\n- FASE 5: Sistema de actualizaciones reparado\n- 1500+ términos técnicos agregados al vocabulario\n- Normalización de puntuación y capitalización\n- Eliminación de muletillas en transcripciones",
+    "download_url": "https://github.com/CENFARG/Audio2TextCENF/releases/download/v0.17.0/Audio2Text_CENF_v.0.17.0.exe",
+    "changelog": "v0.17.0\n- Audios de WhatsApp: las transcripciones se pegan todas juntas con rotulos === archivo === y el panel de transcripcion recupera espacio (seccion colapsable)\n- Botones visibles (Limpiar cola / Supervision) e iconos unificados con el logo\n- Actualizador reparado de punta a punta: descarga con progreso real, instalacion con reintento y estados claros\n- Hotkeys: ya no se rompen al cambiar el hotkey\n- Tutorial con el sector de WhatsApp\n- Supervision oculta (en desarrollo; reactivable desde config.json)",
     "release_date": "2026-10-28",
-    "file_size": 0,
+    "file_size": 48950905,
     "min_version": "0.17.0"
 }
