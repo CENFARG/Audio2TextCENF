@@ -44,7 +44,7 @@ from backend.logger import ensure_transcription_debug_handler  # Slice A determi
 # Add the project root to the Python path
 if getattr(sys, "frozen", False):
     # Running as compiled executable
-    base_path = sys._MEIPASS
+    base_path = sys._MEIPASS  # type: ignore[attr-defined]  # injected by PyInstaller when frozen
     external_path = os.path.dirname(sys.executable)
 else:
     # Running from source
@@ -77,7 +77,7 @@ try:
                 kwargs["height"] = int(kwargs["height"])
             original_init(self, master, cnf, **kwargs)
 
-        tkinter.Canvas.configure = patched_configure
+        tkinter.Canvas.configure = patched_configure  # type: ignore[assignment]  # intentional monkey patch (Tcl strict-pad workaround)
         tkinter.Canvas.__init__ = patched_init
 
     patch_canvas_methods()

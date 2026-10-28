@@ -63,6 +63,9 @@ class FilesViewMixin(FilesQueueWorkerMixin):
     _dnd_available: bool
     files_section_body: Any
     files_toggle_button: Any
+    files_drop_hint: Any
+    files_rejected_label: Any
+    files_queue_frame: Any
     _files_section_expanded: bool
 
     #: status → DesignSystem color (fallbacks match ui.app palette)
