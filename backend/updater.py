@@ -1,9 +1,56 @@
-import requests
+import logging
 import os
 import sys
-import logging
+import tempfile
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional, Callable
+
+import requests
+
+
+class UpdaterError(Exception):
+    """Typed failure of an update operation (reason logged by the raiser)."""
+
+
+@dataclass(frozen=True)
+class InstallResult:
+    """Outcome of staging an install; the UI layer owns the shutdown."""
+
+    batch_path: str
+    source_path: str
+    target_path: str
+    log_path: str
+
+
+def _build_install_batch(source: Path, target: Path, log_path: Path) -> str:
+    """Build the detached installer batch (ASCII only, cmd-safe)."""
+    return (
+        "@echo off\r\n"
+        f'echo [%date% %time%] Audio2Text update install started > "{log_path}"\r\n'
+        f'echo Target: "{target}" >> "{log_path}"\r\n'
+        f'echo Source: "{source}" >> "{log_path}"\r\n'
+        "timeout /t 2 /nobreak > nul\r\n"
+        f'move /y "{source}" "{target}" >> "{log_path}" 2>&1\r\n'
+        "if errorlevel 1 (\r\n"
+        f'    echo [%date% %time%] Move failed, exe may be locked. Retrying in 3 seconds >> "{log_path}"\r\n'
+        "    timeout /t 3 /nobreak > nul\r\n"
+        f'    move /y "{source}" "{target}" >> "{log_path}" 2>&1\r\n'
+        ")\r\n"
+        "if errorlevel 1 (\r\n"
+        f'    echo [%date% %time%] ERROR: could not replace executable. Downloaded installer kept at: {source} >> "{log_path}"\r\n'
+        "    exit /b 1\r\n"
+        ")\r\n"
+        f'echo [%date% %time%] Update installed, relaunching >> "{log_path}"\r\n'
+        f'start "" "{target}"\r\n'
+        'del "%~f0"\r\n'
+    )
+
+
+def _temp_dir() -> Path:
+    """Cross-platform temp dir (TEMP/TMP env, system temp as fallback)."""
+    env_temp = os.environ.get("TEMP") or os.environ.get("TMP")
+    return Path(env_temp) if env_temp else Path(tempfile.gettempdir())
 
 
 class Updater:
@@ -18,7 +65,7 @@ class Updater:
         )
         self.logger.info(f"Updater inicializado - Versión actual: {current_version}")
 
-    def check_for_updates(self) -> Dict:
+    def check_for_updates(self) -> dict:
         """
         Verificar si hay nueva versión disponible
 
@@ -91,32 +138,39 @@ class Updater:
             return False
 
     def download_update(
-        self, download_url: str, progress_callback: Optional[Callable] = None
+        self, download_url: str, progress_callback: Callable[..., None] | None = None
     ) -> str:
         """
         Descargar nueva versión
 
         Args:
             download_url: URL del ejecutable a descargar
-            progress_callback: Función callback(downloaded, total) para progreso
+            progress_callback: Función callback(downloaded, total) para progreso.
+                total puede ser 0 si el servidor no informa content-length;
+                en ese caso la UI debe mostrar progreso indeterminado.
 
         Returns:
-            Ruta del archivo descargado
+            Ruta del archivo descargado (verificado no vacío)
 
         Raises:
-            Exception: Si falla la descarga
+            UpdaterError: Si falla la descarga o el archivo queda vacío
         """
         try:
             self.logger.info(f"Descargando actualización desde {download_url}")
             response = requests.get(download_url, stream=True, timeout=30)
             response.raise_for_status()
 
-            total_size = int(response.headers.get("content-length", 0))
-            self.logger.info(f"Tamaño del archivo: {total_size / (1024 * 1024):.2f} MB")
+            total_size = int(response.headers.get("content-length") or 0)
+            if total_size > 0:
+                self.logger.info(f"Tamaño del archivo: {total_size / (1024 * 1024):.2f} MB")
+            else:
+                self.logger.info(
+                    "Tamaño del archivo desconocido (sin content-length); "
+                    "la UI mostrará progreso indeterminado"
+                )
 
             # Guardar en carpeta temporal
-            temp_dir = Path(os.getenv("TEMP", "/tmp"))
-            temp_path = temp_dir / "audio2text_update.exe"
+            temp_path = _temp_dir() / "audio2text_update.exe"
 
             downloaded = 0
             with open(temp_path, "wb") as f:
@@ -127,65 +181,81 @@ class Updater:
                         if progress_callback:
                             progress_callback(downloaded, total_size)
 
-            self.logger.info(f"Descarga completada: {temp_path}")
+            if downloaded == 0:
+                error_msg = "La descarga llegó vacía (0 bytes); se cancela la instalación"
+                self.logger.error(error_msg)
+                raise UpdaterError(error_msg)
+
+            self.logger.info(
+                f"Descarga completada: {temp_path} "
+                f"({downloaded / (1024 * 1024):.2f} MB"
+                + (" reales, tamaño esperado desconocido)" if total_size == 0 else ")")
+            )
             return str(temp_path)
 
+        except UpdaterError:
+            raise
         except requests.exceptions.HTTPError as e:
             error_msg = f"Error HTTP al descargar: {e}"
             self.logger.error(error_msg)
-            raise Exception(error_msg)
+            raise UpdaterError(error_msg) from e
         except Exception as e:
             error_msg = f"Error descargando actualización: {e}"
             self.logger.error(error_msg)
-            raise Exception(error_msg)
+            raise UpdaterError(error_msg) from e
 
-    def install_update(self, temp_path: str) -> None:
+    def install_update(self, temp_path: str) -> InstallResult:
         """
-        Instalar actualización y reiniciar aplicación
+        Preparar la instalación de la actualización descargada.
+
+        Lanza un script batch desacoplado que reemplaza el ejecutable
+        (con reintento si el exe sigue bloqueado) y reinicia la app.
+        NO termina este proceso: el cierre limpio es responsabilidad de
+        la capa UI, que recibe un InstallResult.
 
         Args:
             temp_path: Ruta del ejecutable descargado
 
+        Returns:
+            InstallResult con rutas del batch, origen, destino y log
+
         Raises:
-            Exception: Si no está en modo compilado o falla la instalación
+            UpdaterError: Si no está en modo compilado, o el archivo
+                descargado no existe o está vacío
         """
         import subprocess
 
         # Verificar que estamos en modo compilado
         if not getattr(sys, "frozen", False):
-            raise Exception(
-                "La actualización automática solo funciona en modo compilado"
-            )
+            error_msg = "La actualización automática solo funciona en modo compilado"
+            self.logger.error(error_msg)
+            raise UpdaterError(error_msg)
 
-        current_exe = sys.executable
+        source = Path(temp_path)
+        if not source.exists() or source.stat().st_size == 0:
+            error_msg = f"El archivo descargado no existe o está vacío: {temp_path}"
+            self.logger.error(error_msg)
+            raise UpdaterError(error_msg)
+
+        current_exe = Path(sys.executable)
         self.logger.info(f"Instalando actualización: {temp_path} -> {current_exe}")
 
-        # Crear script batch para reemplazar y reiniciar
-        # El batch espera 2 segundos para que la app se cierre completamente
-        batch_script = f"""@echo off
-timeout /t 2 /nobreak > nul
-move /y "{temp_path}" "{current_exe}"
-if errorlevel 1 (
-    echo Error al instalar actualización
-    pause
-    exit /b 1
-)
-start "" "{current_exe}"
-del "%~f0"
-"""
+        log_path = _temp_dir() / "update_install.log"
+        batch_path = _temp_dir() / "update_install.bat"
+        batch_path.write_text(_build_install_batch(source, current_exe, log_path), encoding="ascii")
 
-        batch_path = Path(os.getenv("TEMP", "/tmp")) / "update_install.bat"
-        with open(batch_path, "w") as f:
-            f.write(batch_script)
-
-        self.logger.info("Ejecutando script de instalación y cerrando aplicación")
-
-        # Ejecutar batch y cerrar aplicación
+        self.logger.info(
+            f"Lanzando instalador desacoplado (log: {log_path}); "
+            "el cierre de la app lo maneja la UI"
+        )
         subprocess.Popen(
-            [str(batch_path)],
-            shell=True,
+            ["cmd", "/c", str(batch_path)] if os.name == "nt" else [str(batch_path)],
             creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
         )
 
-        # Cerrar la aplicación actual
-        sys.exit(0)
+        return InstallResult(
+            batch_path=str(batch_path),
+            source_path=str(source),
+            target_path=str(current_exe),
+            log_path=str(log_path),
+        )
