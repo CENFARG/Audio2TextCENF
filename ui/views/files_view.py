@@ -61,6 +61,9 @@ class FilesViewMixin(FilesQueueWorkerMixin):
     update_status: Any
     display_transcription: Any
     _dnd_available: bool
+    files_section_body: Any
+    files_toggle_button: Any
+    _files_section_expanded: bool
 
     #: status → DesignSystem color (fallbacks match ui.app palette)
     _STATUS_COLORS = {
@@ -72,10 +75,11 @@ class FilesViewMixin(FilesQueueWorkerMixin):
 
     # ── Section construction (inside the main tab, C4) ────────────
     def create_files_section(self) -> None:
-        """Build the files queue section inside the main tab.
+        """Build the collapsible files queue section inside the main tab.
 
-        The section sits below the transcription panel as a bordered,
-        labeled frame; the dedicated Files tab was removed (C4).
+        S1: the section starts COLLAPSED (single header row) so the
+        transcription panel keeps its space; it auto-expands when files are
+        enqueued and can be toggled from the header chevron at any time.
         """
         import customtkinter as ctk
 
@@ -95,27 +99,38 @@ class FilesViewMixin(FilesQueueWorkerMixin):
         section.grid(row=4, column=0, padx=10, pady=(0, 10), sticky="ew")
         section.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(
-            section,
-            text=loc.get_string("files_title"),
-            font=DesignSystem.TYPOGRAPHY["heading_medium"],
+        # Header row (always visible): chevron toggle + import shortcuts.
+        header = ctk.CTkFrame(section, fg_color="transparent")
+        header.grid(row=0, column=0, padx=6, pady=4, sticky="ew")
+        self.files_toggle_button = ctk.CTkButton(
+            header,
+            text=f"▸ {loc.get_string("files_title")} (0)",
+            width=220,
             anchor="w",
-        ).grid(row=0, column=0, padx=10, pady=(5, 0), sticky="ew")
-
-        actions = ctk.CTkFrame(section, fg_color="transparent")
-        actions.grid(row=1, column=0, padx=10, pady=5, sticky="ew")
+            command=self.toggle_files_section,
+        )
+        self.files_toggle_button.pack(side="left")
         ctk.CTkButton(
-            actions,
+            header,
             text=loc.get_string("files_load"),
-            width=120,
+            width=90,
             command=self._load_files_via_dialog,
-        ).pack(side="left", padx=(0, 5))
+        ).pack(side="right", padx=(5, 0))
         ctk.CTkButton(
-            actions,
+            header,
             text=loc.get_string("files_paste"),
-            width=120,
+            width=90,
             command=self.add_files_from_clipboard,
-        ).pack(side="left", padx=5)
+        ).pack(side="right")
+
+        # Collapsible body: transcribe/clear actions + queue + rejection report.
+        body = ctk.CTkFrame(section, fg_color="transparent")
+        body.grid(row=1, column=0, padx=6, pady=(0, 4), sticky="ew")
+        body.grid_columnconfigure(0, weight=1)
+        self.files_section_body = body
+
+        actions = ctk.CTkFrame(body, fg_color="transparent")
+        actions.grid(row=0, column=0, padx=4, pady=4, sticky="ew")
         ctk.CTkButton(
             actions,
             text=loc.get_string("files_transcribe"),
@@ -123,7 +138,7 @@ class FilesViewMixin(FilesQueueWorkerMixin):
             fg_color=DesignSystem.COLORS["primary"],
             hover_color=DesignSystem.COLORS["primary_hover"],
             command=self.transcribe_all_queue,
-        ).pack(side="left", padx=5)
+        ).pack(side="left", padx=(0, 5))
         ctk.CTkButton(
             actions,
             text=loc.get_string("files_clear"),
@@ -134,7 +149,7 @@ class FilesViewMixin(FilesQueueWorkerMixin):
         ).pack(side="right")
 
         self.files_rejected_label = ctk.CTkLabel(
-            section,
+            body,
             text="",
             justify="left",
             anchor="w",
@@ -142,12 +157,12 @@ class FilesViewMixin(FilesQueueWorkerMixin):
             font=DesignSystem.TYPOGRAPHY["body_small"],
             text_color=DesignSystem.COLORS["warning"],
         )
-        self.files_rejected_label.grid(row=3, column=0, padx=10, pady=(0, 5), sticky="ew")
+        self.files_rejected_label.grid(row=2, column=0, padx=4, pady=(0, 4), sticky="ew")
 
         # UX-1: small FIXED height + internal scroll — the files section must
         # not eat the 590px window; the transcription panel keeps the space.
-        self.files_queue_frame = ctk.CTkScrollableFrame(section, fg_color="transparent", height=80)
-        self.files_queue_frame.grid(row=2, column=0, padx=10, pady=5, sticky="ew")
+        self.files_queue_frame = ctk.CTkScrollableFrame(body, fg_color="transparent", height=80)
+        self.files_queue_frame.grid(row=1, column=0, padx=4, pady=4, sticky="ew")
 
         if self._dnd_available and _TKDND_AVAILABLE:
             self.files_drop_hint = ctk.CTkLabel(
@@ -157,6 +172,39 @@ class FilesViewMixin(FilesQueueWorkerMixin):
                 text_color=DesignSystem.COLORS["text_secondary"],
             )
             self.files_drop_hint.pack(pady=20, fill="x", expand=True)
+
+        # S1: start collapsed — apply before the window is even mapped.
+        self._apply_files_section_visibility()
+
+    # ── Section collapse state (S1) ──────────────────────────────
+    def _set_files_section_expanded(self, expanded: bool) -> None:
+        """Set the collapse state and schedule the visibility apply.
+
+        Args:
+            expanded: ``True`` to show the queue body, ``False`` to collapse.
+        """
+        self._ensure_files_queue_state()
+        self._files_section_expanded = expanded
+        self.after(0, self._apply_files_section_visibility)
+
+    def toggle_files_section(self) -> None:
+        """Flip the collapsed state of the files section (header chevron)."""
+        self._set_files_section_expanded(not self._files_section_expanded)
+
+    def _apply_files_section_visibility(self) -> None:
+        """Show/hide the body and refresh the chevron label (main thread)."""
+        toggle = getattr(self, "files_toggle_button", None)
+        body = getattr(self, "files_section_body", None)
+        if toggle is None or body is None:
+            return
+        title = self.localization_manager.get_string("files_title")
+        count = len(self._files_queue)
+        arrow = "▾" if self._files_section_expanded else "▸"
+        toggle.configure(text=f"{arrow} {title} ({count})")
+        if self._files_section_expanded:
+            body.grid()
+        else:
+            body.grid_remove()
 
     # ── Queue state ───────────────────────────────────────────────
     def _ensure_files_queue_state(self) -> None:
@@ -168,6 +216,7 @@ class FilesViewMixin(FilesQueueWorkerMixin):
         self._files_status_labels: dict[str, Any] = {}
         self._files_worker_running = False
         self._files_worker_lock = threading.Lock()
+        self._files_section_expanded = False
 
     def _files_extensions(self) -> frozenset[str]:
         """Return the configured import allowlist or the documented default."""
@@ -204,6 +253,12 @@ class FilesViewMixin(FilesQueueWorkerMixin):
             file_import.record_file_status(self._files_status, path, "pending")
         if added or rejected:
             self.after(0, self._append_queue_rows, added, rejected)
+        if added:
+            # S1: files arrived — pop the section open so the user sees them.
+            if not self._files_section_expanded:
+                self._set_files_section_expanded(True)
+            else:
+                self.after(0, self._apply_files_section_visibility)
         if rejected:
             logger.info("Rejected %d invalid file(s) from import", len(rejected))
         return added, rejected
@@ -364,3 +419,5 @@ class FilesViewMixin(FilesQueueWorkerMixin):
         for widget in self.files_queue_frame.winfo_children():
             widget.destroy()
         self._show_rejected([])
+        # S1: an emptied queue collapses back to free space for the panel.
+        self._set_files_section_expanded(False)

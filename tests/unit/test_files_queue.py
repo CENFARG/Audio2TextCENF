@@ -365,6 +365,80 @@ class TestMissingSourceSkip:
 
 
 @pytest.mark.unit
+class TestFilesSectionCollapse:
+    """S1: the files section starts collapsed and auto-expands on enqueue.
+
+    The transcription panel must keep the space: the section header is a
+    single row until files are added (or the user toggles it).
+    """
+
+    def test_state_starts_collapsed(self):
+        # Arrange
+        app = _QueueHarness()
+
+        # Act
+        app._ensure_files_queue_state()
+
+        # Assert: collapsed by default — the transcription panel keeps the space
+        assert app._files_section_expanded is False
+
+    def test_set_expanded_schedules_visibility_apply(self):
+        # Arrange
+        app = _QueueHarness()
+        app._ensure_files_queue_state()
+
+        # Act
+        app._set_files_section_expanded(True)
+
+        # Assert
+        assert app._files_section_expanded is True
+        assert any(fn.__name__ == "_apply_files_section_visibility" for fn, _ in app.scheduled)
+
+    def test_toggle_flips_state(self):
+        # Arrange
+        app = _QueueHarness()
+        app._ensure_files_queue_state()
+
+        # Act / Assert
+        app.toggle_files_section()
+        assert app._files_section_expanded is True
+        app.toggle_files_section()
+        assert app._files_section_expanded is False
+
+    def test_enqueue_auto_expands_section(self, tmp_path, monkeypatch):
+        # Arrange
+        audio = _make_audio(tmp_path, "ok.ogg")
+        monkeypatch.setattr("soundfile.info", lambda path: SimpleNamespace(frames=1))
+        app = _QueueHarness()
+        app._ensure_files_queue_state()
+
+        # Act
+        app.add_files_to_queue([str(audio)])
+
+        # Assert: files were queued, so the section must be expanded
+        assert app._files_queue
+        assert app._files_section_expanded is True
+
+    def test_rejection_only_does_not_expand_section(self, tmp_path, monkeypatch):
+        # Arrange: an unreadable file must not pop the section open
+        audio = _make_audio(tmp_path, "bad.ogg")
+
+        def boom(path):
+            raise RuntimeError("Format not recognised")
+
+        monkeypatch.setattr("soundfile.info", boom)
+        app = _QueueHarness()
+        app._ensure_files_queue_state()
+
+        # Act
+        app.add_files_to_queue([str(audio)])
+
+        # Assert
+        assert app._files_queue == []
+        assert app._files_section_expanded is False
+
+
+@pytest.mark.unit
 class TestFilesQueueLangKeys:
     """Language-file contract for the files queue section (C1/C2/C4)."""
 
