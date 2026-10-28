@@ -123,7 +123,7 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
             fg_color=DesignSystem.COLORS["primary"],
             command=self._supervisor_copy_all,
         ).pack(side="right", padx=(3, 0))
-        self._supervisor_prompter_switch = ctk.CTkSwitch(
+        self._supervisor_prompter_switch: ctk.CTkSwitch = ctk.CTkSwitch(
             bar,
             text=loc.get_string("supervisor_prompter_button"),
             command=lambda: self.config_manager.set(

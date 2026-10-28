@@ -314,6 +314,7 @@ class TestPrompterRunner:
     def test_second_start_for_same_entry_refused_while_running(self):
         # Arrange: llm blocks until the test releases it
         release = threading.Event()
+
         def blocking_llm(messages):
             release.wait(5)
             return "ok"
@@ -336,6 +337,7 @@ class TestPrompterRunner:
     def test_other_entries_can_run_in_parallel(self):
         # Arrange
         release = threading.Event()
+
         def blocking_llm(messages):
             release.wait(5)
             return "ok"
