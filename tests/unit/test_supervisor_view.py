@@ -406,3 +406,36 @@ class TestRowActionButtonsVisibility:
         # Assert: ghost style (transparent fg + border-only) is the bug
         assert '"fg_color": "transparent"' not in block
         assert '"border_width": 1' not in block
+
+
+@pytest.mark.unit
+class TestSupervisorTabToggle:
+    """S6: Supervisor tab registration is guarded by supervisor_tab_enabled."""
+
+    def test_tab_registration_is_guarded_in_app(self):
+        # Arrange
+        src = (
+            Path(__file__).resolve().parents[2] / "ui" / "app.py"
+        ).read_text(encoding="utf-8")
+        lines = src.splitlines()
+        guard_i = next(i for i, line in enumerate(lines) if "supervisor_tab_enabled" in line)
+        add_i = next(i for i, line in enumerate(lines) if 'get_string("tab_supervisor")' in line)
+        create_i = next(i for i, line in enumerate(lines) if "self.create_supervisor_tab()" in line)
+
+        # Assert: both call sites live inside the guarded block
+        assert guard_i < add_i < create_i
+        indent = len(lines[guard_i]) - len(lines[guard_i].lstrip())
+        assert lines[add_i].startswith(" " * (indent + 4))
+        assert lines[create_i].startswith(" " * (indent + 4))
+
+    def test_example_config_documents_the_flag(self):
+        # Arrange
+        import json
+
+        example = (
+            Path(__file__).resolve().parents[2] / "config.json.example"
+        ).read_text(encoding="utf-8")
+
+        # Act / Assert
+        data = json.loads(example)
+        assert data.get("supervisor_tab_enabled") is False

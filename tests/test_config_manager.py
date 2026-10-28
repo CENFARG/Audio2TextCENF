@@ -389,3 +389,17 @@ class TestConfigIntegrity:
 
         # Final verification
         assert manager.get("hotkey") == "F2"
+
+
+class TestSupervisorTabFlag:
+    """S6: the Supervisor workbench ships disabled by default (v0.17.0)."""
+
+    def test_default_config_disables_supervisor_tab(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            config_file = f.name
+        try:
+            manager = ConfigManager(config_file=config_file)
+            assert manager.config.get("supervisor_tab_enabled") is False
+        finally:
+            if os.path.exists(config_file):
+                os.unlink(config_file)

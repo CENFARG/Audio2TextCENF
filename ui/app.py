@@ -358,9 +358,12 @@ class App(
         self.main_frame = ctk.CTkTabview(self)
         self.main_frame.grid(row=1, column=0, padx=10, pady=(10, 5), sticky="nsew")
         self.main_frame.add(self.localization_manager.get_string("tab_main"))
-        # F2: Supervisor tab sits right after the main tab (proposal: workbench
-        # next to the transcription panel).
-        self.main_frame.add(self.localization_manager.get_string("tab_supervisor"))
+        # S6: la pestaña Supervisor viaja OCULTA en el release (hay que
+        # trabajarla más y mejor); dev la reactiva con supervisor_tab_enabled
+        # en config.json. El store no se crea y el hotkey de captura se
+        # auto-omite (registrador tolera store ausente).
+        if self.config_manager.get("supervisor_tab_enabled", default=False):
+            self.main_frame.add(self.localization_manager.get_string("tab_supervisor"))
         self.main_frame.add(self.localization_manager.get_string("tab_settings"))
         self.main_frame.add(self.localization_manager.get_string("tab_info"))
         self.main_frame.add(self.localization_manager.get_string("tab_history"))
@@ -370,8 +373,9 @@ class App(
         # C4: the files queue lives inside the main tab as a labeled section
         # below the transcription panel; the dedicated tab was removed.
         self.create_files_section()
-        # F2: AI-response supervisor workbench (own tab after main).
-        self.create_supervisor_tab()
+        # F2/S6: AI-response supervisor workbench — solo con el flag encendido.
+        if self.config_manager.get("supervisor_tab_enabled", default=False):
+            self.create_supervisor_tab()
         self.create_config_tab()
         self.create_info_tab()
         self.create_history_tab()
