@@ -386,3 +386,23 @@ class TestSessionGlue:
     def test_row_label_without_session_stays_two_part(self):
         # Act / Assert: previous two-arg behavior preserved
         assert format_entry_label(3, "borrador") == "#3 · borrador"
+
+
+@pytest.mark.unit
+class TestRowActionButtonsVisibility:
+    """S5: mark-sent/reopen and delete row buttons must be visible."""
+
+    def test_row_action_buttons_have_no_transparent_foreground(self):
+        # Arrange
+        src = (
+            Path(__file__).resolve().parents[2] / "ui" / "views" / "supervisor_view.py"
+        ).read_text(encoding="utf-8")
+
+        # Act: isolate the row-action kwargs (mark-sent through delete)
+        start = src.index("supervisor_mark_sent")
+        end = src.index("_supervisor_delete_entry(n)", start)
+        block = src[start:end]
+
+        # Assert: ghost style (transparent fg + border-only) is the bug
+        assert '"fg_color": "transparent"' not in block
+        assert '"border_width": 1' not in block

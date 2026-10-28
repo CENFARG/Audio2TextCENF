@@ -225,15 +225,11 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
             {
                 "text": loc.get_string("supervisor_reopen" if is_sent else "supervisor_mark_sent"),
                 "width": 88,
-                "fg_color": "transparent",
-                "border_width": 1,
                 "command": lambda n=number: self._supervisor_toggle_status(n),
             },
             {
                 "text": "🗑",
                 "width": 34,
-                "fg_color": "transparent",
-                "border_width": 1,
                 "command": lambda n=number: self._supervisor_delete_entry(n),
             },
         ):
