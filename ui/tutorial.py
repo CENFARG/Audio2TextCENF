@@ -1,6 +1,7 @@
-import customtkinter as ctk
-from typing import List, Dict, Optional, Any
 import logging
+from typing import Any
+
+import customtkinter as ctk
 
 
 class TutorialManager:
@@ -13,11 +14,11 @@ class TutorialManager:
         self.app = app
         self.logger = logging.getLogger("TutorialManager")
         self.current_step_index = 0
-        self.tooltip_frame: Optional[ctk.CTkFrame] = None
-        self.steps: List[Dict[str, Any]] = self._define_steps()
+        self.tooltip_frame: ctk.CTkFrame | None = None
+        self.steps: list[dict[str, Any]] = self._define_steps()
 
-    def _define_steps(self) -> List[Dict[str, Any]]:
-        return [
+    def _define_steps(self) -> list[dict[str, Any]]:
+        steps: list[dict[str, Any]] = [
             {
                 "title": "Bienvenido",
                 "message": "Bienvenido a Audio2Text.\nTe guiaremos brevemente.",
@@ -35,6 +36,14 @@ class TutorialManager:
                 "message": "Tu texto aparecerá aquí automáticamente.\nPuedes copiarlo o editarlo.",
                 "target": "transcription_textbox",
                 "position": "bottom",  # Forzar abajo
+                "tab": self.app.localization_manager.get_string("tab_main"),
+            },
+            {
+                "title": "Audios de WhatsApp",
+                "message": "Carga audios con 'Cargar', 'Pegar' o arrastrándolos a la ventana.\n"
+                "'Transcribir todo' los procesa en fila y pega el resultado completo, "
+                "con un rótulo === archivo === por audio.",
+                "target": "files_toggle_button",
                 "tab": self.app.localization_manager.get_string("tab_main"),
             },
             {
@@ -87,6 +96,24 @@ class TutorialManager:
             },
         ]
 
+        # S10: el Prompter solo se explica cuando Supervisión está activa
+        # (S6 lo viaja oculto en el release; sin flag no hay nada que descubrir).
+        supervisor_enabled = bool(
+            self.app.config_manager.get("supervisor_tab_enabled", default=False)
+        )
+        if supervisor_enabled:
+            steps.insert(
+                len(steps) - 1,
+                {
+                    "title": "Mejorador de prompt",
+                    "message": "En Supervisión, el Prompter evalúa tus borradores largos o complejos "
+                    "y los reestructura con IA antes de enviar, sin inventar contenido.",
+                    "target": None,
+                    "tab": self.app.localization_manager.get_string("tab_supervisor"),
+                },
+            )
+        return steps
+
     def should_start(self) -> bool:
         return not self.app.config_manager.get("tutorial_completed", False)
 
@@ -109,8 +136,8 @@ class TutorialManager:
             try:
                 self.app.main_frame.set(step["tab"])
                 self.app.update_idletasks()
-            except Exception:
-                pass
+            except Exception as exc:
+                self.logger.debug("Tab switch skipped for tutorial: %s", exc)
 
         # 2. Crear Frame "Tooltip" Compacto
         self.tooltip_frame = ctk.CTkFrame(
