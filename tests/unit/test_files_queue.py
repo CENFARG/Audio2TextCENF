@@ -600,3 +600,23 @@ class TestFilesQueueLangKeys:
         # Assert: every reason key carries real user-facing text
         for key in ("files_reason_unreadable", "files_reason_empty_result", "files_reason_missing"):
             assert es[key] and not es[key].startswith("MISSING")
+
+
+@pytest.mark.unit
+class TestFilesClearButtonVisibility:
+    """S4: the clear-queue button must be visible without hovering it."""
+
+    def test_clear_button_has_no_transparent_foreground(self):
+        # Arrange
+        src = (
+            Path(__file__).resolve().parents[2] / "ui" / "views" / "files_view.py"
+        ).read_text(encoding="utf-8")
+
+        # Act: isolate the clear-button kwargs block
+        start = src.index('loc.get_string("files_clear")')
+        end = src.index("command=self.clear_files_queue", start)
+        block = src[start:end]
+
+        # Assert: the ghost style (transparent fg + border-only) is the bug
+        assert 'fg_color="transparent"' not in block
+        assert "border_width" not in block

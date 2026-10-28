@@ -143,8 +143,6 @@ class FilesViewMixin(FilesQueueWorkerMixin):
             actions,
             text=loc.get_string("files_clear"),
             width=90,
-            fg_color="transparent",
-            border_width=1,
             command=self.clear_files_queue,
         ).pack(side="right")
 
