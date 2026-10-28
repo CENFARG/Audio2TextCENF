@@ -22,7 +22,7 @@ if sys.platform.startswith("win"):
             # Si todo falla, al menos configurar LC_CTYPE
             try:
                 locale.setlocale(locale.LC_CTYPE, "UTF-8")
-            except:
+            except locale.Error:
                 pass  # Continuamos sin locale específico
 
     # Método 3: Reconfigurar stdout/stderr para UTF-8

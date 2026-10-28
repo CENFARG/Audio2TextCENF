@@ -96,3 +96,17 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
 ignore_missing_imports = true
+
+[tool.ruff]
+# Active desktop line: CustomTkinter (ui/ + backend/ + tests/ + scripts/).
+# ui_flet/ is the paused Flet migration (archived surface, not release code);
+# verification_test.py is a legacy root-level check superseded by tests/
+# (repo rule: tests never live in the project root).
+extend-exclude = ["ui_flet", "verification_test.py"]
+
+[tool.ruff.lint.per-file-ignores]
+# main.py wires the UTF-8/Tcl monkey patches before customtkinter loads:
+# the import order (E402) and the load-order re-import (F401) are intentional.
+# simple_build.py chdirs to the project root before importing (E402).
+"main.py" = ["E402", "F401"]
+"simple_build.py" = ["E402"]

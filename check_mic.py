@@ -15,7 +15,7 @@ for i in range(len(devices)):
         if name:
             is_default = " [DEFAULT]" if devices[i].get('default_samplerate', 0) > 0 else ""
             print(f"  [{i}] {name}{is_default}")
-    except:
+    except Exception:
         pass
 
 print("\n[+] SOLUCIONES:")

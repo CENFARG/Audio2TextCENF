@@ -104,7 +104,7 @@ class FilesViewMixin(FilesQueueWorkerMixin):
         header.grid(row=0, column=0, padx=6, pady=4, sticky="ew")
         self.files_toggle_button = ctk.CTkButton(
             header,
-            text=f"▸ {loc.get_string("files_title")} (0)",
+            text=f"▸ {loc.get_string('files_title')} (0)",
             width=220,
             anchor="w",
             command=self.toggle_files_section,
