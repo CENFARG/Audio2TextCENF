@@ -141,9 +141,7 @@ class HotkeySelector(ctk.CTkToplevel):
         tabview.pack(fill="x", padx=10, pady=(0, 10))
 
         # Tab F1-F12
-        tab_f = tabview.add(
-            self.localization_manager.get_string("hotkey_tab_f_keys", "Teclas F")
-        )
+        tab_f = tabview.add(self.localization_manager.get_string("hotkey_tab_f_keys", "Teclas F"))
         self._create_f_keys(tab_f)
 
         # Tab alfanuméricas
@@ -207,9 +205,9 @@ class HotkeySelector(ctk.CTkToplevel):
             cat_frame = ctk.CTkFrame(suggestions_frame, fg_color="transparent")
             cat_frame.pack(fill="x", pady=2)
 
-            ctk.CTkLabel(
-                cat_frame, text=category, font=ctk.CTkFont(size=11), width=80
-            ).pack(side="left", padx=5)
+            ctk.CTkLabel(cat_frame, text=category, font=ctk.CTkFont(size=11), width=80).pack(
+                side="left", padx=5
+            )
 
             for hk in hotkeys:
                 btn = ctk.CTkButton(
@@ -273,9 +271,7 @@ class HotkeySelector(ctk.CTkToplevel):
         alphabet = [chr(i) for i in range(ord("a"), ord("z") + 1)]
 
         # Agregar números 0-9 también
-        for i, char in enumerate(
-            ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"] + alphabet
-        ):
+        for i, char in enumerate(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"] + alphabet):
             row = i // 7
             col = i % 7
 
@@ -359,9 +355,7 @@ def show_hotkey_selector(
     Returns:
         Hotkey seleccionado
     """
-    selector = HotkeySelector(
-        parent, localization_manager, on_hotkey_selected, current_hotkey
-    )
+    selector = HotkeySelector(parent, localization_manager, on_hotkey_selected, current_hotkey)
     parent.wait_window(selector)
     return selector.selected_hotkey
 

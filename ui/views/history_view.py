@@ -44,9 +44,7 @@ class HistoryViewMixin:
         localization_manager: Any
         history_scroll_frame: CTkScrollableFrame
 
-        def _change_emoji(
-            self, filepath: str, emoji: str, button: Any, label: Any
-        ) -> None: ...
+        def _change_emoji(self, filepath: str, emoji: str, button: Any, label: Any) -> None: ...
 
         def _play_audio_file(self, filepath: str, button: Any) -> None: ...
 
@@ -117,12 +115,7 @@ class HistoryViewMixin:
                     files = [f for f in os.listdir(audio_path) if f.endswith(".wav")]
                     current_count = len(files)
                     current_mtime = (
-                        max(
-                            [
-                                os.path.getmtime(os.path.join(audio_path, f))
-                                for f in files
-                            ]
-                        )
+                        max([os.path.getmtime(os.path.join(audio_path, f)) for f in files])
                         if files
                         else 0
                     )
@@ -156,9 +149,9 @@ class HistoryViewMixin:
             if full_reload:
                 for widget in self.history_scroll_frame.winfo_children():
                     widget.destroy()
-                ctk.CTkLabel(
-                    self.history_scroll_frame, text="Directorio no encontrado"
-                ).pack(pady=20)
+                ctk.CTkLabel(self.history_scroll_frame, text="Directorio no encontrado").pack(
+                    pady=20
+                )
             return
 
         max_display_files = 200
@@ -201,9 +194,7 @@ class HistoryViewMixin:
             self.loaded_history_files = current_files
             return
 
-        new_files = [
-            f for f in files_list if f["name"] not in self.loaded_history_files
-        ]
+        new_files = [f for f in files_list if f["name"] not in self.loaded_history_files]
         if new_files:
             self._history_pending = new_files
             self._history_pending_pos = 0
@@ -282,15 +273,9 @@ class HistoryViewMixin:
                     if len(parts) >= 3:
                         date_part = parts[1]
                         time_part = parts[2]
-                        formatted_date = (
-                            f"{date_part[6:8]}/{date_part[4:6]}/{date_part[0:4]}"
-                        )
-                        formatted_time = (
-                            f"{time_part[0:2]}:{time_part[2:4]}:{time_part[4:6]}"
-                        )
-                        display_name = (
-                            f"{custom_emoji} {formatted_date} {formatted_time}"
-                        )
+                        formatted_date = f"{date_part[6:8]}/{date_part[4:6]}/{date_part[0:4]}"
+                        formatted_time = f"{time_part[0:2]}:{time_part[2:4]}:{time_part[4:6]}"
+                        display_name = f"{custom_emoji} {formatted_date} {formatted_time}"
                     else:
                         display_name = f"{custom_emoji} {filename}"
                 except Exception:
@@ -332,9 +317,7 @@ class HistoryViewMixin:
                         "aprendizaje": "📚",
                         "técnico": "🔧",
                     }.get(auto_metadata["category"].lower(), "📁")
-                    tooltip_text += (
-                        f"\n{category_emoji} {auto_metadata['category'].title()}"
-                    )
+                    tooltip_text += f"\n{category_emoji} {auto_metadata['category'].title()}"
                 if auto_metadata.get("tags"):
                     tags_str = ", ".join(auto_metadata["tags"][:5])
                     if tags_str:
@@ -350,13 +333,8 @@ class HistoryViewMixin:
                         "neutral": "😐",
                         "negativo": "😔",
                     }.get(auto_metadata["sentiment"].lower(), "😐")
-                    tooltip_text += (
-                        f"\n{sentiment_emoji} {auto_metadata['sentiment'].title()}"
-                    )
-                if (
-                    auto_metadata.get("action_items")
-                    and len(auto_metadata["action_items"]) > 0
-                ):
+                    tooltip_text += f"\n{sentiment_emoji} {auto_metadata['sentiment'].title()}"
+                if auto_metadata.get("action_items") and len(auto_metadata["action_items"]) > 0:
                     tasks = auto_metadata["action_items"][:3]
                     if tasks:
                         tooltip_text += "\n\n✅ Tareas:"
@@ -417,9 +395,7 @@ class HistoryViewMixin:
             fg_color="#10B981",
             hover_color="#059669",
         )
-        play_btn.configure(
-            command=lambda p=full_path, b=play_btn: self._play_audio_file(p, b)
-        )
+        play_btn.configure(command=lambda p=full_path, b=play_btn: self._play_audio_file(p, b))
         play_btn.pack(side="left", padx=2)
 
         ctk.CTkButton(

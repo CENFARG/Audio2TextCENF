@@ -43,12 +43,8 @@ class TestConfigManagerInitialization:
             assert "app_version" in manager.config
             # Contract: app_version is always pinned to the shipped default
             # (load_config overrides it with default_config), never a stale value.
-            assert (
-                manager.config["app_version"] == manager.default_config["app_version"]
-            )
-            assert (
-                manager.config["hotkey"] == "f9"
-            )  # FIX: default F9 (pedido del usuario)
+            assert manager.config["app_version"] == manager.default_config["app_version"]
+            assert manager.config["hotkey"] == "f9"  # FIX: default F9 (pedido del usuario)
             assert manager.config["default_language"] == "es"
         finally:
             if os.path.exists(config_file):
@@ -70,9 +66,7 @@ class TestConfigManagerInitialization:
 
             # Version is always overridden with the shipped default, but the
             # other file settings are kept.
-            assert (
-                manager.config["app_version"] == manager.default_config["app_version"]
-            )
+            assert manager.config["app_version"] == manager.default_config["app_version"]
             assert manager.config["hotkey"] == "F10"
             # Since v0.15.1 the UI language is forced to Spanish regardless of file
             assert manager.config["default_language"] == "es"
@@ -287,9 +281,7 @@ class TestEnvironmentVariables:
     def test_get_groq_api_key_from_env(self):
         """Test getting Groq API key from environment variable."""
         with patch.dict(os.environ, {"GROQ_API_KEY": "gsk_env_key_123"}):
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False
-            ) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
                 config_file = f.name
 
             try:
@@ -304,9 +296,7 @@ class TestEnvironmentVariables:
     def test_get_groq_api_key_from_env_not_set(self):
         """Test getting Groq API key when environment variable is not set."""
         with patch.dict(os.environ, {}, clear=True):
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False
-            ) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
                 config_file = f.name
 
             try:
@@ -399,3 +389,17 @@ class TestConfigIntegrity:
 
         # Final verification
         assert manager.get("hotkey") == "F2"
+
+
+class TestSupervisorTabFlag:
+    """S6: the Supervisor workbench ships disabled by default (v0.17.0)."""
+
+    def test_default_config_disables_supervisor_tab(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            config_file = f.name
+        try:
+            manager = ConfigManager(config_file=config_file)
+            assert manager.config.get("supervisor_tab_enabled") is False
+        finally:
+            if os.path.exists(config_file):
+                os.unlink(config_file)

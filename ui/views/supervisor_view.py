@@ -123,7 +123,7 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
             fg_color=DesignSystem.COLORS["primary"],
             command=self._supervisor_copy_all,
         ).pack(side="right", padx=(3, 0))
-        self._supervisor_prompter_switch = ctk.CTkSwitch(
+        self._supervisor_prompter_switch: ctk.CTkSwitch = ctk.CTkSwitch(
             bar,
             text=loc.get_string("supervisor_prompter_button"),
             command=lambda: self.config_manager.set(
@@ -225,15 +225,11 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
             {
                 "text": loc.get_string("supervisor_reopen" if is_sent else "supervisor_mark_sent"),
                 "width": 88,
-                "fg_color": "transparent",
-                "border_width": 1,
                 "command": lambda n=number: self._supervisor_toggle_status(n),
             },
             {
                 "text": "🗑",
                 "width": 34,
-                "fg_color": "transparent",
-                "border_width": 1,
                 "command": lambda n=number: self._supervisor_delete_entry(n),
             },
         ):

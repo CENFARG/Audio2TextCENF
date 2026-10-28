@@ -1,7 +1,73 @@
-import customtkinter as ctk
-from tkinter import messagebox
-from threading import Thread
 import logging
+from collections.abc import Callable
+from threading import Thread
+from tkinter import messagebox
+from typing import Protocol, cast
+
+import customtkinter as ctk
+
+from backend.updater import InstallResult
+
+
+class _ClosableToplevel(Protocol):
+    """Minimal window surface needed by the shutdown fallback."""
+
+    def quit(self) -> None: ...
+
+    def destroy(self) -> None: ...
+
+
+def resolve_post_install_action(outcome: object) -> str:
+    """Map a backend install outcome to a UI action without touching Tk.
+
+    "shutdown": install_update returned an InstallResult; the UI owns the
+    graceful app close. "error": anything else (exception or bad value).
+    """
+    return "shutdown" if isinstance(outcome, InstallResult) else "error"
+
+
+def resolve_shutdown_callable(toplevel: object) -> Callable[[], None]:
+    """Pick the graceful shutdown callable for the hosting window.
+
+    Prefers the app's full-cleanup path (quit_application: transcriber,
+    overlay, tray) and falls back to quit()+destroy() for generic
+    toplevels. Pure and Tk-free, so tests can verify the contract.
+    """
+    quit_application = getattr(toplevel, "quit_application", None)
+    if callable(quit_application):
+        return cast("Callable[[], None]", quit_application)
+
+    def fallback() -> None:
+        closable = cast("_ClosableToplevel", toplevel)
+        closable.quit()
+        closable.destroy()
+
+    return fallback
+
+
+def progress_fraction(downloaded: int, total: int) -> float | None:
+    """Return a clamped 0..1 fraction, or None when the total is unknown."""
+    if total <= 0:
+        return None
+    return min(max(downloaded / total, 0.0), 1.0)
+
+
+def format_progress_label(downloaded: int, total: int) -> str:
+    """Human label for the download state.
+
+    Known total -> "Descargando... N%". Unknown total (file_size=0 in
+    version.json or missing content-length) -> downloaded MB with an
+    explicit note, never a stuck 0%.
+    """
+    mb = downloaded / (1024 * 1024)
+    if progress_fraction(downloaded, total) is None:
+        return f"Descargando... {mb:.1f} MB (tamaño desconocido)"
+    return f"Descargando... {int(round((downloaded / total) * 100))}%"
+
+
+def format_up_to_date_text(current_version: str) -> str:
+    """Up-to-date status line, always naming the running version."""
+    return f"✅ Estás usando la última versión (v{current_version})"
 
 
 class UpdateTab(ctk.CTkFrame):
@@ -27,9 +93,7 @@ class UpdateTab(ctk.CTkFrame):
         header_frame = ctk.CTkFrame(self, fg_color="transparent")
         header_frame.grid(row=0, column=0, pady=20, padx=20, sticky="ew")
 
-        title = ctk.CTkLabel(
-            header_frame, text="🔄 Actualizaciones", font=("Segoe UI", 24, "bold")
-        )
+        title = ctk.CTkLabel(header_frame, text="🔄 Actualizaciones", font=("Segoe UI", 24, "bold"))
         title.pack()
 
         # Estado
@@ -44,9 +108,7 @@ class UpdateTab(ctk.CTkFrame):
         self.content_frame.grid_columnconfigure(0, weight=1)
 
         # Frame de información (oculto inicialmente)
-        self.info_frame = ctk.CTkFrame(
-            self.content_frame, fg_color="#1E293B", corner_radius=10
-        )
+        self.info_frame = ctk.CTkFrame(self.content_frame, fg_color="#1E293B", corner_radius=10)
 
         # Botones
         button_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -125,7 +187,8 @@ class UpdateTab(ctk.CTkFrame):
             self._show_update_info()
         else:
             self.status_label.configure(
-                text="✅ Estás usando la última versión", text_color="#10B981"
+                text=format_up_to_date_text(self.updater.current_version),
+                text_color="#10B981",
             )
 
     def _show_update_info(self):
@@ -154,6 +217,13 @@ class UpdateTab(ctk.CTkFrame):
             size_mb = self.update_info["file_size"] / (1024 * 1024)
             size_label = ctk.CTkLabel(
                 self.info_frame, text=f"Tamaño: {size_mb:.2f} MB", font=("Segoe UI", 12)
+            )
+            size_label.pack(pady=2, padx=15, anchor="w")
+        else:
+            size_label = ctk.CTkLabel(
+                self.info_frame,
+                text="Tamaño: se conocerá durante la descarga",
+                font=("Segoe UI", 12),
             )
             size_label.pack(pady=2, padx=15, anchor="w")
 
@@ -204,26 +274,41 @@ class UpdateTab(ctk.CTkFrame):
         except Exception as e:
             self.after(0, lambda err=str(e): self._show_error(err))
 
-    def _update_progress(self, downloaded, total):
-        """Actualizar barra de progreso"""
-        if total > 0:
-            progress = downloaded / total
-            percentage = int(progress * 100)
-            self.after(0, lambda: self.progress.set(progress))
-            self.after(
-                0,
-                lambda: self.progress_label.configure(
-                    text=f"Descargando... {percentage}%"
-                ),
-            )
+    def _update_progress(self, downloaded: int, total: int) -> None:
+        """Actualizar barra de progreso desde el thread de descarga."""
+        fraction = progress_fraction(downloaded, total)
+        label = format_progress_label(downloaded, total)
 
-    def _install(self, temp_path):
-        """Instalar actualización"""
+        def apply() -> None:
+            # Total desconocido (file_size=0): nota de MB en la etiqueta,
+            # nunca un "0%" congelado.
+            self.progress.set(fraction if fraction is not None else 0.0)
+            self.progress_label.configure(text=label)
+
+        self.after(0, apply)
+
+    def _install(self, temp_path: str) -> None:
+        """Instalar la actualización: la UI es dueña del cierre de la app.
+
+        El backend ya no termina el proceso (antes hacía sys.exit(0) desde
+        un callback de Tk, abortando la limpieza). Ante un InstallResult
+        programa el cierre limpio; ante un error muestra el motivo.
+        """
+        self.progress_label.configure(text="Instalando actualización...")
         try:
-            self.progress_label.configure(text="Instalando actualización...")
-            self.updater.install_update(temp_path)
+            outcome = self.updater.install_update(temp_path)
         except Exception as e:
             self._show_error(f"Error al instalar: {e}")
+            return
+
+        if resolve_post_install_action(outcome) == "shutdown":
+            self.progress_label.configure(text="Instalación iniciada. La aplicación se cerrará...")
+            self.after(1000, self._close_for_install)
+
+    def _close_for_install(self) -> None:
+        """Cierre limpio para que el batch reemplace el ejecutable."""
+        self.logger.info("Cerrando la aplicación para completar la instalación")
+        resolve_shutdown_callable(self.winfo_toplevel())()
 
     def _show_error(self, error):
         """Mostrar error"""

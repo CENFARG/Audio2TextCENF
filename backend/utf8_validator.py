@@ -41,13 +41,35 @@ SPANISH_CHARS = {
 # FIX Bug B: patrones reales de mojibake (doble-encoding UTF-8 → latin-1)
 # Texto con acentos leído como latin-1 produce estos pares de caracteres.
 MOJIBAKE_MAP = {
-    "Ã¡": "á", "Ã©": "é", "Ã­": "í", "Ã³": "ó", "Ãº": "ú",
-    "Ã": "Á", "Ã‰": "É", "Ã": "Í", "Ã“": "Ó", "Ãš": "Ú",
-    "Ã±": "ñ", "Ã‘": "Ñ",
-    "Â¿": "¿", "Â¡": "¡",
-    "Ã¼": "ü", "Ã¶": "ö", "Ã¤": "ä", "Ã«": "ë", "Ã¯": "ï", 
-    "Â«": "«", "Â»": "»", "â€": "€", "â€œ": "“", "â€�": "”", "â€˜": "‘", "â€™": "’",
-    "â€“": "–", "â€”": "—", "â€¦": "…",
+    "Ã¡": "á",
+    "Ã©": "é",
+    "Ã­": "í",
+    "Ã³": "ó",
+    "Ãº": "ú",
+    "Ã": "Á",
+    "Ã‰": "É",
+    "Ã": "Í",
+    "Ã“": "Ó",
+    "Ãš": "Ú",
+    "Ã±": "ñ",
+    "Ã‘": "Ñ",
+    "Â¿": "¿",
+    "Â¡": "¡",
+    "Ã¼": "ü",
+    "Ã¶": "ö",
+    "Ã¤": "ä",
+    "Ã«": "ë",
+    "Ã¯": "ï",
+    "Â«": "«",
+    "Â»": "»",
+    "â€": "€",
+    "â€œ": "“",
+    "â€�": "”",
+    "â€˜": "‘",
+    "â€™": "’",
+    "â€“": "–",
+    "â€”": "—",
+    "â€¦": "…",
 }
 
 
@@ -88,11 +110,11 @@ class UTF8Validator:
                 problems.append(f"mojibake: {bad} -> {MOJIBAKE_MAP[bad]}")
 
         # BOM al inicio
-        if text.startswith('\ufeff'):
+        if text.startswith("\ufeff"):
             problems.append("bom_present")
 
         # Caracteres de control problemáticos
-        if '\x00' in text:
+        if "\x00" in text:
             problems.append("null_bytes")
 
         return (len(problems) == 0, problems)
@@ -123,7 +145,7 @@ class UTF8Validator:
         # FIX v0.15.0: normalizar Unicode a NFC — los acentos combinados
         # (e + U+0301) se convierten en su carácter precompuesto (é).
         # NFC es idempotente y NO corrompe texto ya correcto.
-        result = unicodedata.normalize('NFC', result)
+        result = unicodedata.normalize("NFC", result)
 
         # Corregir signos interrogación/exclamación duplicados
         result = result.replace("¿¿", "¿")
@@ -133,7 +155,7 @@ class UTF8Validator:
 
         return result
 
-    def force_utf8(self, text: str, encoding: str = 'utf-8') -> str:
+    def force_utf8(self, text: str, encoding: str = "utf-8") -> str:
         """
         Forzar encoding UTF-8 de un texto.
 
@@ -179,40 +201,109 @@ class UTF8Validator:
 
         # FIX Bug C: el BOM es UN carácter (\ufeff = U+FEFF), no 3.
         # La versión anterior hacía result[3:] que se comía 3 caracteres REALES del texto.
-        if result.startswith('\ufeff'):
+        if result.startswith("\ufeff"):
             result = result[1:]
             self.logger.debug("BOM removido del inicio")
 
         # Remover caracteres nulos y otros caracteres de control
-        control_chars = ['\\x00', '\\x01', '\\x02', '\\x03', '\\x04', '\\x05', '\\x06',
-                        '\\x07', '\\x08', '\\x09', '\\x0b', '\\x0c',
-                        '\\x0d', '\\x0e', '\\x0f',
-                        '\\u200b', '\\u200c', '\\u200d', '\\u200e',
-                        '\\u200f', '\\u202a', '\\u202c', '\\u202d', '\\u202e',
-                        '\\u202f', '\\u203a', '\\u203c', '\\u203d',
-                        '\\u203e', '\\u203f', '\\u204a', '\\u204c',
-                        '\\u204d', '\\u204e', '\\u204e', '\\u204f',
-                        '\\u205a', '\\u205c', '\\u205d', '\\u205e',
-                        '\\u205e', '\\u205f', '\\u206a', '\\u206c',
-                        '\\u206d', '\\u206e', '\\u206e', '\\u206e',
-                        '\\u207a', '\\u207c', '\\u207d', '\\u207e',
-                        '\\u207e', '\\u207f', '\\u208a', '\\u208c',
-                        '\\u208d', '\\u208e', '\\u208f',
-                        '\\u209a', '\\u209a', '\\u209c',
-                        '\\u209d', '\\u209e', '\\u209e',
-                        '\\u209f', '\\u20a', '\\u20c', '\\u20d',
-                        '\\u20e', '\\u20f', '\\u210a',
-                        '\\u210a', '\\u210c', '\\u210d', '\\u210e',
-                        '\\u210e', '\\u210e', '\\u210f',
-                        '\\u211a', '\\u211c', '\\u211d', '\\u211e',
-                        '\\u211e', '\\u211f', '\\u212a', '\\u212a',
-                        '\\u212d', '\\u212e', '\\u212f']
+        control_chars = [
+            "\\x00",
+            "\\x01",
+            "\\x02",
+            "\\x03",
+            "\\x04",
+            "\\x05",
+            "\\x06",
+            "\\x07",
+            "\\x08",
+            "\\x09",
+            "\\x0b",
+            "\\x0c",
+            "\\x0d",
+            "\\x0e",
+            "\\x0f",
+            "\\u200b",
+            "\\u200c",
+            "\\u200d",
+            "\\u200e",
+            "\\u200f",
+            "\\u202a",
+            "\\u202c",
+            "\\u202d",
+            "\\u202e",
+            "\\u202f",
+            "\\u203a",
+            "\\u203c",
+            "\\u203d",
+            "\\u203e",
+            "\\u203f",
+            "\\u204a",
+            "\\u204c",
+            "\\u204d",
+            "\\u204e",
+            "\\u204e",
+            "\\u204f",
+            "\\u205a",
+            "\\u205c",
+            "\\u205d",
+            "\\u205e",
+            "\\u205e",
+            "\\u205f",
+            "\\u206a",
+            "\\u206c",
+            "\\u206d",
+            "\\u206e",
+            "\\u206e",
+            "\\u206e",
+            "\\u207a",
+            "\\u207c",
+            "\\u207d",
+            "\\u207e",
+            "\\u207e",
+            "\\u207f",
+            "\\u208a",
+            "\\u208c",
+            "\\u208d",
+            "\\u208e",
+            "\\u208f",
+            "\\u209a",
+            "\\u209a",
+            "\\u209c",
+            "\\u209d",
+            "\\u209e",
+            "\\u209e",
+            "\\u209f",
+            "\\u20a",
+            "\\u20c",
+            "\\u20d",
+            "\\u20e",
+            "\\u20f",
+            "\\u210a",
+            "\\u210a",
+            "\\u210c",
+            "\\u210d",
+            "\\u210e",
+            "\\u210e",
+            "\\u210e",
+            "\\u210f",
+            "\\u211a",
+            "\\u211c",
+            "\\u211d",
+            "\\u211e",
+            "\\u211e",
+            "\\u211f",
+            "\\u212a",
+            "\\u212a",
+            "\\u212d",
+            "\\u212e",
+            "\\u212f",
+        ]
 
         for char in control_chars:
-            result = result.replace(char, '')
+            result = result.replace(char, "")
 
         # Limpiar espacios múltiples consecutivos
-        result = re.sub(r' {2,}', ' ', result)
+        result = re.sub(r" {2,}", " ", result)
 
         # Limpiar saltos de línea innecesarios
         result = result.rstrip()
@@ -297,11 +388,12 @@ class UTF8Validator:
             "encoding": "utf-8",
             "problems": problems,
             "length": len(text),
-            "preview": text[:100] + "..." if len(text) > 100 else text
+            "preview": text[:100] + "..." if len(text) > 100 else text,
         }
 
 
 # Funciones de conveniencia para uso rápido
+
 
 def create_validator(logger: Optional[logging.Logger] = None) -> UTF8Validator:
     """

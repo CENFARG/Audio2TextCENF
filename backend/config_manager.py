@@ -61,13 +61,14 @@ class ConfigManager:
                 "Instalá con: pip install keyring"
             )
         self.default_config = {
-            "app_version": "0.16.1",
+            "app_version": "0.17.0",
             "audio_path": "./audio",
             "transcriptions_path": "./transcriptions",
             "save_audio": True,
             "save_logs": True,
             "hotkey": "f9",  # FIX: default F9 (estaba f12) — pedido del usuario
             "hotkey_modifier": "",  # DEPRECATED: Usar formato "ctrl+f9" en hotkey
+            "supervisor_tab_enabled": False,  # S6: la pestaña Supervisor viaja oculta en el release; dev la reactiva en config.json
             "supervisor_capture_hotkey": "ctrl+alt+v",  # F3: hotkey global que captura el portapapeles al Supervisor
             "pause_hotkey": "ctrl+alt+p",  # REQ-1: hotkey global para pausar/reanudar la grabación
             "prompter_gate_auto": True,  # A4: Prompter Gate automático en el Supervisor

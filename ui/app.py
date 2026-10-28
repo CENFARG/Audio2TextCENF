@@ -2,15 +2,19 @@
 import os
 import sys
 import webbrowser
+from pathlib import Path
+
 import tkinter as tk
 from tkinter import messagebox, filedialog
 import customtkinter as ctk
 import pystray
 from pystray import MenuItem as item
-from PIL import Image, ImageDraw
+from PIL import Image
 import pyperclip
 import pyautogui
 import threading
+from typing import Any
+
 import keyboard
 from groq import Groq
 import re
@@ -27,6 +31,7 @@ from backend.transcription_metadata import TranscriptionMetadata
 
 # UI imports
 from ui.emoji_picker import show_emoji_picker
+from ui.branding import build_tray_image, logo_candidates, resolve_logo_path
 from ui.hotkey_selector import show_hotkey_selector
 from backend.hotkey_manager import HotkeyManager
 
@@ -56,11 +61,17 @@ except ImportError:  # distributed builds may not ship tkdnd
     _TKDND_AVAILABLE = False
 
 if _TKDND_AVAILABLE:
-    _FilesDndBase = TkinterDnD.DnDWrapper
+    _FilesDndBase: Any = TkinterDnD.DnDWrapper  # type: ignore[no-redef]
 else:
 
     class _FilesDndBase:  # type: ignore[no-redef]
         """No-op stand-in so App is defined identically without tkinterdnd2."""
+
+        def drop_target_register(self, *dndtypes: str) -> None:
+            """No-op when tkinterdnd2 is unavailable."""
+
+        def dnd_bind(self, sequence: str, func: Any) -> None:
+            """No-op when tkinterdnd2 is unavailable."""
 
 
 # HC-03 Shift fallback (delegado): _is_shift_pressed vive en ui/dialogs/vocab_dialog.py
@@ -197,6 +208,14 @@ class App(
 ):
     """HC-02: God-class descompuesta vía mixins. Ver ui/views/history_view.py y ui/dialogs/vocab_dialog.py."""
 
+    # Lazily-created Config tab widgets (D9-style host declarations).
+    _sound_config_switch_var: Any
+    _sound_config_switch: Any
+    hotkey_display_button: Any
+    nvidia_enabled_var: Any
+    nvidia_api_key_var: Any
+    nvidia_mode_var: Any
+
     def __init__(self, config_manager=None):
         super().__init__()
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -265,7 +284,8 @@ class App(
         self._dnd_available = False
         if _TKDND_AVAILABLE:
             try:
-                TkinterDnD._require(self)
+                dnd_module: Any = TkinterDnD
+                dnd_module._require(self)
                 self.drop_target_register(DND_FILES)
                 self.dnd_bind("<<Drop>>", self._on_files_drop)
                 self._dnd_available = True
@@ -355,9 +375,12 @@ class App(
         self.main_frame = ctk.CTkTabview(self)
         self.main_frame.grid(row=1, column=0, padx=10, pady=(10, 5), sticky="nsew")
         self.main_frame.add(self.localization_manager.get_string("tab_main"))
-        # F2: Supervisor tab sits right after the main tab (proposal: workbench
-        # next to the transcription panel).
-        self.main_frame.add(self.localization_manager.get_string("tab_supervisor"))
+        # S6: la pestaña Supervisor viaja OCULTA en el release (hay que
+        # trabajarla más y mejor); dev la reactiva con supervisor_tab_enabled
+        # en config.json. El store no se crea y el hotkey de captura se
+        # auto-omite (registrador tolera store ausente).
+        if self.config_manager.get("supervisor_tab_enabled", default=False):
+            self.main_frame.add(self.localization_manager.get_string("tab_supervisor"))
         self.main_frame.add(self.localization_manager.get_string("tab_settings"))
         self.main_frame.add(self.localization_manager.get_string("tab_info"))
         self.main_frame.add(self.localization_manager.get_string("tab_history"))
@@ -367,8 +390,9 @@ class App(
         # C4: the files queue lives inside the main tab as a labeled section
         # below the transcription panel; the dedicated tab was removed.
         self.create_files_section()
-        # F2: AI-response supervisor workbench (own tab after main).
-        self.create_supervisor_tab()
+        # F2/S6: AI-response supervisor workbench — solo con el flag encendido.
+        if self.config_manager.get("supervisor_tab_enabled", default=False):
+            self.create_supervisor_tab()
         self.create_config_tab()
         self.create_info_tab()
         self.create_history_tab()
@@ -650,14 +674,17 @@ class App(
         )
         self.hotkey_display_label.grid(row=1, column=0, pady=(3, 5), sticky="ew")  # Reducido pady
 
-        # Logo del cliente (si existe)
-        logo_path = "logo.png"
-        if getattr(sys, "frozen", False):
-            logo_path = os.path.join(sys._MEIPASS, "logo.png")
+        # Logo del cliente (si existe) — S3: resolución unificada por branding
+        logo_path = resolve_logo_path(
+            logo_candidates(
+                Path(__file__).resolve().parent.parent, getattr(sys, "_MEIPASS", None)
+            )
+        )
 
-        if os.path.exists(logo_path):
+        if logo_path is not None:
             try:
-                pil_image = Image.open(logo_path)
+                with Image.open(logo_path) as _raw_logo:
+                    pil_image = _raw_logo.convert("RGBA")
                 # Resize keeping aspect ratio, max height 50
                 h_ratio = 50 / float(pil_image.size[1])
                 w_size = int((float(pil_image.size[0]) * float(h_ratio)))
@@ -1167,37 +1194,37 @@ class App(
         # Auto-refresh cada 15 segundos (reducido de 5 para evitar bloqueos)
         self.after(15000, self.auto_refresh_history)
 
-    def _change_emoji(self, filename: str, current_emoji: str, emoji_btn, name_label):
+    def _change_emoji(self, filepath: str, emoji: str, button: Any, label: Any) -> None:
         """
         Cambiar emoji de una transcripción.
 
         Args:
-            filename: Nombre del archivo de audio
-            current_emoji: Emoji actual
-            emoji_btn: Botón de emoji a actualizar
-            name_label: Label de nombre a actualizar
+            filepath: Nombre del archivo de audio
+            emoji: Emoji actual
+            button: Botón de emoji a actualizar
+            label: Label de nombre a actualizar
         """
 
         def on_emoji_selected(new_emoji: str):
             """Callback cuando se selecciona un emoji."""
             # Guardar en metadata
-            self.metadata_manager.set_emoji(filename, new_emoji)
+            self.metadata_manager.set_emoji(filepath, new_emoji)
 
             # Actualizar botón
-            emoji_btn.configure(text=new_emoji)
+            button.configure(text=new_emoji)
 
             # Actualizar label (reemplazar emoji anterior por nuevo)
-            current_text = name_label.cget("text")
-            if current_text.startswith(current_emoji):
-                new_text = current_text.replace(current_emoji, new_emoji, 1)
+            current_text = label.cget("text")
+            if current_text.startswith(emoji):
+                new_text = current_text.replace(emoji, new_emoji, 1)
             else:
                 new_text = f"{new_emoji} {current_text}"
-            name_label.configure(text=new_text)
+            label.configure(text=new_text)
 
-            self.logger.info(f"Emoji cambiado para {filename}: {current_emoji} → {new_emoji}")
+            self.logger.info(f"Emoji cambiado para {filepath}: {emoji} → {new_emoji}")
 
         # Mostrar selector de emoji
-        show_emoji_picker(self, on_emoji_selected, current_emoji)
+        show_emoji_picker(self, on_emoji_selected, emoji)
 
     def _open_hotkey_selector(self):
         """Abrir selector de hotkeys con modificadores."""
@@ -1208,8 +1235,9 @@ class App(
             self.config_manager.config["hotkey"] = new_hotkey
             self.config_manager.save_config()
 
-            # Actualizar botón
-            self.hotkey_display_button.configure(text=new_hotkey.upper())
+            # Actualizar botón inline si existe (el layout actual usa el modal)
+            if hasattr(self, "hotkey_display_button"):
+                self.hotkey_display_button.configure(text=new_hotkey.upper())
 
             # Actualizar display label en status bar
             self.hotkey_display_label.configure(
@@ -1228,31 +1256,20 @@ class App(
         show_hotkey_selector(self, self.localization_manager, on_hotkey_selected, current_hotkey)
 
     def _reregister_hotkey(self, new_hotkey: str):
-        """
-        Re-registrar hotkey con el nuevo valor.
+        """Re-register the recording hotkey after a change (dialog path).
+
+        Delegates to the transcriber's own hook lifecycle — the same API
+        the working inline selector uses. The pause and supervisor capture
+        hotkeys are registered independently and must not be unhooked
+        (the old unhook-everything call here killed them, and the
+        undefined setup call left everything dead until restart).
 
         Args:
             new_hotkey: Nuevo hotkey string
         """
         try:
-            import keyboard
-
-            # Remover hotkey anterior
-            old_hotkey = self.config_manager.get("hotkey", default="f12")
-            try:
-                keyboard.remove_hotkey(old_hotkey)
-                self.logger.debug(f"Hotkey removido: {old_hotkey}")
-            except Exception:
-                self.logger.debug(f"Hotkey previo no existía o ya fue removido: {old_hotkey}")
-
-            # Remover todos los hooks anteriores
-            keyboard.unhook_all()
-
-            # Re-iniciar el sistema de hotkeys
-            self._setup_hotkey_system()
-
+            self.transcriber.update_hotkey(new_hotkey)
             self.logger.info(f"Hotkey re-registrado: {new_hotkey}")
-
         except Exception as e:
             self.logger.error(f"Error re-registrando hotkey: {e}")
 
@@ -1301,10 +1318,10 @@ class App(
         except Exception as e:
             self.logger.error(f"Error actualizando hotkey: {e}")
 
-    def _play_audio_file(self, file_path, button):
+    def _play_audio_file(self, filepath: str, button: Any) -> None:
         """Reproducir archivo de audio con toggle play/stop"""
         # Si ya está reproduciendo este archivo, detener
-        if self.currently_playing and self.currently_playing[0] == file_path:
+        if self.currently_playing and self.currently_playing[0] == filepath:
             self._stop_audio_file()
             return
 
@@ -1313,7 +1330,7 @@ class App(
             self._stop_audio_file()
 
         # Actualizar estado
-        self.currently_playing = (file_path, button)
+        self.currently_playing = (filepath, button)
         button.configure(text="⏹️", fg_color="#EF4444", hover_color="#DC2626")
 
         def play_in_thread():
@@ -1321,11 +1338,11 @@ class App(
                 import winsound
 
                 # SND_FILENAME | SND_ASYNC = reproducción asíncrona
-                winsound.PlaySound(file_path, winsound.SND_FILENAME | winsound.SND_ASYNC)
+                winsound.PlaySound(filepath, winsound.SND_FILENAME | winsound.SND_ASYNC)
                 self.after(
                     100,
                     lambda: self.update_status(
-                        f"▶️ Reproduciendo: {os.path.basename(file_path)}", "green"
+                        f"▶️ Reproduciendo: {os.path.basename(filepath)}", "green"
                     ),
                 )
 
@@ -1333,7 +1350,7 @@ class App(
                 # WAV típico: ~1 segundo por 100KB (aproximado)
                 import os
 
-                file_size = os.path.getsize(file_path)
+                file_size = os.path.getsize(filepath)
                 estimated_duration = max(1, file_size / 100000)  # Estimación conservadora
 
                 # Esperar duración + margen
@@ -1342,7 +1359,7 @@ class App(
                 time.sleep(estimated_duration + 0.5)
 
                 # Restaurar botón
-                self.after(0, lambda: self._reset_play_button(file_path))
+                self.after(0, lambda: self._reset_play_button(filepath))
 
             except Exception as e:
                 # Capturar el mensaje ANTES de programar lambdas: `e` se elimina
@@ -1350,19 +1367,19 @@ class App(
                 err = f"❌ Error reproduciendo audio: {e}"
                 self.logger.error(err)
                 self.after(100, lambda: self.update_status(err, "red"))
-                self.after(0, lambda: self._reset_play_button(file_path))
+                self.after(0, lambda: self._reset_play_button(filepath))
 
         # Ejecutar en thread separado
         import threading
 
         thread = threading.Thread(target=play_in_thread, daemon=True)
-        self.playing_threads[file_path] = thread
+        self.playing_threads[filepath] = thread
         thread.start()
 
     def _stop_audio_file(self):
         """Detener reproducción actual"""
         if self.currently_playing:
-            file_path, button = self.currently_playing
+            filepath, button = self.currently_playing
             # Detener cualquier sonido
             try:
                 import winsound
@@ -1383,9 +1400,9 @@ class App(
             self.currently_playing = None
             self.update_status("⏹️ Reproducción detenida", "white")
 
-    def _reset_play_button(self, file_path):
+    def _reset_play_button(self, filepath):
         """Resetear botón de play después de terminar reproducción"""
-        if self.currently_playing and self.currently_playing[0] == file_path:
+        if self.currently_playing and self.currently_playing[0] == filepath:
             _, button = self.currently_playing
 
             # Resetear botón SOLO si todavía existe
@@ -1400,16 +1417,16 @@ class App(
             self.update_status("✔️ Reproducción terminada", "white")
 
         # Limpiar thread del diccionario
-        if file_path in self.playing_threads:
-            del self.playing_threads[file_path]
+        if filepath in self.playing_threads:
+            del self.playing_threads[filepath]
 
-    def _delete_audio_file(self, full_path):
+    def _delete_audio_file(self, filepath: str) -> None:
         if messagebox.askyesno(
             self.localization_manager.get_string("confirm_delete_title"),
             self.localization_manager.get_string("confirm_delete_msg"),
         ):
             try:
-                os.remove(full_path)
+                os.remove(filepath)
                 self.refresh_history_list()
                 self.update_file_info()
             except Exception as e:
@@ -1920,7 +1937,7 @@ class App(
             "orange": "warning",
         }
         text_color = DesignSystem.COLORS.get(
-            color_map.get(color), DesignSystem.COLORS["text_primary"]
+            color_map.get(color, "text_primary"), DesignSystem.COLORS["text_primary"]
         )
         self.status_label.configure(text=message, text_color=text_color)
 
@@ -2333,9 +2350,16 @@ class App(
         if self.tray_icon and self.tray_icon.visible:
             self.logger.debug("Icono de bandeja ya visible, omitiendo recreación.")
             return
-        image = Image.new("RGB", (64, 64), DesignSystem.COLORS["background"])
-        draw = ImageDraw.Draw(image)
-        draw.ellipse((10, 10, 54, 54), fill=DesignSystem.COLORS["primary"])
+        image = build_tray_image(
+            resolve_logo_path(
+                logo_candidates(
+                    Path(__file__).resolve().parent.parent,
+                    getattr(sys, "_MEIPASS", None),
+                )
+            ),
+            fallback_bg=DesignSystem.COLORS["background"],
+            fallback_fg=DesignSystem.COLORS["primary"],
+        )
         menu = (
             item(self.localization_manager.get_string("tray_menu_show"), self.show_window),
             item(

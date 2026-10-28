@@ -129,9 +129,9 @@ class Test12MinRealRepro:
                             "stop_recording no debe lanzar RuntimeError cuando se llama desde recording_thread (fix pendiente)"
                         )
                     # Debe haber intentado spawnear process_recording thread
-                    assert mock_thread.called, (
-                        "auto-cut debe spawnear thread de process_recording aun sin join"
-                    )
+                    assert (
+                        mock_thread.called
+                    ), "auto-cut debe spawnear thread de process_recording aun sin join"
                     # is_recording debe quedar False pero haber continuado
                     assert tr.is_recording is False
 
@@ -215,9 +215,7 @@ class Test12MinRealRepro:
         cm.localization_manager = Mock()
         cm.localization_manager.get_string.side_effect = lambda k, **kw: k
         mock_client = Mock()
-        err = APIStatusError(
-            "413 Payload Too Large", response=Mock(headers={}), body=None
-        )
+        err = APIStatusError("413 Payload Too Large", response=Mock(headers={}), body=None)
         err.status_code = 413
         mock_client.audio.transcriptions.create = Mock(side_effect=err)
         with patch("backend.transcriber.Groq", return_value=mock_client):
@@ -269,18 +267,16 @@ class Test12MinRealRepro:
         candidates = [
             log_path,
             Path("logs/transcription_debug.log"),
-            Path(
-                "D:\\CENF\\gentle-ai\\audio2text-v0150-groq-fix\\logs\\transcription_debug.log"
-            ),
+            Path("D:\\CENF\\gentle-ai\\audio2text-v0150-groq-fix\\logs\\transcription_debug.log"),
         ]
         found = None
         for p in candidates:
             if p.exists():
                 found = p
                 break
-        assert found is not None and found.exists(), (
-            f"transcription_debug.log no existe, probados {candidates}"
-        )
+        assert (
+            found is not None and found.exists()
+        ), f"transcription_debug.log no existe, probados {candidates}"
         content = found.read_text(encoding="utf-8", errors="ignore")
         # debe contener marcas de chunk
         assert "Chunk" in content or "chunk" in content.lower()
@@ -309,9 +305,7 @@ class Test12MinRealRepro:
         cm.localization_manager = Mock()
         cm.localization_manager.get_string.side_effect = lambda k, **kw: k
         mock_client = Mock()
-        mock_client.audio.transcriptions.create = Mock(
-            side_effect=APITimeoutError("timeout hang")
-        )
+        mock_client.audio.transcriptions.create = Mock(side_effect=APITimeoutError("timeout hang"))
         with patch("backend.transcriber.Groq", return_value=mock_client):
             with patch("backend.transcriber.NvidiaASR"):
                 tr = Transcriber(cm, Mock(), Mock(), Mock(), Mock(), Mock())

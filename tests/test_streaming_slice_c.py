@@ -79,9 +79,7 @@ def _mock_transcriber(tmp_path=None):
         with patch("backend.transcriber.NvidiaASR"):
             with patch("backend.transcriber.sd.InputStream", Mock()):
                 with patch("backend.transcriber.keyboard", Mock()):
-                    with patch(
-                        "backend.transcriber.psutil.process_iter", return_value=[]
-                    ):
+                    with patch("backend.transcriber.psutil.process_iter", return_value=[]):
                         tr = Transcriber(cm, Mock(), Mock(), Mock(), Mock(), Mock())
                         # detener hotkey thread que intenta hook real
                         try:
@@ -129,15 +127,13 @@ class TestStreamingSnapshotAndLock:
         _reset_circuit()
         tr = _mock_transcriber()
         # simular audio_data con 30s
-        tr.audio_data = [
-            np.zeros(16000, dtype=np.float32) for _ in range(30)
-        ]  # 30*1024 ~30s
+        tr.audio_data = [np.zeros(16000, dtype=np.float32) for _ in range(30)]  # 30*1024 ~30s
         tr.streaming_ordered = {}
         tr.streaming_pending = set()
         tr.streaming_partial_path = str(tmp_path / "stream.partial_stream.txt")
-        tr.streaming_executor = __import__(
-            "concurrent.futures"
-        ).futures.ThreadPoolExecutor(max_workers=2)
+        tr.streaming_executor = __import__("concurrent.futures").futures.ThreadPoolExecutor(
+            max_workers=2
+        )
         tr._stream_next_trigger = time.time() - 1
         # mock Groq para streaming: rápido
         tr._groq_chunk_callback = Mock(return_value="hola chunk")
@@ -161,9 +157,9 @@ class TestStreamingSnapshotAndLock:
             _tf.gettempdir(),
             f"test_race_{random.randint(0, 999999)}.partial_stream.txt",
         )
-        tr.streaming_executor = __import__(
-            "concurrent.futures"
-        ).futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="groq-stream")
+        tr.streaming_executor = __import__("concurrent.futures").futures.ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="groq-stream"
+        )
 
         # mock rápido con delay variable para forzar out-of-order completions
         def fake_groq(chunk, sr, prompt=None):
@@ -178,17 +174,13 @@ class TestStreamingSnapshotAndLock:
             chunk = np.zeros(int(1.0 * SR), dtype=np.float32)
             # submit via executor que internamente usa _stream_transcribe_task que toma lock
             tr.streaming_pending.add(i)
-            tr.streaming_executor.submit(
-                tr._stream_transcribe_task, i, chunk, total_tasks, 10
-            )
+            tr.streaming_executor.submit(tr._stream_transcribe_task, i, chunk, total_tasks, 10)
         tr.streaming_executor.shutdown(wait=True)
         with tr.streaming_lock:
             # todos con texto deben estar ordenados, no corrupción
             assert len(tr.streaming_ordered) == total_tasks
             # orden preservado al join
-            ordered = " ".join(
-                [tr.streaming_ordered[k] for k in sorted(tr.streaming_ordered)]
-            )
+            ordered = " ".join([tr.streaming_ordered[k] for k in sorted(tr.streaming_ordered)])
             assert ordered.count("texto") == total_tasks
         # checkpoint file debe existir y estar ordenado
         if os.path.exists(tr.streaming_partial_path):
@@ -238,9 +230,9 @@ class TestStreamingPostStop:
         t1 = time.perf_counter()
         elapsed = t1 - t0
         # remaining 2 chunks *0.05 + overhead threadpool ~0.1-0.3s debe ser <6s
-        assert elapsed < 6.0, (
-            f"post-stop debe ser <6s, tardó {elapsed:.2f}s remaining=2 total={total}"
-        )
+        assert (
+            elapsed < 6.0
+        ), f"post-stop debe ser <6s, tardó {elapsed:.2f}s remaining=2 total={total}"
         assert result is not None
         # orden preservado: chunk0 antes que chunk1 etc
         # streamed son chunk0..chunk(total-3), remaining son últimos 2
@@ -250,9 +242,9 @@ class TestStreamingPostStop:
         assert "chunk texto" in result
         # speedup vs secuencial: secuencial 29*0.05=1.45s, streaming remaining 0.1s → ~14x
         # verificar que no re-transcribió todo (si lo hiciera sería 1.45s también pero nuestro elapsed menor)
-        assert elapsed < 1.0, (
-            f"streaming merge debe ser rápido <1s (2 chunks), elapsed {elapsed:.2f}s"
-        )
+        assert (
+            elapsed < 1.0
+        ), f"streaming merge debe ser rápido <1s (2 chunks), elapsed {elapsed:.2f}s"
 
     def test_order_preserved_out_of_order_completions(self):
         _reset_circuit()
@@ -278,9 +270,7 @@ class TestStreamingPostStop:
         tr._groq_chunk_callback = mock_groq_var
         result = tr._transcribe_with_streaming_merge(audio, SR, {}, None, None)
         expected = " ".join([f"chunk{i}" for i in range(total)])
-        assert result == expected, (
-            f"orden no preservado: got {result!r} expected {expected!r}"
-        )
+        assert result == expected, f"orden no preservado: got {result!r} expected {expected!r}"
 
     def test_429_no_bloquea_streaming(self, tmp_path):
         _reset_circuit()
@@ -289,9 +279,9 @@ class TestStreamingPostStop:
         tr.streaming_ordered = {}
         tr.streaming_pending = set()
         tr.streaming_partial_path = str(tmp_path / "429.partial_stream.txt")
-        tr.streaming_executor = __import__(
-            "concurrent.futures"
-        ).futures.ThreadPoolExecutor(max_workers=2)
+        tr.streaming_executor = __import__("concurrent.futures").futures.ThreadPoolExecutor(
+            max_workers=2
+        )
         from groq import RateLimitError
 
         call_n = {"c": 0}
@@ -300,9 +290,7 @@ class TestStreamingPostStop:
             call_n["c"] += 1
             if call_n["c"] == 1:
                 # primer chunk falla 429
-                raise RateLimitError(
-                    "429 rate limit", response=Mock(headers={}), body=None
-                )
+                raise RateLimitError("429 rate limit", response=Mock(headers={}), body=None)
             return f"ok{call_n['c']}"
 
         tr._groq_chunk_callback = mock_429

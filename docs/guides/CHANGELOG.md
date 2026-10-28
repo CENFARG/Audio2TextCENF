@@ -7,6 +7,30 @@ Todos los cambios notables en este proyecto serán documentados en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/),
 y este proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
 
+## [0.17.0] - 2026-10-28
+
+### 🐛 Corregido
+
+- **Audios de WhatsApp múltiples**: "Transcribir todo" ahora pega TODAS las transcripciones juntas (panel + portapapeles) con separadores `=== archivo ===`; cada una se guarda individualmente en el historial (antes cada resultado pisaba al anterior).
+- **Hotkeys morían al cambiar el hotkey** desde el selector: delegación rota a símbolos inexistentes + unhook global; ahora usa la misma API probada del selector inline.
+- **Botones invisibles**: "Limpiar cola" y "Marcar enviada"/eliminar de Supervisión tenían fondo transparente sobre fondo igual; ahora usan el color estándar.
+- **Actualizador funcional de punta a punta**: instalación sin `sys.exit` dentro de la UI, batch con reintento si el exe está bloqueado y fallback manual documentado, estados explícitos y % de descarga real.
+- **Portabilidad**: f-string con sintaxis exclusiva de Python 3.12 que rompía el arranque en 3.8+; bare `except` acotados.
+
+### ✨ Agregado
+
+- **Sección de audios colapsable**: arranca en una fila para no achicar el panel de transcripción; se expande sola al cargar archivos y colapsa al limpiar, con contador en vivo.
+- **Iconos unificados desde el logo de marca**: bandeja, ventana y pestaña usan el mismo logo (antes la bandeja dibujaba un círculo azul); `icono.ico` regenerado multi-tamaño cuadrado (16–256px).
+- **Tutorial**: nuevo paso "Audios de WhatsApp"; paso del Prompter condicional a que Supervisión esté activa.
+
+### 🗑️ Deprecado
+
+- **Pestaña Supervisión oculta por defecto** (`supervisor_tab_enabled: false`): se sigue desarrollando; reactivable desde `config.json`.
+
+### 🔧 Cambiado
+
+- Alcance de ruff explícito a todo el repo con exclusiones documentadas (`ui_flet/`, test legacy en raíz) y mypy/ruff/pyright limpios en la línea activa.
+
 ## [0.11.0] - 2026-03-20
 
 ### ✨ Agregado

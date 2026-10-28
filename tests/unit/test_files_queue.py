@@ -30,6 +30,7 @@ from ui.views.files_view import (
     queue_reason_display_text,
     queue_status_label_text,
 )
+from ui.views.files_view_helpers import build_combined_output
 
 LANG_DIR = Path(__file__).resolve().parents[2] / "lang"
 
@@ -57,6 +58,7 @@ class _QueueHarness(FilesViewMixin):
     def __init__(self, strings=None):
         self.localization_manager = _FakeLocalization(strings)
         self.scheduled = []
+        self.saved: list[str] = []
 
     def after(self, ms, fn, *args):
         """Record scheduled UI callbacks instead of touching a Tk loop."""
@@ -365,6 +367,204 @@ class TestMissingSourceSkip:
 
 
 @pytest.mark.unit
+class TestCombinedQueueOutput:
+    """S9: flat ``=== name ===`` separators for the combined queue output."""
+
+    def test_multiple_files_get_flat_separators(self):
+        # Act
+        out = build_combined_output([("a.ogg", "uno"), ("b.ogg", "dos")])
+
+        # Assert
+        assert out == "=== a.ogg ===\nuno\n\n=== b.ogg ===\ndos"
+
+    def test_single_file_has_no_header(self):
+        # Assert: the common single-file paste stays clean (no header noise)
+        assert build_combined_output([("a.ogg", "uno")]) == "uno"
+
+    def test_empty_results_render_empty_string(self):
+        # Act / Assert
+        assert build_combined_output([]) == ""
+
+    def test_order_follows_queue_order(self):
+        # Act
+        out = build_combined_output([("z.ogg", "z"), ("a.ogg", "a")])
+
+        # Assert: not sorted — queue order rules
+        assert out.index("=== z.ogg ===") < out.index("=== a.ogg ===")
+
+
+@pytest.mark.unit
+class TestQueueCombinedDisplay:
+    """S9/S2: ONE combined display at queue finish; per-file saves preserved."""
+
+    class _RecordingDisplay:
+        def __init__(self):
+            self.texts: list[str] = []
+
+        def __call__(self, text, *args, **kwargs):
+            self.texts.append(text)
+
+    class _PerPathTranscriber:
+        def __init__(self, text_by_path):
+            self.text_by_path = text_by_path
+            self.calls: list[str] = []
+
+        def transcribe_with_groq(self, path):
+            self.calls.append(path)
+            return self.text_by_path[path]
+
+    def _make_harness(self, tmp_path, names):
+        app = _QueueHarness()
+        app._ensure_files_queue_state()
+        paths = []
+        text_by_path = {}
+        for i, name in enumerate(names):
+            audio = _make_audio(tmp_path, name)
+            paths.append(str(audio))
+            text_by_path[str(audio)] = f"texto {i}"
+            app._files_queue.append(str(audio))
+            file_import.record_file_status(app._files_status, str(audio), "pending")
+        app.transcriber = self._PerPathTranscriber(text_by_path)
+        app.saved = []
+        app.file_manager = SimpleNamespace(
+            save_transcription_entry=lambda entry: app.saved.append(entry["audio_file"])
+        )
+        app.config_manager = SimpleNamespace(get=lambda key, default=None: default)
+        app.display_transcription = self._RecordingDisplay()
+        return app, paths
+
+    def _scheduled_display_texts(self, app):
+        return [
+            args[0]
+            for fn, args in app.scheduled
+            if fn is app.display_transcription
+        ]
+
+    def test_two_files_display_once_with_combined_text(self, tmp_path):
+        # Arrange
+        app, _ = self._make_harness(tmp_path, ["uno.ogg", "dos.ogg"])
+
+        # Act
+        app._files_queue_worker()
+
+        # Assert: a single display carrying both files in order
+        displays = self._scheduled_display_texts(app)
+        assert len(displays) == 1
+        assert displays[0] == "=== uno.ogg ===\ntexto 0\n\n=== dos.ogg ===\ntexto 1"
+
+    def test_single_file_displays_raw_text_without_header(self, tmp_path):
+        # Arrange
+        app, _ = self._make_harness(tmp_path, ["solo.ogg"])
+
+        # Act
+        app._files_queue_worker()
+
+        # Assert
+        assert self._scheduled_display_texts(app) == ["texto 0"]
+
+    def test_saves_still_happen_per_file(self, tmp_path):
+        # Arrange: PRESERVE S2 — each file keeps its own history entry
+        app, paths = self._make_harness(tmp_path, ["uno.ogg", "dos.ogg"])
+
+        # Act
+        app._files_queue_worker()
+
+        # Assert
+        assert app.saved == paths
+
+    def test_failed_file_excluded_from_combined(self, tmp_path):
+        # Arrange: first file's source vanishes -> error, second succeeds
+        app, _ = self._make_harness(tmp_path, ["roto.ogg", "ok.ogg"])
+        broken = app._files_queue[0]
+        import os as _os
+
+        _os.unlink(broken)
+
+        # Act
+        app._files_queue_worker()
+
+        # Assert: combined carries only the success; the failure is marked
+        displays = self._scheduled_display_texts(app)
+        assert displays == ["texto 1"]
+        assert app._files_status[broken][0] == "error"
+        assert app._files_status[app._files_queue[1]][0] == "done"
+
+
+@pytest.mark.unit
+class TestFilesSectionCollapse:
+    """S1: the files section starts collapsed and auto-expands on enqueue.
+
+    The transcription panel must keep the space: the section header is a
+    single row until files are added (or the user toggles it).
+    """
+
+    def test_state_starts_collapsed(self):
+        # Arrange
+        app = _QueueHarness()
+
+        # Act
+        app._ensure_files_queue_state()
+
+        # Assert: collapsed by default — the transcription panel keeps the space
+        assert app._files_section_expanded is False
+
+    def test_set_expanded_schedules_visibility_apply(self):
+        # Arrange
+        app = _QueueHarness()
+        app._ensure_files_queue_state()
+
+        # Act
+        app._set_files_section_expanded(True)
+
+        # Assert
+        assert app._files_section_expanded is True
+        assert any(fn.__name__ == "_apply_files_section_visibility" for fn, _ in app.scheduled)
+
+    def test_toggle_flips_state(self):
+        # Arrange
+        app = _QueueHarness()
+        app._ensure_files_queue_state()
+
+        # Act / Assert
+        app.toggle_files_section()
+        assert app._files_section_expanded is True
+        app.toggle_files_section()
+        assert app._files_section_expanded is False
+
+    def test_enqueue_auto_expands_section(self, tmp_path, monkeypatch):
+        # Arrange
+        audio = _make_audio(tmp_path, "ok.ogg")
+        monkeypatch.setattr("soundfile.info", lambda path: SimpleNamespace(frames=1))
+        app = _QueueHarness()
+        app._ensure_files_queue_state()
+
+        # Act
+        app.add_files_to_queue([str(audio)])
+
+        # Assert: files were queued, so the section must be expanded
+        assert app._files_queue
+        assert app._files_section_expanded is True
+
+    def test_rejection_only_does_not_expand_section(self, tmp_path, monkeypatch):
+        # Arrange: an unreadable file must not pop the section open
+        audio = _make_audio(tmp_path, "bad.ogg")
+
+        def boom(path):
+            raise RuntimeError("Format not recognised")
+
+        monkeypatch.setattr("soundfile.info", boom)
+        app = _QueueHarness()
+        app._ensure_files_queue_state()
+
+        # Act
+        app.add_files_to_queue([str(audio)])
+
+        # Assert
+        assert app._files_queue == []
+        assert app._files_section_expanded is False
+
+
+@pytest.mark.unit
 class TestFilesQueueLangKeys:
     """Language-file contract for the files queue section (C1/C2/C4)."""
 
@@ -400,3 +600,23 @@ class TestFilesQueueLangKeys:
         # Assert: every reason key carries real user-facing text
         for key in ("files_reason_unreadable", "files_reason_empty_result", "files_reason_missing"):
             assert es[key] and not es[key].startswith("MISSING")
+
+
+@pytest.mark.unit
+class TestFilesClearButtonVisibility:
+    """S4: the clear-queue button must be visible without hovering it."""
+
+    def test_clear_button_has_no_transparent_foreground(self):
+        # Arrange
+        src = (
+            Path(__file__).resolve().parents[2] / "ui" / "views" / "files_view.py"
+        ).read_text(encoding="utf-8")
+
+        # Act: isolate the clear-button kwargs block
+        start = src.index('loc.get_string("files_clear")')
+        end = src.index("command=self.clear_files_queue", start)
+        block = src[start:end]
+
+        # Assert: the ghost style (transparent fg + border-only) is the bug
+        assert 'fg_color="transparent"' not in block
+        assert "border_width" not in block
