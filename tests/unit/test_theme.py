@@ -13,9 +13,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pytest
 
-from ui.theme import COLORS, RADII, SURFACES, TYPOGRAPHY, composite_rgba
+from ui.theme import COLORS, RADII, SURFACES, TYPOGRAPHY, composite_rgba, uppercase_label
 
 UI_DIR = Path(__file__).resolve().parents[2] / "ui"
+LANG_DIR = Path(__file__).resolve().parents[2] / "lang"
 
 PROTO_VARS = {
     "bg": "#080d18",
@@ -106,6 +107,31 @@ class TestNoHardcodedHex:
 
         # Assert: every color comes from theme tokens
         assert offenders == [], f"hardcoded hex colors: {offenders}"
+
+
+@pytest.mark.unit
+class TestPresentationHelpers:
+    """S2: uppercase capture labels like the mockup (● CAPTURANDO AUDIO)."""
+
+    def test_uppercase_label(self):
+        assert uppercase_label("Capturando audio") == "CAPTURANDO AUDIO"
+
+    def test_uppercase_label_strips_whitespace(self):
+        assert uppercase_label("  transcripción en vivo  ") == "TRANSCRIPCIÓN EN VIVO"
+
+
+@pytest.mark.unit
+class TestMainScreenLangKeys:
+    """S2: new i18n keys for the mockup main screen (live label + footer)."""
+
+    def test_main_screen_keys_exist_in_both_languages(self):
+        import json
+
+        es = json.loads(LANG_DIR.joinpath("es.json").read_text(encoding="utf-8"))
+        en = json.loads(LANG_DIR.joinpath("en.json").read_text(encoding="utf-8"))
+        for key in ("transcription_live", "model_footer", "connected", "no_api_key"):
+            assert key in es, f"missing {key} in lang/es.json"
+            assert key in en, f"missing {key} in lang/en.json"
 
 
 @pytest.mark.unit

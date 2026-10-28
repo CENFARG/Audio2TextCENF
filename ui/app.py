@@ -30,7 +30,7 @@ from backend.updater import Updater
 from backend.transcription_metadata import TranscriptionMetadata
 
 # UI imports
-from ui.theme import COLORS as C, DesignSystem
+from ui.theme import COLORS as C, DesignSystem, uppercase_label
 from ui.emoji_picker import show_emoji_picker
 from ui.branding import build_tray_image, logo_candidates, resolve_logo_path
 from ui.hotkey_selector import show_hotkey_selector
@@ -653,7 +653,8 @@ class App(
         self.status_label = ctk.CTkLabel(
             status_frame,
             text=self.localization_manager.get_string("status_ready"),
-            font=DesignSystem.TYPOGRAPHY["heading_large"],
+            font=DesignSystem.TYPOGRAPHY["subheading"],
+            text_color=DesignSystem.COLORS["text"],
         )
         self.status_label.grid(row=0, column=0, sticky="ew")
         self.hotkey_display_label = ctk.CTkLabel(
@@ -661,7 +662,8 @@ class App(
             text=self.localization_manager.get_string(
                 "hotkey_display", hotkey=self.config_manager.get("hotkey").upper()
             ),
-            font=DesignSystem.TYPOGRAPHY["body_small"],
+            font=DesignSystem.TYPOGRAPHY["small"],
+            text_color=DesignSystem.COLORS["muted"],
         )
         self.hotkey_display_label.grid(
             row=1, column=0, pady=(3, 5), sticky="ew"
@@ -690,30 +692,47 @@ class App(
             except Exception as e:
                 self.logger.error(f"Error cargando logo: {e}")
 
-        # Info frame - REDUCIDO padding
+        # Footer (mockup): modelo/API + pill de conexion (fila 0), tamanos (fila 1)
         info_frame = ctk.CTkFrame(tab, fg_color="transparent")
-        info_frame.grid(
-            row=1, column=0, padx=15, pady=(0, 5), sticky="ew"
-        )  # Reducido padding
-        info_frame.grid_columnconfigure((0, 1), weight=1)
+        info_frame.grid(row=5, column=0, padx=15, pady=(0, 8), sticky="ew")
+        info_frame.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            info_frame,
+            text=self.localization_manager.get_string("model_footer"),
+            font=DesignSystem.TYPOGRAPHY["small"],
+            text_color=DesignSystem.COLORS["muted"],
+        ).grid(row=0, column=0, sticky="w")
+        self.connection_pill = ctk.CTkLabel(
+            info_frame,
+            text=f"● {self.localization_manager.get_string('no_api_key')}",
+            font=DesignSystem.TYPOGRAPHY["small"],
+            text_color=DesignSystem.COLORS["warning"],
+            corner_radius=DesignSystem.RADII["pill"],
+            fg_color=DesignSystem.SURFACES["hi"],
+        )
+        self.connection_pill.grid(row=0, column=1, sticky="e")
         self.audio_size_label = ctk.CTkLabel(
             info_frame,
             text=self.localization_manager.get_string(
                 "audio_info", size="...", count="..."
             ),
+            font=DesignSystem.TYPOGRAPHY["small"],
+            text_color=DesignSystem.COLORS["muted"],
         )
-        self.audio_size_label.grid(row=0, column=0, sticky="w")
+        self.audio_size_label.grid(row=1, column=0, sticky="w")
         self.log_size_label = ctk.CTkLabel(
             info_frame,
             text=self.localization_manager.get_string(
                 "transcriptions_info", size="..."
             ),
+            font=DesignSystem.TYPOGRAPHY["small"],
+            text_color=DesignSystem.COLORS["muted"],
         )
-        self.log_size_label.grid(row=0, column=1, sticky="e")
+        self.log_size_label.grid(row=1, column=1, sticky="e")
 
         # Button frame - FIX: 2 botones ocupan todo el ancho del textbox, centrados e iguales
         button_frame = ctk.CTkFrame(tab, fg_color="transparent")
-        button_frame.grid(row=2, column=0, padx=10, pady=(0, 5), sticky="ew")
+        button_frame.grid(row=1, column=0, padx=10, pady=(0, 5), sticky="ew")
         button_frame.grid_columnconfigure((0, 1), weight=1, uniform="btn")
         ctk.CTkButton(
             button_frame,
@@ -726,9 +745,24 @@ class App(
             command=self.clear_logs_with_feedback,
         ).grid(row=0, column=1, padx=(5, 0), sticky="ew")
 
-        # --- Panel de Transcripción (AMPLIADO - ahora en row 3) ---
+        # --- Panel de Transcripción (mockup): label EN VIVO + card (row 3) ---
+        ctk.CTkLabel(
+            tab,
+            text=uppercase_label(
+                self.localization_manager.get_string("transcription_live")
+            ),
+            font=DesignSystem.TYPOGRAPHY["label"],
+            text_color=DesignSystem.COLORS["muted"],
+            anchor="w",
+        ).grid(row=2, column=0, padx=12, pady=(2, 0), sticky="ew")
         if self.config_manager.get("show_transcription_panel"):
-            self.transcription_frame = ctk.CTkFrame(tab, fg_color="transparent")
+            self.transcription_frame = ctk.CTkFrame(
+                tab,
+                fg_color=DesignSystem.SURFACES["lo"],
+                border_color=DesignSystem.COLORS["line"],
+                border_width=1,
+                corner_radius=DesignSystem.RADII["card"],
+            )
             self.transcription_frame.grid(
                 row=3, column=0, padx=10, pady=(0, 10), sticky="nsew"
             )
@@ -736,8 +770,9 @@ class App(
                 self.transcription_frame,
                 wrap="word",
                 font=DesignSystem.TYPOGRAPHY["body_medium"],
+                fg_color="transparent",
             )
-            self.transcription_textbox.pack(expand=True, fill="both")
+            self.transcription_textbox.pack(expand=True, fill="both", padx=6, pady=6)
         else:
             self.transcription_frame = None
             self.transcription_textbox = None
@@ -1577,6 +1612,24 @@ class App(
 
         self.logger.debug("Pestaña 'Actualizaciones' creada.")
 
+    def update_connection_pill(self, connected: bool) -> None:
+        """Update the mockup connection pill (green Conectado / amber Sin API key).
+
+        Args:
+            connected: True when a Groq API key is configured.
+        """
+        loc = self.localization_manager
+        if connected:
+            self.connection_pill.configure(
+                text=f"● {loc.get_string('connected')}",
+                text_color=DesignSystem.COLORS["success"],
+            )
+        else:
+            self.connection_pill.configure(
+                text=f"● {loc.get_string('no_api_key')}",
+                text_color=DesignSystem.COLORS["warning"],
+            )
+
     def _check_api_key(self, show_popup: bool = False):
         """Verificar API Key. Si show_popup=False (auto-check), solo actualiza dot y status sin modal.
 
@@ -1589,6 +1642,7 @@ class App(
         self.logger.info(f"Verificando claves API (popup={show_popup})...")
 
         groq_key = self.api_key_var.get()
+        self.update_connection_pill(bool(groq_key.strip()))
         cleaned_key, charset_issue = validate_api_key_charset(groq_key)
         if charset_issue == "non_ascii":
             friendly = self.localization_manager.get_string("api_key_charset_error")

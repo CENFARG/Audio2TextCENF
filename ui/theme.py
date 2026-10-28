@@ -77,6 +77,22 @@ def composite_rgba(rgba: tuple[int, int, int, float], bg_hex: str) -> str:
     return "#{:02x}{:02x}{:02x}".format(*mixed)
 
 
+def uppercase_label(text: str) -> str:
+    """Format a capture/transcript label like the mockup (uppercase).
+
+    The prototype renders section labels as tracked uppercase text
+    ("CAPTURANDO AUDIO", "TRANSCRIPCIÓN EN VIVO"); Tk cannot apply
+    letter-spacing, so the label text itself is uppercased.
+
+    Args:
+        text: Human-readable label text.
+
+    Returns:
+        The stripped, uppercased label text.
+    """
+    return text.strip().upper()
+
+
 # ── Corner radii from the prototype (CTk corner_radius values) ──────
 RADII: dict[str, int] = {
     "card": 19,   # .app-window
@@ -108,3 +124,5 @@ class DesignSystem:
         "body_small": TYPOGRAPHY["small"],
         "link": ("Segoe UI Variable Text", 12, "underline"),
     }
+    RADII: dict[str, int] = RADII
+    SURFACES: dict[str, str] = SURFACES

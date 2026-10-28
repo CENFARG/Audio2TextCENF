@@ -90,7 +90,7 @@ def build_combined_output(results: list[tuple[str, str]]) -> str:
 
 
 def load_design_system():
-    """Resolve ``ui.app.DesignSystem`` with a headless fallback palette."""
+    """Resolve the theme ``DesignSystem`` facade (prototype palette)."""
 
     return DesignSystem
 
