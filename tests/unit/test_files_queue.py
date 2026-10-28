@@ -30,6 +30,7 @@ from ui.views.files_view import (
     queue_reason_display_text,
     queue_status_label_text,
 )
+from ui.views.files_view_helpers import build_combined_output
 
 LANG_DIR = Path(__file__).resolve().parents[2] / "lang"
 
@@ -57,6 +58,7 @@ class _QueueHarness(FilesViewMixin):
     def __init__(self, strings=None):
         self.localization_manager = _FakeLocalization(strings)
         self.scheduled = []
+        self.saved: list[str] = []
 
     def after(self, ms, fn, *args):
         """Record scheduled UI callbacks instead of touching a Tk loop."""
@@ -362,6 +364,130 @@ class TestMissingSourceSkip:
 
         # Act / Assert
         assert queue_status_label_text(loc, ("done", "")) == "Completado"
+
+
+@pytest.mark.unit
+class TestCombinedQueueOutput:
+    """S9: flat ``=== name ===`` separators for the combined queue output."""
+
+    def test_multiple_files_get_flat_separators(self):
+        # Act
+        out = build_combined_output([("a.ogg", "uno"), ("b.ogg", "dos")])
+
+        # Assert
+        assert out == "=== a.ogg ===\nuno\n\n=== b.ogg ===\ndos"
+
+    def test_single_file_has_no_header(self):
+        # Assert: the common single-file paste stays clean (no header noise)
+        assert build_combined_output([("a.ogg", "uno")]) == "uno"
+
+    def test_empty_results_render_empty_string(self):
+        # Act / Assert
+        assert build_combined_output([]) == ""
+
+    def test_order_follows_queue_order(self):
+        # Act
+        out = build_combined_output([("z.ogg", "z"), ("a.ogg", "a")])
+
+        # Assert: not sorted — queue order rules
+        assert out.index("=== z.ogg ===") < out.index("=== a.ogg ===")
+
+
+@pytest.mark.unit
+class TestQueueCombinedDisplay:
+    """S9/S2: ONE combined display at queue finish; per-file saves preserved."""
+
+    class _RecordingDisplay:
+        def __init__(self):
+            self.texts: list[str] = []
+
+        def __call__(self, text, *args, **kwargs):
+            self.texts.append(text)
+
+    class _PerPathTranscriber:
+        def __init__(self, text_by_path):
+            self.text_by_path = text_by_path
+            self.calls: list[str] = []
+
+        def transcribe_with_groq(self, path):
+            self.calls.append(path)
+            return self.text_by_path[path]
+
+    def _make_harness(self, tmp_path, names):
+        app = _QueueHarness()
+        app._ensure_files_queue_state()
+        paths = []
+        text_by_path = {}
+        for i, name in enumerate(names):
+            audio = _make_audio(tmp_path, name)
+            paths.append(str(audio))
+            text_by_path[str(audio)] = f"texto {i}"
+            app._files_queue.append(str(audio))
+            file_import.record_file_status(app._files_status, str(audio), "pending")
+        app.transcriber = self._PerPathTranscriber(text_by_path)
+        app.saved = []
+        app.file_manager = SimpleNamespace(
+            save_transcription_entry=lambda entry: app.saved.append(entry["audio_file"])
+        )
+        app.config_manager = SimpleNamespace(get=lambda key, default=None: default)
+        app.display_transcription = self._RecordingDisplay()
+        return app, paths
+
+    def _scheduled_display_texts(self, app):
+        return [
+            args[0]
+            for fn, args in app.scheduled
+            if fn is app.display_transcription
+        ]
+
+    def test_two_files_display_once_with_combined_text(self, tmp_path):
+        # Arrange
+        app, _ = self._make_harness(tmp_path, ["uno.ogg", "dos.ogg"])
+
+        # Act
+        app._files_queue_worker()
+
+        # Assert: a single display carrying both files in order
+        displays = self._scheduled_display_texts(app)
+        assert len(displays) == 1
+        assert displays[0] == "=== uno.ogg ===\ntexto 0\n\n=== dos.ogg ===\ntexto 1"
+
+    def test_single_file_displays_raw_text_without_header(self, tmp_path):
+        # Arrange
+        app, _ = self._make_harness(tmp_path, ["solo.ogg"])
+
+        # Act
+        app._files_queue_worker()
+
+        # Assert
+        assert self._scheduled_display_texts(app) == ["texto 0"]
+
+    def test_saves_still_happen_per_file(self, tmp_path):
+        # Arrange: PRESERVE S2 — each file keeps its own history entry
+        app, paths = self._make_harness(tmp_path, ["uno.ogg", "dos.ogg"])
+
+        # Act
+        app._files_queue_worker()
+
+        # Assert
+        assert app.saved == paths
+
+    def test_failed_file_excluded_from_combined(self, tmp_path):
+        # Arrange: first file's source vanishes -> error, second succeeds
+        app, _ = self._make_harness(tmp_path, ["roto.ogg", "ok.ogg"])
+        broken = app._files_queue[0]
+        import os as _os
+
+        _os.unlink(broken)
+
+        # Act
+        app._files_queue_worker()
+
+        # Assert: combined carries only the success; the failure is marked
+        displays = self._scheduled_display_texts(app)
+        assert displays == ["texto 1"]
+        assert app._files_status[broken][0] == "error"
+        assert app._files_status[app._files_queue[1]][0] == "done"
 
 
 @pytest.mark.unit

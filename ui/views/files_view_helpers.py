@@ -65,6 +65,28 @@ def queue_status_label_text(loc: Any, entry: tuple[str, str]) -> str:
     return text
 
 
+def build_combined_output(results: list[tuple[str, str]]) -> str:
+    """Compose the combined queue output with flat separators (S9).
+
+    A single file returns its text untouched (no header noise for the
+    common single-file paste); several files are joined as
+    ``=== basename ===`` blocks in queue order, separated by a blank line.
+
+    Args:
+        results: ``(basename, transcription)`` pairs in queue order for
+            the files that transcribed successfully.
+
+    Returns:
+        The combined text ready for the panel and the clipboard, or an
+        empty string when no file succeeded.
+    """
+    if not results:
+        return ""
+    if len(results) == 1:
+        return results[0][1]
+    return "\n\n".join(f"=== {name} ===\n{text}" for name, text in results)
+
+
 def load_design_system():
     """Resolve ``ui.app.DesignSystem`` with a headless fallback palette."""
     try:
@@ -106,21 +128,34 @@ class FilesQueueWorkerMixin:
     _files_status: dict[str, tuple[str, str]]
     _files_worker_running: bool
     _files_worker_lock: threading.Lock
+    _files_texts: dict[str, str]
     # UI-side status renderer defined on FilesViewMixin (the host).
     _set_file_status: Any
 
     # ── Sequential worker (exactly one thread at a time) ────
     def _files_queue_worker(self) -> None:
-        """Iterate the queue sequentially until no pending file remains."""
+        """Iterate the queue sequentially until no pending file remains.
+
+        S9: every successful transcription is collected and ONE combined
+        display is scheduled at the end (panel + clipboard + auto-paste
+        receive the whole block with ``=== name ===`` separators) instead
+        of each file overwriting the previous one.
+        """
         pending_count = len(self._files_queue)
         logger.info("Files queue worker started (%d pending)", pending_count)
         done_count = 0
+        results: list[tuple[str, str]] = []
         while True:
             path = self._next_pending_file()
             if path is None:
                 break
             if self._process_one_file(path):
                 done_count += 1
+                text = self._files_texts.pop(path, "")
+                results.append((os.path.basename(path), text))
+        combined = build_combined_output(results)
+        if combined:
+            self.after(0, self.display_transcription, combined)
         with self._files_worker_lock:
             self._files_worker_running = False
         self.after(0, self._files_queue_finished, done_count)
@@ -167,7 +202,7 @@ class FilesQueueWorkerMixin:
             self._mark_file_error(path, file_import.REASON_EMPTY_RESULT)
             return False
         try:
-            self.after(0, self.display_transcription, text)
+            self._files_texts[path] = text
             self.file_manager.save_transcription_entry(
                 {
                     "text": text,

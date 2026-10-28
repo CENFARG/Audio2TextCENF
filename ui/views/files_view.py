@@ -217,6 +217,7 @@ class FilesViewMixin(FilesQueueWorkerMixin):
         self._files_worker_running = False
         self._files_worker_lock = threading.Lock()
         self._files_section_expanded = False
+        self._files_texts: dict[str, str] = {}
 
     def _files_extensions(self) -> frozenset[str]:
         """Return the configured import allowlist or the documented default."""
@@ -416,6 +417,7 @@ class FilesViewMixin(FilesQueueWorkerMixin):
             self._files_queue.clear()
             self._files_status.clear()
             self._files_status_labels.clear()
+            self._files_texts.clear()
         for widget in self.files_queue_frame.winfo_children():
             widget.destroy()
         self._show_rejected([])
