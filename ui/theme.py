@@ -29,6 +29,11 @@ COLORS: dict[str, str] = {
     "success": "#77E4B1",
     "warning": "#FFB96B",   # amber from the prototype's warning chips
     "error": "#F87171",
+    # Derived interaction tokens (computed states, not prototype values)
+    "primary": "#56E5E3",        # alias of cyan: the interactive accent
+    "primary_hover": "#3FC4C2",  # cyan darkened ~8%
+    "success_hover": "#5FCF9B",  # green darkened ~8%
+    "error_hover": "#E05555",    # red darkened ~8%
 }
 
 # ── .app-window gradient endpoints, flattened for CTk ───────────────
@@ -78,3 +83,28 @@ RADII: dict[str, int] = {
     "chip": 13,
     "pill": 999,  # fully rounded status pills
 }
+
+
+class DesignSystem:
+    """Legacy facade from the v0.17 line, resolving to theme tokens.
+
+    Existing views keep their ``DesignSystem.COLORS[...]`` call sites
+    while R2 migrates them to the token dicts directly; values now come
+    from the prototype palette instead of the retired one.
+    """
+
+    COLORS: dict[str, str] = {
+        **COLORS,
+        "background": COLORS["bg"],
+        "text_primary": COLORS["text"],
+        "text_secondary": COLORS["muted"],
+    }
+    TYPOGRAPHY: dict[str, tuple[str, int, str]] = {
+        **TYPOGRAPHY,
+        "heading_large": ("Segoe UI Variable Display", 22, "bold"),
+        "heading_medium": TYPOGRAPHY["heading"],
+        "body_bold": ("Segoe UI Variable Text", 13, "bold"),
+        "body_medium": TYPOGRAPHY["body"],
+        "body_small": TYPOGRAPHY["small"],
+        "link": ("Segoe UI Variable Text", 12, "underline"),
+    }

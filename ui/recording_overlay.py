@@ -1,3 +1,4 @@
+from ui.theme import COLORS as C
 import customtkinter as ctk
 import tkinter as tk
 
@@ -23,19 +24,19 @@ class RecordingOverlay(ctk.CTkToplevel):
         self.geometry(f"+{int(screen_width - 160)}+10")
         
         # Frame principal
-        self.main_frame = ctk.CTkFrame(self, fg_color="#1E293B", corner_radius=8)
+        self.main_frame = ctk.CTkFrame(self, fg_color=C["surface"], corner_radius=8)
         self.main_frame.pack(fill="both", expand=True, padx=2, pady=2)
         
         # LED indicator (círculo de color) - TRIPLICADO
         self.led_canvas = tk.Canvas(self.main_frame, width=30, height=30, 
-                                     bg="#1E293B", highlightthickness=0)
+                                     bg=C["surface"], highlightthickness=0)
         self.led_canvas.pack(side="left", padx=8, pady=8)
         self.led = self.led_canvas.create_oval(5, 5, 25, 25, fill="gray", outline="")
         
         # Timer label - Fuente más grande
         self.timer_label = ctk.CTkLabel(self.main_frame, text="00:00", 
                                         font=("Segoe UI", 24, "bold"), 
-                                        text_color="#F8FAFC")
+                                        text_color=C["text"])
         self.timer_label.pack(side="left", padx=8)
         
         # Estado inicial
@@ -65,13 +66,13 @@ class RecordingOverlay(ctk.CTkToplevel):
     def set_recording(self):
         """Establecer estado de grabación"""
         self.is_recording = True
-        self.led_canvas.itemconfig(self.led, fill="#10B981")  # Verde
+        self.led_canvas.itemconfig(self.led, fill=C["success"])  # Verde
         self.deiconify()  # Mostrar ventana
     
     def set_processing(self):
         """Establecer estado de procesamiento"""
         self.is_recording = False
-        self.led_canvas.itemconfig(self.led, fill="#F59E0B")  # Amarillo/Naranja
+        self.led_canvas.itemconfig(self.led, fill=C["warning"])  # Amarillo/Naranja
     
     def set_ready(self):
         """Establecer estado listo"""
@@ -82,7 +83,7 @@ class RecordingOverlay(ctk.CTkToplevel):
     def set_error(self):
         """Establecer estado de error y Ocultar ventana"""
         self.is_recording = False
-        self.led_canvas.itemconfig(self.led, fill="#EF4444")  # Rojo
+        self.led_canvas.itemconfig(self.led, fill=C["error"])  # Rojo
         # FIX: el overlay debe ocultarse ante un error para no quedar colgado en pantalla
         self.withdraw()
     

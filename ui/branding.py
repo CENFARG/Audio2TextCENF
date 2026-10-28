@@ -12,6 +12,7 @@ License: Apache 2.0.
 
 from __future__ import annotations
 
+from ui.theme import COLORS as C
 import logging
 from collections.abc import Iterable
 from pathlib import Path
@@ -65,8 +66,8 @@ def logo_candidates(base_dir: Path, meipass: str | None = None) -> list[Path]:
 
 def build_tray_image(
     logo_path: Path | None,
-    fallback_bg: str = "#0F172A",
-    fallback_fg: str = "#2563EB",
+    fallback_bg: str = C["bg"],
+    fallback_fg: str = C["primary"],
 ) -> Image.Image:
     """Render the tray image from the brand logo, falling back to a circle.
 

@@ -10,6 +10,8 @@ import sources and queue UI stay in :mod:`ui.views.files_view`.
 
 from __future__ import annotations
 
+from ui.theme import DesignSystem
+
 import logging
 import os
 import threading
@@ -89,24 +91,6 @@ def build_combined_output(results: list[tuple[str, str]]) -> str:
 
 def load_design_system():
     """Resolve ``ui.app.DesignSystem`` with a headless fallback palette."""
-    try:
-        from ui.app import DesignSystem  # type: ignore[assignment]
-    except ImportError:  # pragma: no cover - direct-run convenience
-
-        class DesignSystem:  # type: ignore[no-redef]
-            """Fallback palette matching ui.app.DesignSystem."""
-
-            COLORS = {
-                "primary": "#2563EB",
-                "primary_hover": "#1D4ED8",
-                "warning": "#F59E0B",
-                "text_secondary": "#CBD5E1",
-            }
-            TYPOGRAPHY = {
-                "heading_medium": ("Segoe UI", 16, "bold"),
-                "body_medium": ("Segoe UI", 14, "normal"),
-                "body_small": ("Segoe UI", 12, "normal"),
-            }
 
     return DesignSystem
 

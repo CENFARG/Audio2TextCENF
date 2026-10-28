@@ -1,3 +1,4 @@
+from ui.theme import COLORS as C, SURFACES as S
 import logging
 from typing import Any
 
@@ -143,9 +144,9 @@ class TutorialManager:
         self.tooltip_frame = ctk.CTkFrame(
             self.app,
             corner_radius=8,
-            fg_color="#2B2B2B",
+            fg_color=S["lo"],
             border_width=1,
-            border_color="#444444",
+            border_color=S["hi"],
         )
 
         # Layout Compacto
@@ -156,20 +157,20 @@ class TutorialManager:
             header,
             text=step["title"],
             font=("Segoe UI", 12, "bold"),
-            text_color="#60A5FA",
+            text_color=C["blue"],
         ).pack(side="left")
         ctk.CTkLabel(
             header,
             text=f"{self.current_step_index + 1}/{len(self.steps)}",
             font=("Segoe UI", 9),
-            text_color="#888888",
+            text_color=C["muted"],
         ).pack(side="right")
 
         ctk.CTkLabel(
             self.tooltip_frame,
             text=step["message"],
             font=("Segoe UI", 11),
-            text_color="#E5E5E5",
+            text_color=C["text"],
             justify="left",
             wraplength=240,
         ).pack(padx=8, pady=2, fill="x")
@@ -184,8 +185,8 @@ class TutorialManager:
             width=24,
             height=20,
             fg_color="transparent",
-            text_color="#888888",
-            hover_color="#444444",
+            text_color=C["muted"],
+            hover_color=S["hi"],
             command=self.end_tutorial,
         ).pack(side="left")
 
@@ -205,8 +206,8 @@ class TutorialManager:
                 text="Ant.",
                 width=40,
                 height=20,
-                fg_color="#333333",
-                hover_color="#444444",
+                fg_color=S["hi"],
+                hover_color=S["hi"],
                 font=("Segoe UI", 10),
                 command=self.prev_step,
             ).pack(side="right", padx=4)

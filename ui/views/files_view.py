@@ -19,6 +19,7 @@ The pure status/label helpers and the worker itself live in
 
 from __future__ import annotations
 
+from ui.theme import COLORS as C
 import logging
 import os
 import threading
@@ -70,10 +71,10 @@ class FilesViewMixin(FilesQueueWorkerMixin):
 
     #: status → DesignSystem color (fallbacks match ui.app palette)
     _STATUS_COLORS = {
-        "pending": "#CBD5E1",
-        "transcribing": "#F59E0B",
-        "done": "#10B981",
-        "error": "#EF4444",
+        "pending": C["muted"],
+        "transcribing": C["warning"],
+        "done": C["success"],
+        "error": C["error"],
     }
 
     # ── Section construction (inside the main tab, C4) ────────────

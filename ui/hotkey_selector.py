@@ -4,6 +4,7 @@ Hotkey Selector - Selector de hotkeys con modificadores.
 Permite al usuario seleccionar combinaciones de teclas con Ctrl, Alt, Shift.
 """
 
+from ui.theme import COLORS as C
 from collections.abc import Callable
 
 import customtkinter as ctk
@@ -161,7 +162,7 @@ class HotkeySelector(ctk.CTkToplevel):
             scroll_frame,
             text=self.current_hotkey.upper(),
             font=ctk.CTkFont(size=18, weight="bold"),
-            fg_color="#1E293B",
+            fg_color=C["surface"],
             corner_radius=8,
             width=300,
             height=40,
@@ -236,8 +237,8 @@ class HotkeySelector(ctk.CTkToplevel):
             text=self.localization_manager.get_string("hotkey_confirm"),
             width=100,
             command=self._confirm_selection,
-            fg_color="#10B981",
-            hover_color="#059669",
+            fg_color=C["success"],
+            hover_color=C["success"],
         ).pack(side="right", padx=5)
 
     def _create_f_keys(self, parent):
@@ -333,7 +334,8 @@ class HotkeySelector(ctk.CTkToplevel):
     def _confirm_selection(self):
         """Confirmar selección."""
         if self.selected_hotkey:
-            self.on_hotkey_selected(self.selected_hotkey)
+            if self.on_hotkey_selected:
+                self.on_hotkey_selected(self.selected_hotkey)
             self.destroy()
 
 

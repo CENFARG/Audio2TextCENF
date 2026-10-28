@@ -30,6 +30,7 @@ from backend.updater import Updater
 from backend.transcription_metadata import TranscriptionMetadata
 
 # UI imports
+from ui.theme import COLORS as C, DesignSystem
 from ui.emoji_picker import show_emoji_picker
 from ui.branding import build_tray_image, logo_candidates, resolve_logo_path
 from ui.hotkey_selector import show_hotkey_selector
@@ -88,9 +89,9 @@ class ToolTip:
         widget,
         text=None,
         wraplength=400,
-        background="#1E293B",
-        foreground="#F8FAFC",
-        bordercolor="#2563EB",
+        background=C["surface"],
+        foreground=C["text"],
+        bordercolor=C["primary"],
     ):
         self.widget = widget
         self.text = text
@@ -176,26 +177,6 @@ STATUS_AUTOCLEAR_MS = 8000
 _TERMINAL_STATUS_COLORS = ("green", "red")
 
 
-class DesignSystem:
-    COLORS = {
-        "primary": "#2563EB",
-        "primary_hover": "#1D4ED8",
-        "success": "#10B981",
-        "error": "#EF4444",
-        "warning": "#F59E0B",
-        "background": "#0F172A",
-        "surface": "#1E293B",
-        "text_primary": "#F8FAFC",
-        "text_secondary": "#CBD5E1",
-    }
-    TYPOGRAPHY = {
-        "heading_large": ("Segoe UI", 20, "bold"),
-        "heading_medium": ("Segoe UI", 16, "bold"),
-        "body_bold": ("Segoe UI", 13, "bold"),
-        "body_medium": ("Segoe UI", 14, "normal"),
-        "body_small": ("Segoe UI", 12, "normal"),
-        "link": ("Segoe UI", 12, "underline"),
-    }
 
 
 class App(
@@ -539,7 +520,7 @@ class App(
                 # its last value because the loop emits no ticks while paused.
                 # The "Pausado" text lives in the status bar (persistent).
                 self.recording_overlay.led_canvas.itemconfig(
-                    self.recording_overlay.led, fill="#F59E0B"
+                    self.recording_overlay.led, fill=C["warning"]
                 )
             elif state == "processing":
                 self.recording_overlay.set_processing()
@@ -900,7 +881,7 @@ class App(
             hotkey_frame,
             text=current_hotkey.upper(),
             font=ctk.CTkFont(size=12, weight="bold"),
-            fg_color="#1E293B",
+            fg_color=C["surface"],
             corner_radius=4,
             width=70,
             height=24,
@@ -1383,7 +1364,7 @@ class App(
 
         # Actualizar estado
         self.currently_playing = (filepath, button)
-        button.configure(text="⏹️", fg_color="#EF4444", hover_color="#DC2626")
+        button.configure(text="⏹️", fg_color=C["error"], hover_color=C["error_hover"])
 
         def play_in_thread():
             try:
@@ -1447,7 +1428,7 @@ class App(
                 # Verificar que el widget todavía existe
                 if button.winfo_exists():
                     button.configure(
-                        text="▶️", fg_color="#10B981", hover_color="#059669"
+                        text="▶️", fg_color=C["success"], hover_color=C["success_hover"]
                     )
             except Exception:
                 # Widget fue destruido, ignorar
@@ -1465,7 +1446,7 @@ class App(
             try:
                 if button.winfo_exists():
                     button.configure(
-                        text="▶️", fg_color="#10B981", hover_color="#059669"
+                        text="▶️", fg_color=C["success"], hover_color=C["success_hover"]
                     )
             except Exception:
                 # Widget fue destruido, ignorar

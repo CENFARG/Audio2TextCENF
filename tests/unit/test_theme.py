@@ -5,6 +5,7 @@ are the source of truth: ui/theme.py must mirror them exactly so the
 tokens transfer 1:1 to the React Native design system later.
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -13,6 +14,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 import pytest
 
 from ui.theme import COLORS, RADII, SURFACES, TYPOGRAPHY, composite_rgba
+
+UI_DIR = Path(__file__).resolve().parents[2] / "ui"
 
 PROTO_VARS = {
     "bg": "#080d18",
@@ -81,6 +84,28 @@ class TestTypography:
     def test_specs_are_font_tuples(self):
         for spec in TYPOGRAPHY.values():
             assert isinstance(spec, tuple) and len(spec) == 3
+
+
+@pytest.mark.unit
+class TestNoHardcodedHex:
+    """S5/R1 exit criterion: no raw hex in ui/ outside theme.py."""
+
+    HEX_RE = re.compile(r"#\b[0-9A-Fa-f]{6}\b")
+
+    def test_no_hardcoded_hex_outside_theme(self):
+        # Act: scan every ui/*.py except the token source itself
+        offenders = []
+        for path in sorted(UI_DIR.rglob("*.py")):
+            if path.name == "theme.py":
+                continue
+            for lineno, line in enumerate(
+                path.read_text(encoding="utf-8").splitlines(), 1
+            ):
+                if self.HEX_RE.search(line):
+                    offenders.append(f"{path.relative_to(UI_DIR)}:{lineno}")
+
+        # Assert: every color comes from theme tokens
+        assert offenders == [], f"hardcoded hex colors: {offenders}"
 
 
 @pytest.mark.unit

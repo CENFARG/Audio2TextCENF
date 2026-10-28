@@ -12,6 +12,7 @@ TODO v0.16: extraer HistoryView a clase vista completa con inyección de depende
  (FileManager, MetadataManager, Transcriber) y tests dedicados sin Tk.
 """
 
+from ui.theme import COLORS as C
 import os
 import json
 import logging
@@ -244,10 +245,10 @@ class HistoryViewMixin:
             # Fallback minimal if circular not resolved yet
             class DesignSystem:  # type: ignore
                 COLORS = {
-                    "primary": "#2563EB",
-                    "primary_hover": "#1D4ED8",
-                    "success": "#10B981",
-                    "error": "#EF4444",
+                    "primary": C["primary"],
+                    "primary_hover": C["primary_hover"],
+                    "success": C["success"],
+                    "error": C["error"],
                 }
                 TYPOGRAPHY = {
                     "body_small": ("Segoe UI", 12, "normal"),
@@ -366,7 +367,7 @@ class HistoryViewMixin:
             action_frame,
             text=f"⏱️ {duration_str}",
             font=ctk.CTkFont(size=11),
-            text_color="#94A3B8",
+            text_color=C["muted"],
             width=62,
             anchor="e",
         )
@@ -379,8 +380,8 @@ class HistoryViewMixin:
             width=35,
             height=24,
             font=ctk.CTkFont(size=14),
-            fg_color="#8B5CF6",
-            hover_color="#7C3AED",
+            fg_color=C["violet"],
+            hover_color=C["violet"],
             command=lambda f=filename, e=custom_emoji: self._change_emoji(
                 f, e, emoji_btn, name_label
             ),
@@ -392,8 +393,8 @@ class HistoryViewMixin:
             text="▶️",
             width=35,
             height=24,
-            fg_color="#10B981",
-            hover_color="#059669",
+            fg_color=C["success"],
+            hover_color=C["success"],
         )
         play_btn.configure(command=lambda p=full_path, b=play_btn: self._play_audio_file(p, b))
         play_btn.pack(side="left", padx=2)
@@ -411,8 +412,8 @@ class HistoryViewMixin:
             text="🗑️",
             width=30,
             height=24,
-            fg_color="#EF4444",
-            hover_color="#DC2626",
+            fg_color=C["error"],
+            hover_color=C["error_hover"],
             command=lambda p=full_path: self._delete_audio_file(p),
         ).pack(side="left", padx=2)
 

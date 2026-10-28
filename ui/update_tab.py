@@ -1,3 +1,5 @@
+"""Updates tab: check, download and install flow (S7)."""
+
 import logging
 from collections.abc import Callable
 from threading import Thread
@@ -7,6 +9,7 @@ from typing import Protocol, cast
 import customtkinter as ctk
 
 from backend.updater import InstallResult
+from ui.theme import COLORS as C, SURFACES as S
 
 
 class _ClosableToplevel(Protocol):
@@ -108,7 +111,7 @@ class UpdateTab(ctk.CTkFrame):
         self.content_frame.grid_columnconfigure(0, weight=1)
 
         # Frame de información (oculto inicialmente)
-        self.info_frame = ctk.CTkFrame(self.content_frame, fg_color="#1E293B", corner_radius=10)
+        self.info_frame = ctk.CTkFrame(self.content_frame, fg_color=C["surface"], corner_radius=10)
 
         # Botones
         button_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -125,10 +128,10 @@ class UpdateTab(ctk.CTkFrame):
             text="Descargar e Instalar",
             command=self.download_and_install,
             state="disabled",
-            fg_color="#059669",
-            hover_color="#047857",
-            text_color="#FFFFFF",
-            text_color_disabled="#E5E7EB",
+            fg_color=C["success"],
+            hover_color=C["success_hover"],
+            text_color=C["text"],
+            text_color_disabled=C["muted"],
         )
         self.download_btn.grid(row=0, column=1, padx=5, sticky="ew")
 
@@ -174,12 +177,12 @@ class UpdateTab(ctk.CTkFrame):
 
         if "error" in self.update_info:
             self.status_label.configure(
-                text=f"❌ Error: {self.update_info['error']}", text_color="#EF4444"
+                text=f"❌ Error: {self.update_info['error']}", text_color=C["error"]
             )
         elif self.update_info["available"]:
             version = self.update_info["version"]
             self.status_label.configure(
-                text=f"✨ Nueva versión disponible: v{version}", text_color="#10B981"
+                text=f"✨ Nueva versión disponible: v{version}", text_color=C["success"]
             )
             self.download_btn.configure(state="normal")
 
@@ -188,7 +191,7 @@ class UpdateTab(ctk.CTkFrame):
         else:
             self.status_label.configure(
                 text=format_up_to_date_text(self.updater.current_version),
-                text_color="#10B981",
+                text_color=C["success"],
             )
 
     def _show_update_info(self):
@@ -228,7 +231,7 @@ class UpdateTab(ctk.CTkFrame):
             size_label.pack(pady=2, padx=15, anchor="w")
 
         # Separador
-        separator = ctk.CTkFrame(self.info_frame, height=2, fg_color="#334155")
+        separator = ctk.CTkFrame(self.info_frame, height=2, fg_color=S["hi"])
         separator.pack(fill="x", padx=15, pady=10)
 
         # Changelog
@@ -313,7 +316,7 @@ class UpdateTab(ctk.CTkFrame):
     def _show_error(self, error):
         """Mostrar error"""
         self.logger.error(f"Error en actualización: {error}")
-        self.status_label.configure(text=f"❌ Error: {error}", text_color="#EF4444")
+        self.status_label.configure(text=f"❌ Error: {error}", text_color=C["error"])
         self.download_btn.configure(state="normal")
         self.check_btn.configure(state="normal")
         self.progress_frame.grid_remove()

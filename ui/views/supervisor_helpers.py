@@ -10,6 +10,7 @@ record lifecycle. Tk widget construction and session/copy glue stay in
 
 from __future__ import annotations
 
+from ui.theme import COLORS as C
 import logging
 from typing import Any
 
@@ -165,9 +166,9 @@ def load_design_system():
             """Fallback palette matching ui.app.DesignSystem."""
 
             COLORS = {
-                "primary": "#2563EB",
-                "warning": "#F59E0B",
-                "text_primary": "#E2E8F0",
+                "primary": C["primary"],
+                "warning": C["warning"],
+                "text_primary": C["muted"],
             }
             TYPOGRAPHY = {
                 "heading_medium": ("Segoe UI", 16, "bold"),

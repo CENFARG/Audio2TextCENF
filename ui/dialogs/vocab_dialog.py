@@ -11,6 +11,7 @@ HC-03 Shift fallback incluido (ctypes -> keyboard -> log WARNING).
 
 TODO v0.16: extraer VocabDialog a clase con inyección de CustomVocabulary y desacoplar de App.
 """
+from ui.theme import COLORS as C, DesignSystem
 import os
 import logging
 import tkinter as tk
@@ -120,12 +121,6 @@ class VocabDialogMixin:
         """Editar una corrección existente — permite cambiar TANTO la palabra incorrecta como la correcta."""
         try:
             import customtkinter as ctk
-            try:
-                from ui.app import DesignSystem
-            except Exception:
-                class DesignSystem:  # type: ignore[no-redef]  # fallback
-                    TYPOGRAPHY = {"body_small": ("Segoe UI", 12, "normal")}
-
             if not hasattr(self.transcriber, 'custom_vocab'):
                 self.update_status("CustomVocabulary no disponible", "red")
                 return
@@ -174,7 +169,7 @@ class VocabDialogMixin:
 
             btn_frame = ctk.CTkFrame(edit_window, fg_color="transparent")
             btn_frame.pack(pady=12)
-            ctk.CTkButton(btn_frame, text="Guardar", width=100, fg_color="#10B981", hover_color="#059669", command=save_edit).pack(side="left", padx=5)
+            ctk.CTkButton(btn_frame, text="Guardar", width=100, fg_color=C["success"], hover_color=C["success"], command=save_edit).pack(side="left", padx=5)
             ctk.CTkButton(btn_frame, text="Cancelar", width=100, command=edit_window.destroy).pack(side="left", padx=5)
 
             incorrect_entry.focus_set()
@@ -188,11 +183,6 @@ class VocabDialogMixin:
         """Refrescar lista de correcciones en la pestaña de configuración."""
         try:
             import customtkinter as ctk
-            try:
-                from ui.app import DesignSystem
-            except Exception:
-                class DesignSystem:  # type: ignore[no-redef]
-                    TYPOGRAPHY = {"body_small": ("Segoe UI", 12, "normal")}
             for widget in self.vocab_list_frame.winfo_children():
                 widget.destroy()
             if hasattr(self, 'transcriber') and hasattr(self.transcriber, 'custom_vocab'):
@@ -302,7 +292,7 @@ class VocabDialogMixin:
             select_all_cb = ctk.CTkCheckBox(bulk_frame, text="Seleccionar todos", variable=select_all_var, command=_on_select_all)
             select_all_cb.pack(side="left", padx=5)
 
-            delete_bulk_btn = ctk.CTkButton(bulk_frame, text="🗑️ Eliminar seleccionados", width=200, fg_color="#EF4444", hover_color="#DC2626", state="disabled")
+            delete_bulk_btn = ctk.CTkButton(bulk_frame, text="🗑️ Eliminar seleccionados", width=200, fg_color=C["error"], hover_color=C["error_hover"], state="disabled")
             delete_bulk_btn.pack(side="right", padx=5)
 
             def _delete_selected():
@@ -319,7 +309,7 @@ class VocabDialogMixin:
 
             delete_bulk_btn.configure(command=_delete_selected)
 
-            hint = ctk.CTkLabel(bulk_frame, text="Tip: Shift+clic para rango", font=ctk.CTkFont(size=10), text_color="#94A3B8")
+            hint = ctk.CTkLabel(bulk_frame, text="Tip: Shift+clic para rango", font=ctk.CTkFont(size=10), text_color=C["muted"])
             hint.pack(side="left", padx=12)
 
             list_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
@@ -346,11 +336,11 @@ class VocabDialogMixin:
                         cb.pack(side="left", padx=(8, 2))
                         ctk.CTkLabel(row_frame, text=incorrect, font=DesignSystem.TYPOGRAPHY["body_bold"]).pack(side="left", padx=6)
                         ctk.CTkLabel(row_frame, text="→", font=DesignSystem.TYPOGRAPHY["heading_large"]).pack(side="left", padx=6)
-                        ctk.CTkLabel(row_frame, text=correct, font=DesignSystem.TYPOGRAPHY["body_bold"], text_color="#10B981").pack(side="left", padx=6)
-                        edit_btn = ctk.CTkButton(row_frame, text="✏️ Editar", width=70, fg_color="#2563EB", hover_color="#1D4ED8",
+                        ctk.CTkLabel(row_frame, text=correct, font=DesignSystem.TYPOGRAPHY["body_bold"], text_color=C["success"]).pack(side="left", padx=6)
+                        edit_btn = ctk.CTkButton(row_frame, text="✏️ Editar", width=70, fg_color=C["primary"], hover_color=C["primary_hover"],
                                                  command=lambda inc=incorrect, cor=correct: self._edit_vocab_correction(inc, cor, reload_list))
                         edit_btn.pack(side="right", padx=2)
-                        delete_btn = ctk.CTkButton(row_frame, text="🗑️", width=30, fg_color="#EF4444", hover_color="#DC2626",
+                        delete_btn = ctk.CTkButton(row_frame, text="🗑️", width=30, fg_color=C["error"], hover_color=C["error_hover"],
                                                 command=lambda inc=incorrect: self._delete_vocab_correction(inc, reload_list))
                         delete_btn.pack(side="right", padx=5)
                     _update_bulk_button()
