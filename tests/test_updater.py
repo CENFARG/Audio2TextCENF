@@ -286,3 +286,59 @@ def test_check_for_updates_connection_error_carries_reason(
 
     assert info["available"] is False
     assert info["error"]
+
+
+# ---------------------------------------------------------------------------
+# S9: download integrity — size check + sha256 pinning
+# ---------------------------------------------------------------------------
+
+
+def test_download_update_truncated_payload_raises_and_removes_partial(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A download shorter than content-length must fail LOUD, not install."""
+    updater = make_updater()
+    monkeypatch.setenv("TEMP", str(tmp_path))
+    payload = FakeDownloadResponse(
+        [b"MZ" + b"\x00" * 58],
+        headers={"content-length": str(48950905)},
+    )
+    monkeypatch.setattr(requests, "get", lambda *a, **k: payload)
+
+    with pytest.raises(UpdaterError) as excinfo:
+        updater.download_update("https://example.invalid/asset.exe")
+
+    assert "48950905" in str(excinfo.value)
+    assert not (tmp_path / "audio2text_update.exe").exists()
+
+
+def test_install_update_rejects_sha256_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A pinned sha256 in version.json must block a corrupted payload."""
+    updater = make_updater()
+    source = make_source_file(tmp_path)
+    patch_frozen_env(monkeypatch, tmp_path)
+    patch_popen(monkeypatch)
+
+    with pytest.raises(UpdaterError) as excinfo:
+        updater.install_update(str(source), expected_sha256="ab" * 32)
+
+    assert "sha256" in str(excinfo.value).lower()
+
+
+def test_install_update_accepts_matching_sha256(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Matching pinned sha256 proceeds to the normal InstallResult path."""
+    import hashlib
+
+    updater = make_updater()
+    source = make_source_file(tmp_path)
+    patch_frozen_env(monkeypatch, tmp_path)
+    patch_popen(monkeypatch)
+    expected = hashlib.sha256(source.read_bytes()).hexdigest()
+
+    result = updater.install_update(str(source), expected_sha256=expected)
+
+    assert isinstance(result, InstallResult)

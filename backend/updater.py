@@ -186,6 +186,20 @@ class Updater:
                 self.logger.error(error_msg)
                 raise UpdaterError(error_msg)
 
+            if total_size > 0 and downloaded != total_size:
+                # S9: un download truncado instala un exe roto (caso real:
+                # "Failed to load Python DLL python312.dll" tras instalar).
+                try:
+                    temp_path.unlink()
+                except OSError:
+                    pass
+                error_msg = (
+                    f"Descarga incompleta: {downloaded} de {total_size} bytes; "
+                    "se cancela la instalación y borra el archivo parcial"
+                )
+                self.logger.error(error_msg)
+                raise UpdaterError(error_msg)
+
             self.logger.info(
                 f"Descarga completada: {temp_path} "
                 f"({downloaded / (1024 * 1024):.2f} MB"
@@ -204,7 +218,9 @@ class Updater:
             self.logger.error(error_msg)
             raise UpdaterError(error_msg) from e
 
-    def install_update(self, temp_path: str) -> InstallResult:
+    def install_update(
+        self, temp_path: str, expected_sha256: str | None = None
+    ) -> InstallResult:
         """
         Preparar la instalación de la actualización descargada.
 
@@ -236,6 +252,20 @@ class Updater:
             error_msg = f"El archivo descargado no existe o está vacío: {temp_path}"
             self.logger.error(error_msg)
             raise UpdaterError(error_msg)
+
+        if expected_sha256:
+            import hashlib
+
+            actual = hashlib.sha256(source.read_bytes()).hexdigest()
+            if actual != expected_sha256.lower():
+                error_msg = (
+                    "El instalador descargado no coincide con el sha256 publicado "
+                    f"(esperado {expected_sha256}, obtenido {actual}); "
+                    "posible descarga corrupta. Se conserva el archivo para "
+                    "instalación manual."
+                )
+                self.logger.error(error_msg)
+                raise UpdaterError(error_msg)
 
         current_exe = Path(sys.executable)
         self.logger.info(f"Instalando actualización: {temp_path} -> {current_exe}")

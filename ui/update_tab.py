@@ -4,7 +4,7 @@ import logging
 from collections.abc import Callable
 from threading import Thread
 from tkinter import messagebox
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 
 import customtkinter as ctk
 
@@ -80,7 +80,7 @@ class UpdateTab(ctk.CTkFrame):
         super().__init__(parent, *args, **kwargs)
         self.logger = logging.getLogger(self.__class__.__name__)
         self.updater = updater
-        self.update_info = None
+        self.update_info: Any = None  # version.json payload once checked
 
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
@@ -299,7 +299,10 @@ class UpdateTab(ctk.CTkFrame):
         """
         self.progress_label.configure(text="Instalando actualización...")
         try:
-            outcome = self.updater.install_update(temp_path)
+            outcome = self.updater.install_update(
+                temp_path,
+                expected_sha256=(self.update_info or {}).get("sha256"),
+            )
         except Exception as e:
             self._show_error(f"Error al instalar: {e}")
             return
