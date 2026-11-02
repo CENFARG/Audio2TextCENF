@@ -212,7 +212,8 @@ def test_download_update_progress_with_unknown_total(
     calls: List[tuple] = []
 
     make_updater().download_update(
-        "https://example.com/app.exe", progress_callback=lambda d, t: calls.append((d, t))
+        "https://example.com/app.exe",
+        progress_callback=lambda d, t: calls.append((d, t)),
     )
 
     assert calls[-1] == (150, 0)
@@ -277,6 +278,7 @@ def test_check_for_updates_connection_error_carries_reason(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Network failures are reported as a reason, never raised."""
+
     def raise_conn(*a: Any, **k: Any) -> Any:
         raise requests.exceptions.ConnectionError("no network")
 

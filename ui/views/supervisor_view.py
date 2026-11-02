@@ -8,7 +8,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from backend.prompter_gate import PrompterGate, build_prompter_messages, select_block_bodies
+from backend.prompter_gate import (
+    PrompterGate,
+    build_prompter_messages,
+    select_block_bodies,
+)
 from backend.supervisor_store import DEFAULT_SESSION
 from ui.views.supervisor_helpers import (
     DebounceTimer,
@@ -52,7 +56,9 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
             self.config_manager.get("supervisor_data_path", "supervisor_entries.json")
         )
         self.context_blocks = context_blocks.load_context_blocks(
-            self.config_manager.get("context_blocks_dir", context_blocks.DEFAULT_CONTEXT_BLOCKS_DIR)
+            self.config_manager.get(
+                "context_blocks_dir", context_blocks.DEFAULT_CONTEXT_BLOCKS_DIR
+            )
         )
         self.supervisor_recorder = SupervisorRecorder(
             on_text=lambda text: self.after(0, self._supervisor_on_record_text, text),
@@ -82,9 +88,9 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
         )
         session_bar = ctk.CTkFrame(tab, fg_color="transparent")
         session_bar.grid(row=1, column=0, padx=10, pady=(4, 0), sticky="ew")
-        ctk.CTkLabel(session_bar, text=loc.get_string("supervisor_session_label"), anchor="w").pack(
-            side="left", padx=(0, 6)
-        )
+        ctk.CTkLabel(
+            session_bar, text=loc.get_string("supervisor_session_label"), anchor="w"
+        ).pack(side="left", padx=(0, 6))
         self._supervisor_session_combo = ctk.CTkComboBox(
             session_bar,
             values=self._supervisor_known_sessions(),
@@ -145,7 +151,9 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
             font=DesignSystem.TYPOGRAPHY["body_small"],
             text_color=DesignSystem.COLORS["warning"],
         )
-        self.supervisor_status_label.grid(row=4, column=0, padx=10, pady=(0, 8), sticky="ew")
+        self.supervisor_status_label.grid(
+            row=4, column=0, padx=10, pady=(0, 8), sticky="ew"
+        )
         self._supervisor_rebuild_rows()
 
     def _supervisor_current_session(self) -> str:
@@ -162,7 +170,9 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
 
     def _supervisor_on_session_changed(self, _value: str = "") -> None:
         """REQ-2: persist the selected session and re-render the entry list."""
-        self.config_manager.set("supervisor_last_session", self._supervisor_current_session())
+        self.config_manager.set(
+            "supervisor_last_session", self._supervisor_current_session()
+        )
         self._supervisor_rebuild_rows()
 
     def _supervisor_on_session_filter_toggled(self) -> None:
@@ -225,7 +235,9 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
                 "command": lambda n=number: self._supervisor_copy_entry(n),
             },
             {
-                "text": loc.get_string("supervisor_reopen" if is_sent else "supervisor_mark_sent"),
+                "text": loc.get_string(
+                    "supervisor_reopen" if is_sent else "supervisor_mark_sent"
+                ),
                 "width": 88,
                 "command": lambda n=number: self._supervisor_toggle_status(n),
             },
@@ -247,15 +259,22 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
         if entry.response:
             response.insert("1.0", entry.response)
         for textbox in (quote, response):
-            textbox.bind("<KeyRelease>", lambda _e, n=number: self._supervisor_schedule_autosave(n))
-            textbox.bind("<FocusOut>", lambda _e, n=number: self._supervisor_flush_entry(n))
+            textbox.bind(
+                "<KeyRelease>",
+                lambda _e, n=number: self._supervisor_schedule_autosave(n),
+            )
+            textbox.bind(
+                "<FocusOut>", lambda _e, n=number: self._supervisor_flush_entry(n)
+            )
         rows_entry = {"quote": quote, "response": response, "record": record_btn}
         self._supervisor_rows[number] = rows_entry
 
     def _supervisor_schedule_autosave(self, number: int) -> None:
         """Debounce-schedule a store flush for one entry (keystroke path)."""
         self._supervisor_debounce.schedule(
-            self.after, self.after_cancel, lambda n=number: self._supervisor_flush_entry(n)
+            self.after,
+            self.after_cancel,
+            lambda n=number: self._supervisor_flush_entry(n),
         )
 
     def _supervisor_flush_entry(self, number: int) -> None:
@@ -267,7 +286,10 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
         self.supervisor_store.update_entry(
             number, quote=row["quote"].get("1.0", "end-1c"), response=response
         )
-        if self.prompter_gate.auto_enabled() and self.prompter_gate.evaluate(response).trigger:
+        if (
+            self.prompter_gate.auto_enabled()
+            and self.prompter_gate.evaluate(response).trigger
+        ):
             self._supervisor_start_prompter(number)
 
     def _supervisor_new_entry(self) -> None:
@@ -316,7 +338,9 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
         if not payload.strip():
             # C-3: no quote AND no response copies nothing — say it instead.
             self._supervisor_set_status(
-                self.localization_manager.get_string("supervisor_copy_empty", number=number)
+                self.localization_manager.get_string(
+                    "supervisor_copy_empty", number=number
+                )
             )
             return
         self._supervisor_copy_to_clipboard(payload)
@@ -332,7 +356,9 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
         if not payload.strip():
             # C-3: nothing to copy anywhere — same localized feedback.
             self._supervisor_set_status(
-                self.localization_manager.get_string("supervisor_copy_empty", number="").rstrip()
+                self.localization_manager.get_string(
+                    "supervisor_copy_empty", number=""
+                ).rstrip()
             )
             return
         self._supervisor_copy_to_clipboard(payload)
@@ -347,7 +373,9 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
             self._supervisor_set_status(loc.get_string("supervisor_copied"))
         except Exception as exc:
             logger.error("Supervisor clipboard copy failed: %s", exc)
-            self._supervisor_set_status(f"{loc.get_string('supervisor_copied')} (error)")
+            self._supervisor_set_status(
+                f"{loc.get_string('supervisor_copied')} (error)"
+            )
 
     def _supervisor_set_status(self, message: str) -> None:
         """Show a transient status message on the bottom label."""
@@ -369,8 +397,12 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
         started = self.prompter_gate.start(
             number,
             messages,
-            on_done=lambda n, t: self.after(0, self._supervisor_on_prompter_result, n, t, None),
-            on_error=lambda n, e: self.after(0, self._supervisor_on_prompter_result, n, None, e),
+            on_done=lambda n, t: self.after(
+                0, self._supervisor_on_prompter_result, n, t, None
+            ),
+            on_error=lambda n, e: self.after(
+                0, self._supervisor_on_prompter_result, n, None, e
+            ),
         )
         if started:
             self._supervisor_set_status(

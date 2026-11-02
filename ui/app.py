@@ -214,7 +214,7 @@ class App(
         self.title(f"Audio2Text CENF v.{_version}")
         # Ventana cuadrada por defecto (mismo ancho que alto)
         self.geometry("590x590")
-        self.minsize(540, 540)
+        self.minsize(540, 660)
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # Cargar geometry guardada v0.14.0
@@ -407,7 +407,6 @@ class App(
         current = self.config_manager.get(
             "transcription_language", self.config_manager.get("default_language", "es")
         )
-        self._lang_switch_var = tk.StringVar(value=current)
 
         ctk.CTkLabel(
             top_bar,
@@ -415,19 +414,20 @@ class App(
             font=DesignSystem.TYPOGRAPHY["body_small"],
         ).pack(side="left", padx=(5, 5))
 
-        self._lang_switch = ctk.CTkSegmentedButton(
-            top_bar,
-            values=["ES", "EN"],
-            variable=self._lang_switch_var,
-            command=self._on_omnipresent_lang_change,
-            width=90,
-            height=24,
-            font=ctk.CTkFont(size=11, weight="bold"),
-            selected_color=DesignSystem.COLORS["primary"],
-            selected_hover_color=DesignSystem.COLORS["primary_hover"],
-        )
-        self._lang_switch.pack(side="left")
-        self._lang_switch.set(current.upper())
+        self._lang_buttons: dict[str, ctk.CTkButton] = {}
+        for code, label in (("ES", "ES"), ("EN", "EN")):
+            btn = ctk.CTkButton(
+                top_bar,
+                text=label,
+                width=40,
+                height=24,
+                corner_radius=DesignSystem.RADII["chip"],
+                font=ctk.CTkFont(size=11, weight="bold"),
+                command=lambda c=code: self._on_omnipresent_lang_change(c),
+            )
+            btn.pack(side="left", padx=(0, 3))
+            self._lang_buttons[code] = btn
+        self._style_lang_buttons(current)
 
         self._lang_switch_label = ctk.CTkLabel(
             top_bar,
@@ -452,6 +452,22 @@ class App(
         )
         self._sound_switch.pack(side="right", padx=(5, 5))
 
+    def _style_lang_buttons(self, current: str) -> None:
+        """S8: active language = cyan fill + dark ink; inactive = raised surface."""
+        for code, btn in self._lang_buttons.items():
+            if code == current.upper():
+                btn.configure(
+                    fg_color=DesignSystem.COLORS["primary"],
+                    hover_color=DesignSystem.COLORS["primary_hover"],
+                    text_color=DesignSystem.COLORS["on_primary"],
+                )
+            else:
+                btn.configure(
+                    fg_color=DesignSystem.SURFACES["hi"],
+                    hover_color=DesignSystem.SURFACES["hi"],
+                    text_color=DesignSystem.COLORS["muted"],
+                )
+
     def _on_omnipresent_lang_change(self, value: str):
         """Callback del switch omnipresente — cambia idioma de transcripción y sincroniza config."""
         new_lang = value.lower()  # "ES" -> "es"
@@ -464,6 +480,7 @@ class App(
         if self.config_manager.get("default_language") != "es":
             self.config_manager.set("default_language", "es")
         self._update_lang_switch_label(new_lang)
+        self._style_lang_buttons(new_lang)
         # Sincronizar el ComboBox de Configuración si existe
         if hasattr(self, "language_var"):
             self.language_var.set(new_lang)
@@ -2479,10 +2496,10 @@ class App(
 
     def _load_window_geometry(self):
         """Cargar tamaño y posición de la ventana guardada — QA robusta 590x590"""
-        _DEFAULT_GEOMETRY = "590x590"
-        _FULL_DEFAULT = "590x590+200+100"
+        _DEFAULT_GEOMETRY = "590x660"
+        _FULL_DEFAULT = "590x660+200+100"
         _GEO_RE = re.compile(r"^\d+x\d+(\+\d+\+\d+)?$")
-        _MINSIZE_W, _MINSIZE_H = 540, 540
+        _MINSIZE_W, _MINSIZE_H = 540, 660
         try:
             saved_geometry = self.config_manager.get("window_geometry")
             # Validación: existe, es string no vacío y matchea regex

@@ -1,0 +1,672 @@
+{
+  "generado": "2026-10-28",
+  "fuente": "catalogo.json (180 docs) — subconjunto Diseño de Producto y UX",
+  "total": 33,
+  "libros": [
+    {
+      "titulo": "UX Research: Practical Techniques for Designing Better Products",
+      "autor": "Brad Nunnally, David Farkas",
+      "editorial": "O'Reilly",
+      "anio": "2016",
+      "paginas": 212,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "01-UX-Research-y-Comportamiento",
+      "resumen": "Métodos de investigación con usuarios: entrevistas, observación, análisis y cómo convertir hallazgos en decisiones de diseño.",
+      "tags": [
+        "research",
+        "entrevistas",
+        "usabilidad",
+        "síntesis",
+        "validación"
+      ],
+      "usar_para": "Elegir método de investigación y justificar el diseño con evidencia, no con opinión.",
+      "archivo": "UXResearch-BradNunnally.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/01-UX-Research-y-Comportamiento/UXResearch-BradNunnally.pdf"
+    },
+    {
+      "titulo": "Research Methods in Human-Computer Interaction (2nd Edition)",
+      "autor": "Jonathan Lazar, Jinjuan Heidi Feng, Harry Hochheiser",
+      "editorial": "Morgan Kaufmann",
+      "anio": "2017",
+      "paginas": 184,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "01-UX-Research-y-Comportamiento",
+      "resumen": "Manual académico de métodos de investigación en HCI: diseño de estudios, experimentos, métricas y análisis.",
+      "tags": [
+        "HCI",
+        "experimentos",
+        "métricas",
+        "estudios de caso",
+        "estadística"
+      ],
+      "usar_para": "Diseñar un estudio con rigor metodológico y defendible.",
+      "archivo": "Research-methods-in-human-computer-interaction-2-ed-Edition-Feng-Ebook-PDF-download.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/01-UX-Research-y-Comportamiento/Research-methods-in-human-computer-interaction-2-ed-Edition-Feng-Ebook-PDF-download.pdf"
+    },
+    {
+      "titulo": "The Wiley Handbook of Human Computer Interaction",
+      "autor": "—",
+      "editorial": "Wiley",
+      "anio": "—",
+      "paginas": 181,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "01-UX-Research-y-Comportamiento",
+      "resumen": "Compilación de capítulos sobre HCI: modelos cognitivos, interacción, evaluación y aplicaciones.",
+      "tags": [
+        "HCI",
+        "teoría",
+        "evaluación",
+        "cognición"
+      ],
+      "usar_para": "Referencia académica por capítulo; verificar cobertura, la copia parece parcial.",
+      "archivo": "Wiley-Handbook-of-Human-Computer-Interaction-Set-The-ebook-pdf.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/01-UX-Research-y-Comportamiento/Wiley-Handbook-of-Human-Computer-Interaction-Set-The-ebook-pdf.pdf"
+    },
+    {
+      "titulo": "Unlock Interaction Design: Beyond Human-Computer Interaction",
+      "autor": "—",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 178,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "01-UX-Research-y-Comportamiento",
+      "resumen": "Interacción más allá de la pantalla: modelos de interacción, evaluación y diseño centrado en personas.",
+      "tags": [
+        "interacción",
+        "HCI",
+        "evaluación",
+        "diseño centrado en usuario"
+      ],
+      "usar_para": "Complemento profundo de la investigación con usuarios.",
+      "archivo": "Unlock-Interaction-Design-Beyond-Human-Computer-Interaction-6th-Edition.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/01-UX-Research-y-Comportamiento/Unlock-Interaction-Design-Beyond-Human-Computer-Interaction-6th-Edition.pdf"
+    },
+    {
+      "titulo": "La psicología de los objetos cotidianos",
+      "autor": "Donald A. Norman",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 234,
+      "idioma": "es",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "01-UX-Research-y-Comportamiento",
+      "resumen": "El clásico sobre affordances, modelos mentales y por qué los objetos mal diseñados fallan.",
+      "tags": [
+        "affordances",
+        "modelos mentales",
+        "error humano",
+        "usabilidad"
+      ],
+      "usar_para": "Fundamento conceptual del diseño centrado en personas.",
+      "archivo": "psicologia-de-los-objetos-cotidianos-pdf.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/01-UX-Research-y-Comportamiento/psicologia-de-los-objetos-cotidianos-pdf.pdf"
+    },
+    {
+      "titulo": "No me hagas pensar",
+      "autor": "Steve Krug",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 214,
+      "idioma": "es",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "01-UX-Research-y-Comportamiento",
+      "resumen": "Usabilidad web explicada simple: convenciones, navegación, testing con pocos usuarios.",
+      "tags": [
+        "usabilidad",
+        "navegación",
+        "testing",
+        "convenciones"
+      ],
+      "usar_para": "Primer libro para cualquiera que toque una interfaz.",
+      "archivo": "NO-ME-HAGAS-PENSAR.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/01-UX-Research-y-Comportamiento/NO-ME-HAGAS-PENSAR.pdf"
+    },
+    {
+      "titulo": "Web UI Design Best Practices",
+      "autor": "—",
+      "editorial": "UXPin",
+      "anio": "—",
+      "paginas": 126,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "02-UI-y-Diseno-de-Interfaces",
+      "resumen": "Buenas prácticas de interfaz web: jerarquía, layout, color, tipografía y patrones de interacción.",
+      "tags": [
+        "UI web",
+        "jerarquía",
+        "layout",
+        "color",
+        "patrones"
+      ],
+      "usar_para": "Checklist de decisiones visuales en una interfaz web.",
+      "archivo": "Web-UI-Design-Best-Practices.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/02-UI-y-Diseno-de-Interfaces/Web-UI-Design-Best-Practices.pdf"
+    },
+    {
+      "titulo": "User Interface Design",
+      "autor": "—",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 424,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "02-UI-y-Diseno-de-Interfaces",
+      "resumen": "Diseño de interfaz de punta a punta: principios, elementos, layout y evaluación.",
+      "tags": [
+        "UI",
+        "principios",
+        "elementos",
+        "evaluación"
+      ],
+      "usar_para": "Referencia amplia de diseño de interfaz.",
+      "archivo": "User-Interface-Design.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/02-UI-y-Diseno-de-Interfaces/User-Interface-Design.pdf"
+    },
+    {
+      "titulo": "Designing Web Interfaces",
+      "autor": "Bill Scott, Theresa Neil",
+      "editorial": "O'Reilly",
+      "anio": "2009",
+      "paginas": 334,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "02-UI-y-Diseno-de-Interfaces",
+      "resumen": "Catálogo de patrones de interacción web: transiciones, drag & drop, overlays, navegación enriquecida.",
+      "tags": [
+        "patrones de interacción",
+        "transiciones",
+        "overlays",
+        "rich UI"
+      ],
+      "usar_para": "Resolver interacciones web concretas con patrones probados.",
+      "archivo": "designing-web-interfaces-pdf.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/02-UI-y-Diseno-de-Interfaces/designing-web-interfaces-pdf.pdf"
+    },
+    {
+      "titulo": "The UI/UX Playbook: Tips & Tricks for Exceptional Design",
+      "autor": "—",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 144,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "02-UI-y-Diseno-de-Interfaces",
+      "resumen": "Consejos prácticos de diseño de producto: proceso, colaboración y detalle visual.",
+      "tags": [
+        "tips",
+        "proceso",
+        "colaboración",
+        "detalle"
+      ],
+      "usar_para": "Consultar tras OCR como material de repaso.",
+      "archivo": "The-UI-UX-Playbook-Tips-Tricks-for-Exceptional-Design.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/02-UI-y-Diseno-de-Interfaces/The-UI-UX-Playbook-Tips-Tricks-for-Exceptional-Design.pdf"
+    },
+    {
+      "titulo": "Fundamentals of Creating a Great UI/UX",
+      "autor": "—",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 272,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "02-UI-y-Diseno-de-Interfaces",
+      "resumen": "Fundamentos de UI/UX para principiantes: principios, wireframes y prototipado.",
+      "tags": [
+        "fundamentos",
+        "wireframes",
+        "prototipo",
+        "principios"
+      ],
+      "usar_para": "Introducción general; revisar tras OCR.",
+      "archivo": "Fundamentals-of-Creating-a-Great-UI-UX.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/02-UI-y-Diseno-de-Interfaces/Fundamentals-of-Creating-a-Great-UI-UX.pdf"
+    },
+    {
+      "titulo": "How to Design Better UI Components",
+      "autor": "—",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 66,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "02-UI-y-Diseno-de-Interfaces",
+      "resumen": "Cómo diseñar componentes de interfaz: estados, variantes, accesibilidad y documentación.",
+      "tags": [
+        "componentes",
+        "estados",
+        "variantes",
+        "accesibilidad"
+      ],
+      "usar_para": "Diseñar un componente que resista uso real.",
+      "archivo": "How-to-design-better-UI-Components-ebook-compressed-1.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/02-UI-y-Diseno-de-Interfaces/How-to-design-better-UI-Components-ebook-compressed-1.pdf"
+    },
+    {
+      "titulo": "2022 Guide to UX/UI Design in 45 Minutes for Beginners",
+      "autor": "—",
+      "editorial": "—",
+      "anio": "2022",
+      "paginas": 137,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "02-UI-y-Diseno-de-Interfaces",
+      "resumen": "Panorama acelerado de UX/UI para quien arranca: vocabulario, proceso y herramientas.",
+      "tags": [
+        "introducción",
+        "vocabulario",
+        "proceso"
+      ],
+      "usar_para": "Nivelar conceptos rápido; revisar tras OCR.",
+      "archivo": "2022-Guide-to-UX-UI-Design-In-45-Minutes-for-Beginners-A-Quick-Reference-Guide-to-Intuitive-User-Experience-and-User-Interface-Designs.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/02-UI-y-Diseno-de-Interfaces/2022-Guide-to-UX-UI-Design-In-45-Minutes-for-Beginners-A-Quick-Reference-Guide-to-Intuitive-User-Experience-and-User-Interface-Designs.pdf"
+    },
+    {
+      "titulo": "From Zero to UI/UX Hero",
+      "autor": "Conrad Bohnke",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 138,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "02-UI-y-Diseno-de-Interfaces",
+      "resumen": "Diseño de sitios y apps que la gente realmente usa: de cero a un proceso completo.",
+      "tags": [
+        "proceso",
+        "web",
+        "apps",
+        "portfolio"
+      ],
+      "usar_para": "Ruta de aprendizaje para alguien que empieza.",
+      "archivo": "From-Zero-to-UIUX-Hero-How-to-Design-Websites-and-Apps-That-People-Will-Actually-Love-Conrad-Bohnke-Z-Library.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/02-UI-y-Diseno-de-Interfaces/From-Zero-to-UIUX-Hero-How-to-Design-Websites-and-Apps-That-People-Will-Actually-Love-Conrad-Bohnke-Z-Library.pdf"
+    },
+    {
+      "titulo": "UX for AI: A Framework for Designing AI-Driven Products",
+      "autor": "—",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 199,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "02-UI-y-Diseno-de-Interfaces",
+      "resumen": "Marco para diseñar productos con IA: confianza, error del modelo, control del usuario y expectativas.",
+      "tags": [
+        "IA",
+        "confianza",
+        "error",
+        "control",
+        "expectativas"
+      ],
+      "usar_para": "Diseñar la experiencia de un producto con IA sin prometer magia.",
+      "archivo": "UX-for-AI-A-Framework-for-Designing-AI-Driven-Products-resource-guide.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/02-UI-y-Diseno-de-Interfaces/UX-for-AI-A-Framework-for-Designing-AI-Driven-Products-resource-guide.pdf"
+    },
+    {
+      "titulo": "CCS370 UI and UX Design — Lecture Notes",
+      "autor": "—",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 237,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "02-UI-y-Diseno-de-Interfaces",
+      "resumen": "Apuntes de cátedra de diseño UI/UX: principios, evaluación heurística y metodología.",
+      "tags": [
+        "apuntes",
+        "heurísticas",
+        "metodología"
+      ],
+      "usar_para": "Repaso estructurado con enfoque académico.",
+      "archivo": "CCS370-UI-and-UX-Design-Lecture-Notes-2.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/02-UI-y-Diseno-de-Interfaces/CCS370-UI-and-UX-Design-Lecture-Notes-2.pdf"
+    },
+    {
+      "titulo": "Design Systems",
+      "autor": "—",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 289,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "03-Patrones-y-Sistemas-de-Diseno",
+      "resumen": "Cómo construir y mantener un sistema de diseño: componentes, tokens, documentación y gobernanza.",
+      "tags": [
+        "design system",
+        "tokens",
+        "componentes",
+        "gobernanza"
+      ],
+      "usar_para": "Montar o escalar un sistema de diseño en un equipo.",
+      "archivo": "Design-Systems.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/03-Patrones-y-Sistemas-de-Diseno/Design-Systems.pdf"
+    },
+    {
+      "titulo": "Mobile Design Pattern Gallery: UI Patterns for Mobile Apps",
+      "autor": "Theresa Neil",
+      "editorial": "O'Reilly",
+      "anio": "2014",
+      "paginas": 275,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "03-Patrones-y-Sistemas-de-Diseno",
+      "resumen": "Galería de patrones para apps móviles: navegación, búsqueda, onboarding, formularios y feedback.",
+      "tags": [
+        "patrones móviles",
+        "navegación",
+        "onboarding",
+        "formularios"
+      ],
+      "usar_para": "Elegir el patrón móvil correcto mirando alternativas reales.",
+      "archivo": "Mobile-Design-Pattern-Gallery-UI-Patterns-for-Mobile2024.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/03-Patrones-y-Sistemas-de-Diseno/Mobile-Design-Pattern-Gallery-UI-Patterns-for-Mobile2024.pdf"
+    },
+    {
+      "titulo": "Form Design Patterns",
+      "autor": "Adam Silver",
+      "editorial": "Smashing Magazine",
+      "anio": "2018",
+      "paginas": 386,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "03-Patrones-y-Sistemas-de-Diseno",
+      "resumen": "Diseño de formularios accesibles y usables: validación, errores, campos, dependencias y progressive enhancement.",
+      "tags": [
+        "formularios",
+        "validación",
+        "accesibilidad",
+        "errores"
+      ],
+      "usar_para": "Diseñar un formulario que no expulse al usuario.",
+      "archivo": "Form-Design-Patterns.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/03-Patrones-y-Sistemas-de-Diseno/Form-Design-Patterns.pdf"
+    },
+    {
+      "titulo": "Designing Mobile Apps",
+      "autor": "—",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 275,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "03-Patrones-y-Sistemas-de-Diseno",
+      "resumen": "Diseño de apps móviles: arquitectura de información, navegación y detalle de plataforma.",
+      "tags": [
+        "apps",
+        "navegación",
+        "plataforma",
+        "información"
+      ],
+      "usar_para": "Complemento de la galería de patrones; revisar tras OCR.",
+      "archivo": "designing-mobile-apps.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/03-Patrones-y-Sistemas-de-Diseno/designing-mobile-apps.pdf"
+    },
+    {
+      "titulo": "UX Design Process and Documentation",
+      "autor": "—",
+      "editorial": "UXPin",
+      "anio": "—",
+      "paginas": 126,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "04-Proceso-y-Metodologia",
+      "resumen": "Proceso de diseño UX y qué documentar en cada etapa: research, wireframes, prototipos y entrega.",
+      "tags": [
+        "proceso",
+        "documentación",
+        "wireframes",
+        "handoff"
+      ],
+      "usar_para": "Definir qué entrega un diseñador en cada fase.",
+      "archivo": "UXPin-UX-design-Process-and-Documentation-pdf.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/04-Proceso-y-Metodologia/UXPin-UX-design-Process-and-Documentation-pdf.pdf"
+    },
+    {
+      "titulo": "Lean UX: Applying Lean Principles to Improve User Experience",
+      "autor": "Jeff Gothelf, Josh Seiden",
+      "editorial": "O'Reilly",
+      "anio": "2013",
+      "paginas": 323,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "04-Proceso-y-Metodologia",
+      "resumen": "Diseño en ciclos cortos: hipótesis, MVPs, experimentación y colaboración con desarrollo.",
+      "tags": [
+        "lean",
+        "hipótesis",
+        "MVP",
+        "experimentación"
+      ],
+      "usar_para": "Aplicar UX en equipos ágiles sin procesos de meses.",
+      "archivo": "Lean-UX-Applying-Lean-Principles-to-Improve-User-Experience-PDFDrive-1-6.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/04-Proceso-y-Metodologia/Lean-UX-Applying-Lean-Principles-to-Improve-User-Experience-PDFDrive-1-6.pdf"
+    },
+    {
+      "titulo": "Manual de tipografía",
+      "autor": "John Kane",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 241,
+      "idioma": "es",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "05-Tipografia-y-Reticula",
+      "resumen": "Tipografía desde cero: anatomía de la letra, familias, jerarquía, espaciado y composición.",
+      "tags": [
+        "tipografía",
+        "anatomía",
+        "jerarquía",
+        "composición"
+      ],
+      "usar_para": "Fundamento tipográfico aplicable a pantalla y papel.",
+      "archivo": "Manual-de-Tipografia-John-Kane.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/05-Tipografia-y-Reticula/Manual-de-Tipografia-John-Kane.pdf"
+    },
+    {
+      "titulo": "Sistema de retículas",
+      "autor": "Josef Müller-Brockmann",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 182,
+      "idioma": "es",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "05-Tipografia-y-Reticula",
+      "resumen": "El tratado clásico del grid: construcción, proporción y uso sistemático en composición editorial.",
+      "tags": [
+        "grid",
+        "retícula",
+        "proporción",
+        "composición"
+      ],
+      "usar_para": "Diseñar sistemas de layout con fundamento, no a ojo.",
+      "archivo": "Sistema-de-Reticulas-Josef-Muller-Brockmann-1.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/05-Tipografia-y-Reticula/Sistema-de-Reticulas-Josef-Muller-Brockmann-1.pdf"
+    },
+    {
+      "titulo": "Diseñar con y sin retícula",
+      "autor": "—",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 212,
+      "idioma": "es",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "05-Tipografia-y-Reticula",
+      "resumen": "Cuándo usar retícula y cuándo romperla, con criterio y ejemplos.",
+      "tags": [
+        "retícula",
+        "composición",
+        "ruptura",
+        "criterio"
+      ],
+      "usar_para": "Contrapunto práctico al sistema de Müller-Brockmann.",
+      "archivo": "disenar-con-y-sin-reticula-pdf.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/05-Tipografia-y-Reticula/disenar-con-y-sin-reticula-pdf.pdf"
+    },
+    {
+      "titulo": "Manual de diseño editorial (3ª edición)",
+      "autor": "Jorge de Buen Unna",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 693,
+      "idioma": "es",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "05-Tipografia-y-Reticula",
+      "resumen": "Diseño editorial completo: mancha, caja, retícula, tipografía, jerarquías y producción.",
+      "tags": [
+        "editorial",
+        "mancha",
+        "tipografía",
+        "retícula",
+        "producción"
+      ],
+      "usar_para": "El manual de referencia en español para composición de texto largo.",
+      "archivo": "Manual-de-Diseno-Editorial-3ed-by-Jorge-de-Buen-Unna-Z-lib-org.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/05-Tipografia-y-Reticula/Manual-de-Diseno-Editorial-3ed-by-Jorge-de-Buen-Unna-Z-lib-org.pdf"
+    },
+    {
+      "titulo": "Better Web Typography for a Better Web",
+      "autor": "Matej Latin",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 153,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "05-Tipografia-y-Reticula",
+      "resumen": "Tipografía web práctica: escalas, ritmo vertical, medidas de línea y rendimiento.",
+      "tags": [
+        "tipografía web",
+        "escala",
+        "ritmo",
+        "line-height"
+      ],
+      "usar_para": "Implementar tipografía decente en CSS sin adivinar.",
+      "archivo": "Better-Web-Typography-for-a-Better-Matej-Latin.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/05-Tipografia-y-Reticula/Better-Web-Typography-for-a-Better-Matej-Latin.pdf"
+    },
+    {
+      "titulo": "Psicología del color",
+      "autor": "Eva Heller",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 329,
+      "idioma": "es",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "06-Color-y-Percepcion",
+      "resumen": "Cómo actúan los colores sobre la percepción y el significado cultural, con casos y combinaciones.",
+      "tags": [
+        "color",
+        "percepción",
+        "cultura",
+        "significado"
+      ],
+      "usar_para": "Elegir color con argumento simbólico, no por gusto.",
+      "archivo": "Heller-Eva-Psicologia-Del-Color.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/06-Color-y-Percepcion/Heller-Eva-Psicologia-Del-Color.pdf"
+    },
+    {
+      "titulo": "La interacción del color",
+      "autor": "Josef Albers",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 61,
+      "idioma": "es",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "06-Color-y-Percepcion",
+      "resumen": "El clásico sobre relatividad del color: un color cambia según lo que lo rodea.",
+      "tags": [
+        "color",
+        "relatividad",
+        "contraste",
+        "percepción"
+      ],
+      "usar_para": "Entender por qué un color 'no funciona' en contexto.",
+      "archivo": "Interaccion-del-color-josef-albers.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/06-Color-y-Percepcion/Interaccion-del-color-josef-albers.pdf"
+    },
+    {
+      "titulo": "Analítica web",
+      "autor": "—",
+      "editorial": "—",
+      "anio": "—",
+      "paginas": 114,
+      "idioma": "es",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "07-Analitica-y-Metricas",
+      "resumen": "Medición de producto digital: métricas, embudos, instrumentación y lectura de datos.",
+      "tags": [
+        "analítica",
+        "métricas",
+        "embudo",
+        "instrumentación"
+      ],
+      "usar_para": "Cerrar el ciclo: diseñar, medir y decidir con datos.",
+      "archivo": "EBOOK-ANALITICA-WEB.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/07-Analitica-y-Metricas/EBOOK-ANALITICA-WEB.pdf"
+    },
+    {
+      "titulo": "Conversational UX Design: A Practitioner's Guide to the Natural Conversation Framework",
+      "autor": "Robert J. Moore, Raphael Arar",
+      "editorial": "ACM Books",
+      "anio": "2019",
+      "paginas": 320,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "08-Conversation-Design",
+      "resumen": "Diseño de conversación con el Natural Conversation Framework: pares de adyacencia, reparación, secuencias y ritmo.",
+      "tags": [
+        "conversation design",
+        "NCF",
+        "reparación",
+        "turn-taking",
+        "secuencias"
+      ],
+      "usar_para": "El marco que falta para arreglar los FAIL de longitud y de registro: trata la conversación como sistema, no como texto.",
+      "archivo": "Conversational_UX_Design_A_Practitioners-Robert-Moore.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/08-Conversation-Design/Conversational_UX_Design_A_Practitioners-Robert-Moore.pdf"
+    },
+    {
+      "titulo": "25 Case Studies on Customer Journey Design",
+      "autor": "Flevy",
+      "editorial": "Flevy",
+      "anio": "—",
+      "paginas": 281,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "01-UX-Research-y-Comportamiento",
+      "resumen": "Veinticinco casos de diseño de journey de cliente: mapas, puntos de dolor y rediseño de touchpoints.",
+      "tags": [
+        "customer journey",
+        "touchpoints",
+        "mapas",
+        "casos"
+      ],
+      "usar_para": "Ver cómo otros resolvieron un journey completo antes de mapear el propio.",
+      "archivo": "Flevy-com-25-Case-Studies-on-Customer-Journey-Design-1727214564.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/01-UX-Research-y-Comportamiento/Flevy-com-25-Case-Studies-on-Customer-Journey-Design-1727214564.pdf"
+    },
+    {
+      "titulo": "The Cambridge Handbook of Personality Psychology (2nd Edition)",
+      "autor": "Philip J. Corr, Gerald Matthews",
+      "editorial": "Cambridge University Press",
+      "anio": "2020",
+      "paginas": 570,
+      "idioma": "en",
+      "categoria": "10-Diseno-de-Producto-y-UX",
+      "subcarpeta": "01-UX-Research-y-Comportamiento",
+      "resumen": "Manual académico de psicología de la personalidad: modelos de rasgos, medición, estabilidad y diferencias individuales.",
+      "tags": [
+        "personalidad",
+        "rasgos",
+        "Big Five",
+        "medición",
+        "diferencias individuales"
+      ],
+      "usar_para": "Base psicométrica para el perfilado del agente: qué se puede inferir con rigor y qué no.",
+      "archivo": "The-Cambridge-Handbook-of-Personality-Psychology-Philip-Corr-and-Gerald-Matthews.pdf",
+      "ruta": "biblioteca/10-Diseno-de-Producto-y-UX/01-UX-Research-y-Comportamiento/The-Cambridge-Handbook-of-Personality-Psychology-Philip-Corr-and-Gerald-Matthews.pdf"
+    }
+  ]
+}
