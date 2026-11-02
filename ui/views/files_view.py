@@ -141,6 +141,7 @@ class FilesViewMixin(FilesQueueWorkerMixin):
             width=140,
             fg_color=DesignSystem.COLORS["primary"],
             hover_color=DesignSystem.COLORS["primary_hover"],
+            text_color=DesignSystem.COLORS["on_primary"],
             command=self.transcribe_all_queue,
         ).pack(side="left", padx=(0, 5))
         ctk.CTkButton(

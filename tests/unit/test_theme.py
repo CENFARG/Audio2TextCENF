@@ -13,14 +13,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import pytest
 
-from ui.theme import COLORS, RADII, SURFACES, TYPOGRAPHY, composite_rgba, uppercase_label
+from ui.theme import (
+    COLORS,
+    RADII,
+    SURFACES,
+    TYPOGRAPHY,
+    composite_rgba,
+    uppercase_label,
+)
 
 UI_DIR = Path(__file__).resolve().parents[2] / "ui"
 LANG_DIR = Path(__file__).resolve().parents[2] / "lang"
 
 PROTO_VARS = {
     "bg": "#080d18",
-    "surface": "#101827",
+    # GR amendment L10: owner picked #121d30 over --surface #101827
+    "surface": "#121d30",
     "text": "#f2f7ff",
     "muted": "#9aaac2",
     "cyan": "#56e5e3",
@@ -39,9 +47,9 @@ class TestColorTokens:
         assert str(COLORS[name]).lower() == expected
 
     def test_mockup_surfaces(self):
-        # .app-window gradient endpoints, flattened for CTk
-        assert str(SURFACES["hi"]).lower() == "#162237"
-        assert str(SURFACES["lo"]).lower() == "#0c1423"
+        # GR amendment L10: owner picked #121d30 / #1c3447 from Flor's palette
+        assert str(SURFACES["hi"]).lower() == "#1c3447"
+        assert str(SURFACES["lo"]).lower() == "#121d30"
 
     def test_line_composited_over_bg(self):
         # --line: rgba(160, 190, 230, .14) over --bg
@@ -50,7 +58,7 @@ class TestColorTokens:
 
     def test_state_tokens_exist_outside_prototype(self):
         # Statuses have no landing analogue; they live in theme (never inline)
-        for key in ("success", "warning", "error"):
+        for key in ("success", "warning", "error", "on_primary"):
             assert key in COLORS
 
 

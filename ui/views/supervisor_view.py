@@ -33,6 +33,7 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
     transcriber: Any
     main_frame: Any
     after: Any
+    _supervisor_rows: dict[int, dict[str, Any]]
     after_cancel: Any
     _prompter_llm: Any
 
@@ -121,6 +122,7 @@ class SupervisorViewMixin(SupervisorBlocksDialogMixin, SupervisorRecordMixin):
             text=loc.get_string("supervisor_copy_all"),
             width=98,
             fg_color=DesignSystem.COLORS["primary"],
+            text_color=DesignSystem.COLORS["on_primary"],
             command=self._supervisor_copy_all,
         ).pack(side="right", padx=(3, 0))
         self._supervisor_prompter_switch: ctk.CTkSwitch = ctk.CTkSwitch(

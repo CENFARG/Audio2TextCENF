@@ -16,30 +16,32 @@ from __future__ import annotations
 
 # ── Prototype CSS custom properties (exact) ─────────────────────────
 COLORS: dict[str, str] = {
-    "bg": "#080D18",        # --bg
-    "surface": "#101827",   # --surface
-    "text": "#F2F7FF",      # --text
-    "muted": "#9AAAC2",     # --muted
-    "line": "#1D2635",      # --line rgba(160,190,230,.14) composited over bg
-    "cyan": "#56E5E3",      # --cyan (primary accent)
-    "blue": "#6B8CFF",      # --blue
-    "violet": "#AD82FF",    # --violet
-    "green": "#77E4B1",     # --green
+    "bg": "#080D18",  # --bg
+    "surface": "#121D30",  # --surface (GR amendment L10: owner token)
+    "text": "#F2F7FF",  # --text
+    "muted": "#9AAAC2",  # --muted
+    "line": "#1D2635",  # --line rgba(160,190,230,.14) composited over bg
+    "cyan": "#56E5E3",  # --cyan (primary accent)
+    "blue": "#6B8CFF",  # --blue
+    "violet": "#AD82FF",  # --violet
+    "green": "#77E4B1",  # --green
     # Status tokens (no prototype analogue; sanctioned additions)
     "success": "#77E4B1",
-    "warning": "#FFB96B",   # amber from the prototype's warning chips
+    "warning": "#FFB96B",  # amber from the prototype's warning chips
     "error": "#F87171",
     # Derived interaction tokens (computed states, not prototype values)
-    "primary": "#56E5E3",        # alias of cyan: the interactive accent
+    "primary": "#56E5E3",  # alias of cyan: the interactive accent
     "primary_hover": "#3FC4C2",  # cyan darkened ~8%
+    "on_primary": "#071018",  # dark ink for cyan fills (S8: white on cyan fails contrast)
     "success_hover": "#5FCF9B",  # green darkened ~8%
-    "error_hover": "#E05555",    # red darkened ~8%
+    "error_hover": "#E05555",  # red darkened ~8%
 }
 
 # ── .app-window gradient endpoints, flattened for CTk ───────────────
 SURFACES: dict[str, str] = {
-    "hi": "#162237",  # rgba(22,34,55,.96)
-    "lo": "#0C1423",  # rgba(12,20,35,.96)
+    # GR amendment L10: owner picked #121d30 / #1c3447 from Flor's web palette
+    "lo": "#121D30",  # cards / panel backgrounds
+    "hi": "#1C3447",  # raised elements (chips, hover fills)
 }
 
 # ── Typography hierarchy (Segoe UI Variable family, Tk tuples) ──────
@@ -95,7 +97,7 @@ def uppercase_label(text: str) -> str:
 
 # ── Corner radii from the prototype (CTk corner_radius values) ──────
 RADII: dict[str, int] = {
-    "card": 19,   # .app-window
+    "card": 19,  # .app-window
     "chip": 13,
     "pill": 999,  # fully rounded status pills
 }
