@@ -2355,7 +2355,7 @@ class App(
             try:
                 normalized_text = " ".join(text.split()) if text else ""
                 text_hash = audio_hash or (
-                    hashlib.sha1(normalized_text.encode("utf-8")).hexdigest()
+                    hashlib.sha256(normalized_text.encode("utf-8")).hexdigest()
                     if text
                     else None
                 )
