@@ -33,7 +33,7 @@ def test_default_geometry_is_square():
         cm = ConfigManager(config_file=tmp)
         geo = cm.get("window_geometry")
         assert geo == "590x660+200+100", f"expected 590x660+200+100, got {geo!r}"
-        assert geo.startswith("590x660")
+        assert geo is not None and geo.startswith("590x660")
         # default_config also must be 590
         assert cm.default_config["window_geometry"] == "590x660+200+100"
     finally:
@@ -51,7 +51,7 @@ def test_invalid_geometry_fallback():
         cm = ConfigManager(config_file=tmp)
         geo = cm.get("window_geometry")
         # debe corregir a default 590x660+200+100
-        assert geo == "590x660+200+100" or geo.startswith("590x660"), (
+        assert geo is not None and (geo == "590x660+200+100" or geo.startswith("590x660")), (
             f"fallback failed, got {geo!r}"
         )
         # también probar otro inválido: vacío
