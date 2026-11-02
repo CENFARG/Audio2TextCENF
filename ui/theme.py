@@ -150,7 +150,9 @@ def load_theme(name: str) -> dict:
         raise ValueError(f"Tema '{name}' tiene JSON inválido: {exc}") from exc
     missing = _REQUIRED_KEYS - data.keys()
     if missing:
-        raise ValueError(f"Tema '{name}' incompleto: faltan {sorted(missing)} (p.ej. colors)")
+        raise ValueError(
+            f"Tema '{name}' incompleto: faltan {sorted(missing)} (p.ej. colors)"
+        )
     return data
 
 

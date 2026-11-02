@@ -343,7 +343,9 @@ class App(
         try:
             apply_theme(load_theme(theme_name))
         except (FileNotFoundError, ValueError) as theme_exc:
-            self.logger.warning(f"Tema '{theme_name}' inválido: {theme_exc} — uso midnight-aurora")
+            self.logger.warning(
+                f"Tema '{theme_name}' inválido: {theme_exc} — uso midnight-aurora"
+            )
             apply_theme(load_theme("midnight-aurora"))
 
         self.create_widgets()
