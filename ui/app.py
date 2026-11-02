@@ -40,6 +40,7 @@ from backend.hotkey_manager import HotkeyManager
 
 # UI imports
 from ui.recording_overlay import RecordingOverlay
+from ui.waveform import Waveform
 from ui.update_tab import UpdateTab
 
 # HC-02 god-class extraction — mixins delegados (single source en ui/views + ui/dialogs)
@@ -175,8 +176,6 @@ STATUS_AUTOCLEAR_MS = 8000
 #: Colores de estado TERMINALES (UX-5/UX-7): una vez pintados, los eventos
 #: tardíos de chunk/streaming NO reescriben el label (single writer al final).
 _TERMINAL_STATUS_COLORS = ("green", "red")
-
-
 
 
 class App(
@@ -529,6 +528,13 @@ class App(
             elif state == "error":
                 self.recording_overlay.set_error()
 
+            # S3 amended (L9/L10): main-tab wave pulses while recording and
+            # breathes otherwise (paused freezes the capture, processing/
+            # ready/error are not capture either). start() is idempotent.
+            waveform = getattr(self, "waveform", None)
+            if waveform is not None:
+                waveform.start("pulse" if state == "recording" else "breathe")
+
         self.after(0, _update)
 
     def _poll_recording_timer(self):
@@ -562,6 +568,11 @@ class App(
                         if self.recording_overlay:
                             self.recording_overlay.set_recording()
                             self.recording_overlay.update_timer(minutes, seconds)
+                        # S3 amended: timer ticks confirm capture — keep pulsing
+                        # (idempotent; covers lossy overlay queue bursts).
+                        waveform = getattr(self, "waveform", None)
+                        if waveform is not None:
+                            waveform.start("pulse")
                     elif event[0] == "limit" and len(event) >= 2:
                         _, max_seconds = event
                         self.update_status(
@@ -692,6 +703,14 @@ class App(
             except Exception as e:
                 self.logger.error(f"Error cargando logo: {e}")
 
+        # S3 amended (L9/L10): the owner's prototype wave on its own grid row
+        # 1 — literally between the capture header (row 0) and the transcript
+        # label (row 2). The clear-audio buttons moved inside the header frame
+        # below, so card/files/footer keep rows 3/4/5 (expansion untouched).
+        self.waveform = Waveform(tab, height=64)
+        self.waveform.grid(row=1, column=0, padx=15, pady=(2, 0), sticky="ew")
+        self.waveform.start("breathe")
+
         # Footer (mockup): modelo/API + pill de conexion (fila 0), tamanos (fila 1)
         info_frame = ctk.CTkFrame(tab, fg_color="transparent")
         info_frame.grid(row=5, column=0, padx=15, pady=(0, 8), sticky="ew")
@@ -731,8 +750,17 @@ class App(
         self.log_size_label.grid(row=1, column=1, sticky="e")
 
         # Button frame - FIX: 2 botones ocupan todo el ancho del textbox, centrados e iguales
+        # (S3 amended: viven DENTRO del header frame — su fila de tab la tomó la waveform)
         button_frame = ctk.CTkFrame(tab, fg_color="transparent")
-        button_frame.grid(row=1, column=0, padx=10, pady=(0, 5), sticky="ew")
+        button_frame.grid(
+            row=2,
+            column=0,
+            columnspan=2,
+            padx=10,
+            pady=(0, 5),
+            sticky="ew",
+            in_=status_frame,
+        )
         button_frame.grid_columnconfigure((0, 1), weight=1, uniform="btn")
         ctk.CTkButton(
             button_frame,
