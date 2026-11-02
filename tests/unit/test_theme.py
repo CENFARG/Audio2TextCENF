@@ -148,3 +148,114 @@ class TestRadii:
         assert RADII["card"] == 19  # .app-window
         assert RADII["chip"] == 13
         assert RADII["pill"] == 999
+
+
+@pytest.mark.unit
+class TestThemeJSON:
+    """S5/G: themes/*.json load, validate and apply in place."""
+
+    def test_list_themes_finds_builtins(self):
+        from ui.theme import list_themes
+
+        assert "midnight-aurora" in list_themes()
+        assert "deep-violet" in list_themes()
+
+    def test_load_theme_returns_schema(self):
+        from ui.theme import load_theme
+
+        data = load_theme("midnight-aurora")
+        for key in ("name", "colors", "surfaces", "typography", "radii"):
+            assert key in data, f"missing {key}"
+
+    def test_load_theme_missing_raises_clear_error(self):
+        from ui.theme import load_theme
+
+        with pytest.raises(FileNotFoundError, match="no-existe"):
+            load_theme("no-existe")
+
+    def test_load_theme_invalid_schema_rejected(self, tmp_path):
+        from ui.theme import THEMES_DIR, load_theme
+
+        bad = THEMES_DIR / "roto.json"
+        bad.write_text('{"name": "roto"}', encoding="utf-8")
+        try:
+            with pytest.raises(ValueError, match="colors"):
+                load_theme("roto")
+        finally:
+            bad.unlink()
+
+    def test_apply_theme_mutates_in_place(self):
+        import ui.theme as theme_mod
+
+        data = theme_mod.load_theme("deep-violet")
+        before = theme_mod.COLORS["bg"]
+        theme_mod.apply_theme(data)
+        try:
+            assert theme_mod.COLORS["bg"] == data["colors"]["bg"]
+            assert theme_mod.COLORS["bg"] != before
+            # live view: importers holding the dict see the change
+            assert theme_mod.DesignSystem.COLORS is theme_mod.COLORS
+        finally:
+            theme_mod.apply_theme(theme_mod.load_theme("midnight-aurora"))
+
+    def test_apply_theme_rejects_unknown_color(self):
+        from ui.theme import apply_theme
+
+        bad = {"colors": {"no-existe-token": "#000000"}}
+        with pytest.raises(ValueError, match="no-existe-token"):
+            apply_theme(bad)
+
+    def test_roundtrip_restores_exact_values(self):
+        import ui.theme as theme_mod
+
+        snapshot = dict(theme_mod.COLORS)
+        theme_mod.apply_theme(theme_mod.load_theme("deep-violet"))
+        theme_mod.apply_theme(theme_mod.load_theme("midnight-aurora"))
+        assert theme_mod.COLORS == snapshot
+
+
+@pytest.mark.unit
+class TestThemeFilesAccessibility:
+    """KB (Color y Percepción): AA contrast is a gate, not a wish."""
+
+    @staticmethod
+    def _luminance(hex_color: str) -> float:
+        def channel(c: float) -> float:
+            c /= 255.0
+            return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4
+
+        h = hex_color.lstrip("#")
+        r, g, b = (int(h[i : i + 2], 16) for i in (0, 2, 4))
+        return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+    def _contrast(self, a: str, b: str) -> float:
+        la, lb = self._luminance(a), self._luminance(b)
+        lighter, darker = max(la, lb), min(la, lb)
+        return (lighter + 0.05) / (darker + 0.05)
+
+    def test_every_builtin_theme_passes_aa_on_body_text(self):
+        import json
+
+        from ui.theme import THEMES_DIR
+
+        for theme_file in sorted(THEMES_DIR.glob("*.json")):
+            data = json.loads(theme_file.read_text(encoding="utf-8"))
+            colors = data["colors"]
+            for surface_key in ("bg", "surface"):
+                ratio = self._contrast(colors["text"], colors[surface_key])
+                assert ratio >= 4.5, (
+                    f"{theme_file.name}: text on {surface_key} = {ratio:.2f} (<4.5)"
+                )
+
+    def test_on_primary_contrasts_with_primary(self):
+        import json
+
+        from ui.theme import THEMES_DIR
+
+        for theme_file in sorted(THEMES_DIR.glob("*.json")):
+            data = json.loads(theme_file.read_text(encoding="utf-8"))
+            colors = data["colors"]
+            ratio = self._contrast(colors["on_primary"], colors["primary"])
+            assert ratio >= 4.5, (
+                f"{theme_file.name}: on_primary on primary = {ratio:.2f} (<4.5)"
+            )

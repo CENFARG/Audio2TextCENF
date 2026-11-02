@@ -14,6 +14,13 @@ License: Apache 2.0.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+# ── Bundled themes (JSON, loaded via load_theme/apply_theme) ────────
+THEMES_DIR = Path(__file__).resolve().parent.parent / "themes"
+_REQUIRED_KEYS = {"name", "colors", "surfaces", "typography", "radii"}
+
 # ── Prototype CSS custom properties (exact) ─────────────────────────
 COLORS: dict[str, str] = {
     "bg": "#080D18",  # --bg
@@ -95,6 +102,116 @@ def uppercase_label(text: str) -> str:
     return text.strip().upper()
 
 
+# Alias keys kept in sync with their canonical token (legacy facade support).
+ALIASES: dict[str, str] = {
+    "background": "bg",
+    "text_primary": "text",
+    "text_secondary": "muted",
+}
+
+
+def _sync_aliases() -> None:
+    """Refresh alias keys from their canonical tokens (post-apply)."""
+    for alias, canonical in ALIASES.items():
+        if canonical in COLORS:
+            COLORS[alias] = COLORS[canonical]
+
+
+_sync_aliases()
+
+
+def list_themes() -> list[str]:
+    """List the bundled theme names (``themes/*.json`` stems, sorted)."""
+    return sorted(p.stem for p in THEMES_DIR.glob("*.json"))
+
+
+def load_theme(name: str) -> dict:
+    """Load and validate one bundled theme.
+
+    Args:
+        name: Theme stem (a ``themes/<name>.json`` file).
+
+    Returns:
+        The parsed theme dict with ``name``, ``colors``, ``surfaces``,
+        ``typography`` and ``radii`` keys.
+
+    Raises:
+        FileNotFoundError: If no ``themes/<name>.json`` exists.
+        ValueError: If the schema is missing required keys.
+    """
+    path = THEMES_DIR / f"{name}.json"
+    if not path.is_file():
+        raise FileNotFoundError(
+            f"Tema '{name}' no encontrado en {THEMES_DIR} (disponibles: {', '.join(list_themes())})"
+        )
+    try:
+        data: dict = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Tema '{name}' tiene JSON inválido: {exc}") from exc
+    missing = _REQUIRED_KEYS - data.keys()
+    if missing:
+        raise ValueError(f"Tema '{name}' incompleto: faltan {sorted(missing)} (p.ej. colors)")
+    return data
+
+
+def apply_theme(data: dict) -> None:
+    """Apply a theme to the module token dicts IN PLACE.
+
+    Importers holding references to ``COLORS``/``SURFACES``/``TYPOGRAPHY``/
+    ``RADII`` (including the ``DesignSystem`` facade) see the new values
+    without re-importing. Unknown tokens are rejected so typos fail loud.
+
+    Args:
+        data: A schema-valid theme (see :func:`load_theme`).
+
+    Raises:
+        ValueError: On unknown color/surface keys.
+    """
+    unknown = set(data["colors"]) - set(COLORS)
+    if unknown:
+        raise ValueError(f"Tokens desconocidos en el tema: {sorted(unknown)}")
+    unknown_surf = set(data["surfaces"]) - set(SURFACES)
+    if unknown_surf:
+        raise ValueError(f"Superficies desconocidas en el tema: {sorted(unknown_surf)}")
+
+    COLORS.update(data["colors"])
+    SURFACES.update(data["surfaces"])
+    RADII.update(data["radii"])
+
+    family = data["typography"]["family"]
+    sizes: dict[str, tuple[int, str]] = {}
+    for key, spec in data["typography"].items():
+        if key == "family":
+            continue
+        size, weight = spec
+        sizes[key] = (int(size), str(weight))
+    rebuilt = _rebuild_typography(family, sizes)
+    TYPOGRAPHY.clear()
+    TYPOGRAPHY.update(rebuilt)
+    _sync_aliases()
+
+
+def _rebuild_typography(
+    family: str, sizes: dict[str, tuple[int, str]]
+) -> dict[str, tuple[str, int, str]]:
+    """Build the full typography map (base keys + legacy derived keys).
+
+    The JSON theme carries the five base specs; legacy call sites also
+    read heading_large/heading_medium/body_bold/body_medium/body_small/
+    link, which are derived here so a theme swap never drops them.
+    """
+    base = {key: (family, size, weight) for key, (size, weight) in sizes.items()}
+    derived = {
+        "heading_large": ("Segoe UI Variable Display", sizes["heading"][0] + 2, "bold"),
+        "heading_medium": base["heading"],
+        "body_bold": (family, sizes["body"][0] - 1, "bold"),
+        "body_medium": base["body"],
+        "body_small": base["small"],
+        "link": (family, sizes["small"][0], "underline"),
+    }
+    return {**base, **derived}
+
+
 # ── Corner radii from the prototype (CTk corner_radius values) ──────
 RADII: dict[str, int] = {
     "card": 19,  # .app-window
@@ -104,27 +221,17 @@ RADII: dict[str, int] = {
 
 
 class DesignSystem:
-    """Legacy facade from the v0.17 line, resolving to theme tokens.
+    """Legacy facade from the v0.17 line — LIVE views over theme tokens.
 
-    Existing views keep their ``DesignSystem.COLORS[...]`` call sites
-    while R2 migrates them to the token dicts directly; values now come
-    from the prototype palette instead of the retired one.
+    Existing views keep their ``DesignSystem.COLORS[...]`` call sites;
+    the attributes ARE the module dicts (not copies), so
+    :func:`apply_theme` swaps propagate to every call site instantly.
+    Legacy keys (background, text_primary, text_secondary,
+    heading_medium, body_bold, ...) are kept in sync inside the module
+    dicts via the alias map and ``_rebuild_typography``.
     """
 
-    COLORS: dict[str, str] = {
-        **COLORS,
-        "background": COLORS["bg"],
-        "text_primary": COLORS["text"],
-        "text_secondary": COLORS["muted"],
-    }
-    TYPOGRAPHY: dict[str, tuple[str, int, str]] = {
-        **TYPOGRAPHY,
-        "heading_large": ("Segoe UI Variable Display", 22, "bold"),
-        "heading_medium": TYPOGRAPHY["heading"],
-        "body_bold": ("Segoe UI Variable Text", 13, "bold"),
-        "body_medium": TYPOGRAPHY["body"],
-        "body_small": TYPOGRAPHY["small"],
-        "link": ("Segoe UI Variable Text", 12, "underline"),
-    }
-    RADII: dict[str, int] = RADII
-    SURFACES: dict[str, str] = SURFACES
+    COLORS = COLORS
+    TYPOGRAPHY = TYPOGRAPHY
+    RADII = RADII
+    SURFACES = SURFACES

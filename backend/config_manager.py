@@ -68,6 +68,7 @@ class ConfigManager:
             "save_logs": True,
             "hotkey": "f9",  # FIX: default F9 (estaba f12) — pedido del usuario
             "hotkey_modifier": "",  # DEPRECATED: Usar formato "ctrl+f9" en hotkey
+            "ui_theme": "midnight-aurora",  # S5: temas configurables (themes/*.json)
             "supervisor_tab_enabled": False,  # S6: la pestaña Supervisor viaja oculta en el release; dev la reactiva en config.json
             "supervisor_capture_hotkey": "ctrl+alt+v",  # F3: hotkey global que captura el portapapeles al Supervisor
             "pause_hotkey": "ctrl+alt+p",  # REQ-1: hotkey global para pausar/reanudar la grabación
@@ -95,7 +96,7 @@ class ConfigManager:
             "nvidia_enabled": False,  # Habilitar NVIDIA Riva ASR
             "nvidia_api_key": "",  # API key de NVIDIA (se ofuscará al guardar)
             "nvidia_mode": "cloud",  # Modo NVIDIA: "cloud" (API) o "local" (Docker)
-            "window_geometry": "590x590+200+100",  # FIX v0.15.7: default cuadrado — pisa config vieja si no existe
+            "window_geometry": "590x660+200+100",  # FIX v0.15.7: default cuadrado — pisa config vieja si no existe
             "sound_enabled": True,  # FIX v0.15.8: sonido ON por defecto — switch omnipresente
             "groq_parallel_workers": 3,  # Slice B: pool Groq 3 workers (configurable 2-4), speedup 2.5x
             # FIX v0.15.0: faster-whisper ERRADICADO (modelo local) — solo API cloud

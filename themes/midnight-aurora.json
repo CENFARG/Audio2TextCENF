@@ -1,0 +1,42 @@
+{
+    "name": "midnight-aurora",
+    "colors": {
+        "bg": "#080D18",
+        "surface": "#121D30",
+        "text": "#F2F7FF",
+        "muted": "#9AAAC2",
+        "line": "#1D2635",
+        "cyan": "#56E5E3",
+        "blue": "#6B8CFF",
+        "violet": "#AD82FF",
+        "green": "#77E4B1",
+        "success": "#77E4B1",
+        "warning": "#FFB96B",
+        "error": "#F87171",
+        "primary": "#56E5E3",
+        "primary_hover": "#3FC4C2",
+        "on_primary": "#071018",
+        "success_hover": "#5FCF9B",
+        "error_hover": "#E05555",
+        "background": "#080D18",
+        "text_primary": "#F2F7FF",
+        "text_secondary": "#9AAAC2"
+    },
+    "surfaces": {
+        "lo": "#121D30",
+        "hi": "#1C3447"
+    },
+    "typography": {
+        "family": "Segoe UI Variable Text",
+        "heading": [20, "bold"],
+        "subheading": [16, "bold"],
+        "body": [14, "normal"],
+        "small": [12, "normal"],
+        "label": [11, "bold"]
+    },
+    "radii": {
+        "card": 19,
+        "chip": 13,
+        "pill": 999
+    }
+}

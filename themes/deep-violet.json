@@ -1,0 +1,42 @@
+{
+    "name": "deep-violet",
+    "colors": {
+        "bg": "#0A0818",
+        "surface": "#161228",
+        "text": "#F2F0FF",
+        "muted": "#9B8FC4",
+        "line": "#262038",
+        "cyan": "#9BECE7",
+        "blue": "#8B9CFF",
+        "violet": "#AD82FF",
+        "green": "#8FE3C0",
+        "success": "#8FE3C0",
+        "warning": "#FFC98A",
+        "error": "#F87171",
+        "primary": "#AD82FF",
+        "primary_hover": "#9866F0",
+        "on_primary": "#1A0B33",
+        "success_hover": "#7BCFAA",
+        "error_hover": "#E05555",
+        "background": "#0A0818",
+        "text_primary": "#F2F0FF",
+        "text_secondary": "#9B8FC4"
+    },
+    "surfaces": {
+        "lo": "#161228",
+        "hi": "#241C3A"
+    },
+    "typography": {
+        "family": "Segoe UI Variable Text",
+        "heading": [20, "bold"],
+        "subheading": [16, "bold"],
+        "body": [14, "normal"],
+        "small": [12, "normal"],
+        "label": [11, "bold"]
+    },
+    "radii": {
+        "card": 19,
+        "chip": 13,
+        "pill": 999
+    }
+}

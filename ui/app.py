@@ -30,7 +30,13 @@ from backend.updater import Updater
 from backend.transcription_metadata import TranscriptionMetadata
 
 # UI imports
-from ui.theme import COLORS as C, DesignSystem, uppercase_label
+from ui.theme import (
+    COLORS as C,
+    DesignSystem,
+    apply_theme,
+    load_theme,
+    uppercase_label,
+)
 from ui.emoji_picker import show_emoji_picker
 from ui.branding import build_tray_image, logo_candidates, resolve_logo_path
 from ui.hotkey_selector import show_hotkey_selector
@@ -332,6 +338,14 @@ class App(
 
         self.tray_icon = None
         self.hotkey_recording_window = None
+        # S5: aplicar el tema configurado ANTES de crear widgets.
+        theme_name = self.config_manager.get("ui_theme", default="midnight-aurora")
+        try:
+            apply_theme(load_theme(theme_name))
+        except (FileNotFoundError, ValueError) as theme_exc:
+            self.logger.warning(f"Tema '{theme_name}' inválido: {theme_exc} — uso midnight-aurora")
+            apply_theme(load_theme("midnight-aurora"))
+
         self.create_widgets()
         self.update_file_info()
         self.after(1000, self._check_api_key)
