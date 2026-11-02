@@ -2051,11 +2051,8 @@ class App(
         new_tlang = self.language_var.get()
         if new_tlang != old_tlang:
             self.logger.info(f"Idioma de transcripción: {old_tlang} → {new_tlang}")
-            if (
-                hasattr(self, "_lang_switch_var")
-                and self._lang_switch_var.get() != new_tlang
-            ):
-                self._lang_switch_var.set(new_tlang)
+            if hasattr(self, "_lang_buttons"):
+                self._style_lang_buttons(new_tlang)
                 self._update_lang_switch_label(new_tlang)
 
         # --- API Key Logic Fix ---
